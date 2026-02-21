@@ -1,0 +1,10 @@
+{
+  "codeowners": ["@postsi"],
+  "documentation": "https://github.com/postsi/FullESPHomeDesigner",
+  "domain": "esphome_touch_designer",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/postsi/FullESPHomeDesigner/issues",
+  "name": "ESPHome Touch Designer",
+  "requirements": [],
+  "version": "0.70.0"
+}
