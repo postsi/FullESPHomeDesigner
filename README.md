@@ -12,12 +12,3 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/CURSOR_HANDOFF.md](do
 4. Search for "ESPHome Touch Designer" and install
 5. Restart Home Assistant
 
-## Configure via configuration.yaml
-
-If Home Assistant says the integration must be added via config.yaml (e.g. when not yet in the brands repo), add this to your `configuration.yaml`:
-
-```yaml
-esphome_touch_designer: {}
-```
-
-Then restart Home Assistant. The panel will appear in the sidebar.

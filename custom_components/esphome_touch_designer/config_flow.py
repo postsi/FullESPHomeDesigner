@@ -11,12 +11,6 @@ from .const import DOMAIN, CONF_WIFI_SSID, CONF_WIFI_PASSWORD_SECRET, CONF_DEFAU
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
-    async def async_step_import(self, user_input=None):
-        """Import config from configuration.yaml."""
-        if user_input is not None:
-            return self.async_create_entry(title="ESPHome Touch Designer", data=user_input)
-        return self.async_abort(reason="invalid_config")
-
     async def async_step_user(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(title="ESPHome Touch Designer", data=user_input)
