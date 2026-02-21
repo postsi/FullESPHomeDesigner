@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.1
+
+- Add `config_flow: true` to manifest to fix UI Add Integration flow.
+- Remove YAML config workaround.
+
 ## v0.70.0
 
 - Hardware recipes (product polish):
