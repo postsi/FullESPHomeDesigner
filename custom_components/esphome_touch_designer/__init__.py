@@ -2,18 +2,52 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+import voluptuous as vol
+
+from homeassistant.config_entries import ConfigEntry, ConfigFlow
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import (
+    CONF_DEFAULT_LOG_LEVEL,
+    CONF_WIFI_PASSWORD_SECRET,
+    CONF_WIFI_SSID,
+    DOMAIN,
+)
 from .panel import async_register_panel
 from .storage import DashboardStorage
 
 _LOGGER = logging.getLogger(__name__)
 
+CONFIG_SCHEMA = vol.Schema(
+    {
+        DOMAIN: vol.Schema(
+            {
+                vol.Optional(CONF_WIFI_SSID, default="!secret wifi_ssid"): str,
+                vol.Optional(CONF_WIFI_PASSWORD_SECRET, default="!secret wifi_password"): str,
+                vol.Optional(CONF_DEFAULT_LOG_LEVEL, default="INFO"): vol.In(
+                    ["DEBUG", "INFO", "WARNING", "ERROR"]
+                ),
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up via YAML (optional)."""
+    """Set up via YAML (allows adding when not in brands repo)."""
+    if DOMAIN not in config:
+        return True
+    existing = hass.config_entries.async_entries(DOMAIN)
+    if existing:
+        return True
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": ConfigFlow.SOURCE_IMPORT},
+            data=dict(config[DOMAIN]),
+        )
+    )
     return True
 
 
