@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.2
+
+- Remove options flow handler to fix "Invalid handler" error when adding integration.
+
 ## v0.70.1
 
 - Add `config_flow: true` to manifest to fix UI Add Integration flow.
