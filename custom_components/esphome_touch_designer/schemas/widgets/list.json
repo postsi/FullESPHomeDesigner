@@ -1,0 +1,99 @@
+{
+  "type": "list",
+  "title": "List",
+  "esphome": {
+    "widget": "list"
+  },
+  "props": {
+    "align": {
+      "type": "enum",
+      "title": "Align",
+      "values": [
+        "top_left",
+        "top_mid",
+        "top_right",
+        "left_mid",
+        "center",
+        "right_mid",
+        "bottom_left",
+        "bottom_mid",
+        "bottom_right"
+      ],
+      "default": "top_left"
+    },
+    "hidden": {
+      "type": "boolean",
+      "default": false
+    },
+    "clickable": {
+      "type": "boolean",
+      "default": true
+    },
+    "opacity": {
+      "type": "number",
+      "min": 0,
+      "max": 255,
+      "default": 255
+    },
+    "group": {
+      "type": "string",
+      "default": ""
+    },
+    "item_height": {
+      "type": "number",
+      "min": 16,
+      "max": 200,
+      "default": 44
+    },
+    "items": {
+      "type": "string_list",
+      "title": "Items (one per line)",
+      "default": [
+        "Item 1",
+        "Item 2"
+      ]
+    }
+  },
+  "style": {
+    "bg_color": {
+      "type": "color",
+      "title": "Background color",
+      "default": "#111827"
+    },
+    "bg_opa": {
+      "type": "number",
+      "min": 0,
+      "max": 255,
+      "default": 255
+    },
+    "text_color": {
+      "type": "color",
+      "default": "#e5e7eb"
+    },
+    "border_width": {
+      "type": "number",
+      "min": 0,
+      "max": 20,
+      "default": 0
+    },
+    "border_color": {
+      "type": "color",
+      "default": "#374151"
+    },
+    "radius": {
+      "type": "number",
+      "min": 0,
+      "max": 48,
+      "default": 0
+    }
+  },
+  "events": {
+    "on_item_clicked": {
+      "type": "yaml_block",
+      "default": ""
+    }
+  },
+  "groups": [
+    "containers"
+  ]
+}

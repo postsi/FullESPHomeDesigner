@@ -1,0 +1,109 @@
+{
+  "type": "chart",
+  "title": "Chart",
+  "esphome": {
+    "widget": "chart"
+  },
+  "props": {
+    "align": {
+      "type": "enum",
+      "title": "Align",
+      "values": [
+        "top_left",
+        "top_mid",
+        "top_right",
+        "left_mid",
+        "center",
+        "right_mid",
+        "bottom_left",
+        "bottom_mid",
+        "bottom_right"
+      ],
+      "default": "top_left"
+    },
+    "hidden": {
+      "type": "boolean",
+      "default": false
+    },
+    "clickable": {
+      "type": "boolean",
+      "default": true
+    },
+    "opacity": {
+      "type": "number",
+      "min": 0,
+      "max": 255,
+      "default": 255
+    },
+    "group": {
+      "type": "string",
+      "default": ""
+    },
+    "type": {
+      "type": "enum",
+      "values": [
+        "line",
+        "bar",
+        "scatter"
+      ],
+      "default": "line"
+    },
+    "point_count": {
+      "type": "number",
+      "min": 2,
+      "max": 2048,
+      "default": 50
+    },
+    "range_min": {
+      "type": "number",
+      "default": 0
+    },
+    "range_max": {
+      "type": "number",
+      "default": 100
+    }
+  },
+  "style": {
+    "bg_color": {
+      "type": "color",
+      "title": "Background color",
+      "default": "#111827"
+    },
+    "bg_opa": {
+      "type": "number",
+      "min": 0,
+      "max": 255,
+      "default": 255
+    },
+    "text_color": {
+      "type": "color",
+      "default": "#e5e7eb"
+    },
+    "border_width": {
+      "type": "number",
+      "min": 0,
+      "max": 20,
+      "default": 0
+    },
+    "border_color": {
+      "type": "color",
+      "default": "#374151"
+    },
+    "radius": {
+      "type": "number",
+      "min": 0,
+      "max": 48,
+      "default": 0
+    }
+  },
+  "events": {
+    "on_value_changed": {
+      "type": "yaml_block",
+      "title": "on_value_changed (then:)",
+      "default": ""
+    }
+  },
+  "groups": [
+    "visualization"
+  ]
+}
