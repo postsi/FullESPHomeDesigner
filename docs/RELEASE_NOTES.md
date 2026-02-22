@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.25
+
+- Fix "Invalid handler specified": remove options flow and simplify config flow to one-click add (no form).
+
 ## v0.70.24
 
 - Fix "Invalid handler specified" on add integration: remove panel_iframe from after_dependencies (removed in HA 2025.1+).
