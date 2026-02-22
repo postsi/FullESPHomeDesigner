@@ -6,7 +6,7 @@ from pathlib import Path
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import frontend
-from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 
 from .const import DOMAIN, PANEL_TITLE, PANEL_URL_PATH, STATIC_URL_PATH
 from .api.views import register_api_views
@@ -42,11 +42,9 @@ async def async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
     register_api_views(hass, entry)
 
     dist_path = str(Path(__file__).parent / "web" / "dist")
-    hass.http.register_static_path(
-        STATIC_URL_PATH,
-        dist_path,
-        cache_headers=False,
-    )
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(STATIC_URL_PATH, dist_path, False),
+    ])
 
     hass.http.register_view(PanelIndexView)
 

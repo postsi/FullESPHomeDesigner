@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.13
+
+- Fix AttributeError: use async_register_static_paths instead of deprecated register_static_path.
+
 ## v0.70.12
 
 - Fix NameError: register EntitiesView (was EntitiesListView) so panel setup succeeds.
