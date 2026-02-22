@@ -521,9 +521,40 @@ if (baseId.startsWith("glance_card")) {
   else baseId = "glance_card";
 }
 
-const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
+// ha_auto returns empty widgets; must resolve to real template from entity domain + caps
+    let resolvedId = baseId;
+    if (baseId === "ha_auto") {
+      const dom = (entity_id || "").split(".")[0]?.toLowerCase() || "";
+      const caps = tmplCaps;
+      if (dom === "light") resolvedId = pickCapabilityVariant("ha_light_full", caps, tmplVariant);
+      else if (dom === "cover") resolvedId = pickCapabilityVariant("ha_cover_basic", caps, tmplVariant);
+      else if (dom === "media_player") resolvedId = pickCapabilityVariant("ha_media_basic", caps, tmplVariant);
+      else if (dom === "climate") {
+        const modes = caps?.attributes?.hvac_modes;
+        if (Array.isArray(modes) && (modes.includes("cool") || modes.includes("heat_cool"))) resolvedId = "ha_climate_heat_cool";
+        else if (Array.isArray(modes) && modes.includes("heat")) resolvedId = "ha_climate_heat_only";
+        else resolvedId = "ha_climate_full";
+      }
+      else if (dom === "switch") resolvedId = "ha_switch_parity";
+      else if (dom === "lock") resolvedId = "ha_lock_parity";
+      else if (dom === "fan") resolvedId = "ha_fan_parity";
+      else if (dom === "alarm_control_panel") resolvedId = "ha_alarm_parity";
+      else if (dom === "select") resolvedId = "ha_select_parity";
+      else if (dom === "number") resolvedId = "ha_number_parity";
+      else if (dom === "input_boolean") resolvedId = "ha_input_boolean";
+      else if (dom === "input_number") resolvedId = "ha_input_number";
+      else if (dom === "input_select") resolvedId = "ha_input_select";
+      else if (dom === "input_text") resolvedId = "ha_input_text";
+      else if (dom === "sensor") resolvedId = "ha_sensor_tile";
+      else { setToast({ type: "error", msg: `No template for domain: ${dom || "(enter entity_id)"}` }); return; }
+    } else {
+      resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
+    }
     const tmpl = allTemplates.find((t) => t.id === resolvedId);
-    if (!tmpl) return;
+    if (!tmpl) {
+      setToast({ type: "error", msg: `Template not found: ${resolvedId}` });
+      return;
+    }
 
     const entity_id = tmplEntity.trim();
     const label = tmplLabel.trim() || undefined;
@@ -618,8 +649,13 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       return l;
     });
 
-    const page = p2.pages?.[safePageIndex];
-    if (!page?.widgets) return;
+    // Ensure pages structure exists (defensive for edge-case project shapes)
+    if (!Array.isArray(p2.pages) || p2.pages.length === 0) {
+      p2.pages = [{ page_id: uid("page"), name: "Main", widgets: [] }];
+    }
+    const page = p2.pages[safePageIndex] ?? p2.pages[0];
+    if (!page) return setToast({ type: "error", msg: "No page to add widgets to" });
+    if (!Array.isArray(page.widgets)) page.widgets = [];
     page.widgets.push(...ws);
     (p2 as any).bindings = Array.isArray((p2 as any).bindings) ? (p2 as any).bindings : [];
     (p2 as any).links = Array.isArray((p2 as any).links) ? (p2 as any).links : [];
@@ -629,6 +665,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setProject(p2, true);
     if (ws[0]?.id) setSelectedWidgetIds([ws[0].id]);
     setTmplWizard(null);
+    setToast({ type: "ok", msg: `Added ${ws.length} widget(s) to canvas` });
   }
 
   async function saveEditedDevice() {
@@ -2141,7 +2178,14 @@ function deleteSelected() {
                 <div className="sectionTitle">Card Library</div>
                 <div className="palette">
                   {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && String((t as any).title ?? "").startsWith("Card Library")).map((t: any) => (
-                    <div key={t.id} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }} title={t.description ?? ""}>
+                    <div
+                      key={t.id}
+                      className="paletteItem"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onClick={() => { if (project && selectedDevice) openTemplateWizard(t.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add cards" }); }}
+                      title={String((t as any).description ?? "") + " (click or drag onto canvas)"}
+                    >
                       {t.title ?? t.id}
                     </div>
                   ))}
@@ -2153,7 +2197,14 @@ function deleteSelected() {
                 <div className="sectionTitle">Home Assistant</div>
                 <div className="palette">
                   {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && ((t as any).id === "ha_auto" || String((t as any).id ?? "").startsWith("ha_"))).map((t: any) => (
-                    <div key={t.id} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }} title={t.description ?? ""}>
+                    <div
+                      key={t.id}
+                      className="paletteItem"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onClick={() => { if (project && selectedDevice) openTemplateWizard(t.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add controls" }); }}
+                      title={String((t as any).description ?? "") + " (click or drag onto canvas)"}
+                    >
                       {t.title ?? t.id}
                     </div>
                   ))}

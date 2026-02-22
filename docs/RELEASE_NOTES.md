@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.42
+
+- Fix Insert: resolve ha_auto to real template from entity domain (climate, light, cover, switch, etc.) so Home Assistant • Auto produces widgets.
+- Apply wizard: defensive page/widgets checks; toast on success; click palette items to open wizard at (80,80).
+
 ## v0.70.41
 
 - Canvas: LVGL-equivalent previews for all 32 Std LVGL palette widgets (switch, checkbox, dropdown, image, image_button, obj, textarea, roller, spinner, spinbox, qrcode, led, chart, line, tabview, tileview, buttonmatrix, keyboard, list, table, calendar, colorwheel, canvas, msgboxes).
