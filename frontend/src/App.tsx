@@ -165,7 +165,7 @@ export default function App() {
 ];
 
 function onDragWidgetStart(e: React.DragEvent, type: string) {
-  e.dataTransfer.setData("application/x-esphome-touch-designer-widget", JSON.stringify({ type }));
+  e.dataTransfer.setData("application/x-esphome-widget-type", type);
   e.dataTransfer.effectAllowed = "copy";
 }
 
@@ -1859,7 +1859,7 @@ function deleteSelected() {
           </ul>
         </section>
 
-        <section className="card">
+        <section className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <h2>Editor</h2>
           <div className="bar" style={{ justifyContent: "space-between" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1917,8 +1917,11 @@ function deleteSelected() {
             )}
           </div>
 
+          <div style={{ flex: 1, minHeight: 0, maxHeight: "70vh", overflowY: "auto", marginTop: 8 }}>
           {!selectedDevice || !project ? (
-            <div className="muted">Select a device to edit.</div>
+            <div className="muted" style={{ marginTop: 12 }}>
+              Select a device to edit: create one above (device_id, name) → Save device, then click it in the Devices list. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
+            </div>
           ) : (
             <>
               {editorTab === "compile" ? (
@@ -2169,7 +2172,7 @@ function deleteSelected() {
                 </>
               ) : (
                 <>
-              <div className="bar">
+              <div className="bar" style={{ flexShrink: 0 }}>
                 <select
                   value={safePageIndex}
                   onChange={(e) => {
@@ -2531,6 +2534,7 @@ function deleteSelected() {
 
             </>
           )}
+          </div>
         </section>
       </main>
     </div>
