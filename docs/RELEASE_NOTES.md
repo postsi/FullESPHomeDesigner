@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.6
+
+- Fix Invalid handler: simplify config flow to match koosoli pattern (named ConfigFlow, single_instance, minimal options flow with super().__init__).
+
 ## v0.70.5
 
 - Restore root manifest.json for HACS (required for content_in_root downloads).
