@@ -799,11 +799,11 @@ if (baseId.startsWith("glance_card")) {
     const dev = (project as any)?.device;
     const sw = dev?.screen?.width;
     const sh = dev?.screen?.height;
-    if (sw && sh) return { width: sw, height: sh };
+    if (sw && sh) return { width: sw, height: sh, source: "device.screen" as const };
     const rid = selectedDeviceObj?.hardware_recipe_id ?? dev?.hardware_recipe_id ?? "";
     const m = /(\d{3,4})x(\d{3,4})/i.exec(String(rid));
-    if (m) return { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
-    return { width: 800, height: 480 };
+    if (m) return { width: parseInt(m[1], 10), height: parseInt(m[2], 10), source: "recipe_id" as const };
+    return { width: 800, height: 480, source: "default" as const };
   }, [project, selectedDeviceObj?.hardware_recipe_id]);
   function _findWidget(id: string) {
     return widgets.find((w: any) => w.id === id);
@@ -2264,13 +2264,19 @@ function deleteSelected() {
                 <button className="secondary" disabled={busy} onClick={saveProject}>Save</button>
               </div>
               <div className="canvasAxis" style={{ alignSelf: "flex-start" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
-                  <div className="canvasAxisY" style={{ justifyContent: "space-between", height: screenSize.height, paddingTop: 4, paddingBottom: 4 }}>
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "36px " + screenSize.width + "px",
+                  gridTemplateRows: screenSize.height + "px 24px",
+                  alignItems: "stretch",
+                  justifyItems: "stretch",
+                }}>
+                  <div className="canvasAxisY" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingTop: 4, paddingBottom: 4, paddingRight: 6, fontSize: 11, color: "var(--muted)", textAlign: "right" }}>
                     {Array.from({ length: Math.floor(screenSize.height / 100) + 1 }, (_, i) => i * 100).map((y: number) => (
                       <span key={y}>{y}</span>
                     ))}
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <Canvas
                   widgets={widgets}
                   selectedIds={selectedWidgetIds}
@@ -2323,7 +2329,8 @@ function deleteSelected() {
                   }}
                 />
                   </div>
-                  <div className="canvasAxisX" style={{ marginTop: 4, marginLeft: 0, width: screenSize.width, minWidth: screenSize.width, display: "flex", justifyContent: "space-between", direction: "ltr" }}>
+                  <div />
+                  <div className="canvasAxisX" style={{ display: "flex", justifyContent: "space-between", alignSelf: "start", width: screenSize.width, fontSize: 11, color: "var(--muted)", direction: "ltr" }}>
                     {Array.from({ length: Math.floor(screenSize.width / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
                       <span key={x} style={{ flex: "0 0 auto" }}>{x}</span>
                     ))}
@@ -2341,6 +2348,12 @@ function deleteSelected() {
             <button type="button" className={`panelTab ${inspectorTab === "builder" ? "active" : ""}`} onClick={() => setInspectorTab("builder")}>Binding Builder</button>
           </div>
           <div className="panelContent">
+            {selectedDevice && project && (
+              <div className="muted" style={{ marginBottom: 12, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 8, fontSize: 13 }}>
+                <strong>Physical Pixels:</strong> {screenSize.width} × {screenSize.height}
+                <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>({screenSize.source})</span>
+              </div>
+            )}
             {inspectorTab === "properties" && (
               <div className="split" style={{ gridTemplateColumns: "1fr" }}>
                 <div>

@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.44
+
+- Physical Pixels display in right panel (device.screen / recipe_id / default).
+- Canvas axis grid layout: X-axis aligned with Y-axis (grid, X starts same place as Y).
+- screenSize tracks source for debugging.
+
 ## v0.70.43
 
 - Fix Card Library Insert: skip pickCapabilityVariant for Card Library templates (Cover card, etc.).
