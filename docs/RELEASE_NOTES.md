@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.19
+
+- Fix ValueError "Overwriting panel": remove panel before re-registering; unregister on unload.
+
 ## v0.70.18
 
 - Fix Save device disabled: fallback to first config entry when active_entry_id is missing.

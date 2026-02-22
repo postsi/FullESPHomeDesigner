@@ -6,7 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .panel import async_register_panel
+from .panel import _unregister_panel, async_register_panel
 from .storage import DashboardStorage
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    _unregister_panel(hass)
     if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
     if hass.data.get(DOMAIN, {}).get("active_entry_id") == entry.entry_id:

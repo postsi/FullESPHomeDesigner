@@ -15,6 +15,11 @@ from .api.views import register_api_views
 _LOGGER = logging.getLogger(__name__)
 
 
+def _unregister_panel(hass: HomeAssistant) -> None:
+    """Remove the panel (call from async_unload_entry)."""
+    frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+
+
 class PanelIndexView(HomeAssistantView):
     """Serves the SPA entrypoint. requires_auth=False so iframe loads reliably (sidebar is admin-only)."""
     url = f"/{PANEL_URL_PATH}"
@@ -49,6 +54,7 @@ async def async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     hass.http.register_view(PanelIndexView)
 
+    frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
     frontend.async_register_built_in_panel(
         hass,
         component_name="iframe",
