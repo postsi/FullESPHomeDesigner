@@ -209,7 +209,9 @@ async function onUploadAssetFile(file: File) {
 }
 
 const [lintOpen, setLintOpen] = useState<boolean>(false);
-  const [editorTab, setEditorTab] = useState<"design" | "compile">("design");
+  const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "ha">("std");
+  const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder">("properties");
+  const [compileModalOpen, setCompileModalOpen] = useState(false);
   const [compiledYaml, setCompiledYaml] = useState<string>("");
   const [compileErr, setCompileErr] = useState<string>("");
   const [autoCompile, setAutoCompile] = useState<boolean>(true);
@@ -676,7 +678,6 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       setNewDeviceWizardSlug("");
       setNewDeviceWizardApiKey("");
       await refresh();
-      setEditorTab("design");
       await loadDevice(did);
     } finally { setBusy(false); }
   }
@@ -1234,11 +1235,10 @@ function deleteSelected() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWidgetIds, clipboard, project]);
 
-  // v0.57.2: Live compile preview (Compile tab) — debounced and based on the current in-memory project model.
-  // This does not write to disk; it calls the backend compile endpoint with a project override.
+  // v0.57.2: Live compile preview — debounced when compile modal is open.
   useEffect(() => {
     if (!project || !selectedDevice) return;
-    if (editorTab !== "compile") return;
+    if (!compileModalOpen) return;
     if (!autoCompile) return;
 
     const t = window.setTimeout(async () => {
@@ -1255,7 +1255,7 @@ function deleteSelected() {
     }, 500);
 
     return () => window.clearTimeout(t);
-  }, [project, selectedDevice, editorTab, autoCompile]);
+  }, [project, selectedDevice, compileModalOpen, autoCompile]);
 
   async function refreshCompile() {
     if (!project || !selectedDevice) return;
@@ -2021,6 +2021,78 @@ function deleteSelected() {
         </div>
       )}
 
+      {compileModalOpen && (
+        <div className="modalOverlay" onClick={() => setCompileModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div className="modalHeader">
+              <div className="title">Compile</div>
+              <button className="ghost" onClick={() => setCompileModalOpen(false)}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", paddingRight: 8 }}>
+              {!selectedDevice || !project ? (
+                <div className="muted">Select a device first.</div>
+              ) : (
+                <>
+                  <div className="section">
+                    <div className="sectionTitle">Hardware (recipe)</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <select
+                        value={selectedRecipeId || ""}
+                        onChange={async (e) => {
+                          if (!selectedDeviceObj) return;
+                          const rid = e.target.value || null;
+                          setBusy(true);
+                          try {
+                            const res = await upsertDevice(entryId, { device_id: selectedDeviceObj.device_id, name: selectedDeviceObj.name, slug: selectedDeviceObj.slug, hardware_recipe_id: rid });
+                            if (!res.ok) throw new Error(res.error);
+                            await refresh();
+                            setToast({ type: "ok", msg: rid ? `Recipe set: ${rid}` : "Recipe cleared" });
+                          } catch (err: any) {
+                            setToast({ type: "error", msg: String(err?.message || err) });
+                          } finally { setBusy(false); }
+                        }}
+                        title="Hardware recipe"
+                      >
+                        <option value="">(none)</option>
+                        {recipes.map((r) => (
+                          <option key={r.id} value={r.id}>{r.label || r.id}</option>
+                        ))}
+                      </select>
+                      {recipeValidateRes?.ok && <span className="toast ok" style={{ padding: "6px 10px" }}>valid</span>}
+                      {recipeValidateRes && !recipeValidateRes.ok && <span className="toast error" style={{ padding: "6px 10px" }}>needs attention</span>}
+                    </div>
+                  </div>
+                  <div className="section">
+                    <div className="sectionTitle">Compiled YAML</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                      <label className="muted" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input type="checkbox" checked={autoCompile} onChange={(e) => setAutoCompile(e.target.checked)} /> auto
+                      </label>
+                      <button className="secondary" disabled={compileBusy || !project} onClick={refreshCompile}>{compileBusy ? "Compiling…" : "Refresh"}</button>
+                      <button className="secondary" disabled={!compiledYaml} onClick={() => navigator.clipboard.writeText(compiledYaml)}>Copy</button>
+                      <button className="secondary" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }}>Import recipe…</button>
+                      <button className="secondary" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }}>Manage recipes…</button>
+                    </div>
+                    {compileErr && <div className="toast error" style={{ marginBottom: 8 }}>Compile error: {compileErr}</div>}
+                    <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 300, overflowY: "auto" }}>
+                      {compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}
+                    </pre>
+                  </div>
+                  <div className="section">
+                    <div className="sectionTitle">Deployment</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <button className="secondary" disabled={exportBusy || !entryId || !selectedDevice} onClick={previewExport}>Preview export</button>
+                      <button disabled={exportBusy || !entryId || !exportPreview || exportPreview?.error || exportPreview?.externally_modified} onClick={doExport}>Export to /config/esphome/</button>
+                      <button className="secondary" onClick={() => window.open("/esphome", "_blank")}>Open ESPHome Dashboard</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
         <select
           value={selectedDevice}
@@ -2041,27 +2113,95 @@ function deleteSelected() {
         <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
         <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
+        <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
       </nav>
 
-      <main className="grid">
-        <section className="card">
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div className="muted">Canvas</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                    <span className="muted" style={{ marginRight: 4 }}>Align:</span>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("left")}>Left</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("center")}>Center</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("right")}>Right</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("top")}>Top</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("middle")}>Middle</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("bottom")}>Bottom</button>
-                    <span className="muted" style={{ margin: "0 4px" }}>Distribute:</span>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("h")}>H</button>
-                    <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("v")}>V</button>
-                  </div>
+      <main className="designerLayout">
+        <aside className="designerPanel designerPanelLeft" style={{ minWidth: 200, maxWidth: 220 }}>
+          <div className="panelTabs">
+            <button type="button" className={`panelTab ${paletteTab === "std" ? "active" : ""}`} onClick={() => setPaletteTab("std")}>Std LVGL</button>
+            <button type="button" className={`panelTab ${paletteTab === "cards" ? "active" : ""}`} onClick={() => setPaletteTab("cards")}>Card Library</button>
+            <button type="button" className={`panelTab ${paletteTab === "ha" ? "active" : ""}`} onClick={() => setPaletteTab("ha")}>Home Assistant</button>
+          </div>
+          <div className="panelContent">
+            {paletteTab === "std" && (
+              <>
+                <div className="sectionTitle">LVGL widgets</div>
+                <div className="palette">
+                  {(schemaIndex ?? []).filter(Boolean).map((s) => (
+                    <div key={s?.type ?? ""} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-widget-type", s?.type ?? ""); e.dataTransfer.effectAllowed = "copy"; }} title={`Drag ${s?.title ?? s?.type ?? ""} onto canvas`}>
+                      {s?.title ?? s?.type ?? ""}
+                    </div>
+                  ))}
                 </div>
-                <Canvas
+              </>
+            )}
+            {paletteTab === "cards" && (
+              <>
+                <div className="sectionTitle">Card Library</div>
+                <div className="palette">
+                  {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && String((t as any).title ?? "").startsWith("Card Library")).map((t: any) => (
+                    <div key={t.id} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }} title={t.description ?? ""}>
+                      {t.title ?? t.id}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {paletteTab === "ha" && (
+              <>
+                <div className="sectionTitle">Home Assistant</div>
+                <div className="palette">
+                  {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && ((t as any).id === "ha_auto" || String((t as any).id ?? "").startsWith("ha_"))).map((t: any) => (
+                    <div key={t.id} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }} title={t.description ?? ""}>
+                      {t.title ?? t.id}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Drag onto canvas. Hold <code>ALT</code> to disable snapping.</div>
+          </div>
+        </aside>
+
+        <div className="designerPanelCenter">
+          {!selectedDevice || !project ? (
+            <div className="muted" style={{ padding: 24 }}>
+              Select a device from the dropdown above, or click <strong>New device</strong> to create one.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <select value={safePageIndex} onChange={(e) => { setCurrentPageIndex(Number(e.target.value)); setSelectedWidgetIds([]); setSelectedSchema(null); }} title="Page">
+                  {pages.map((p, idx) => <option key={p.page_id} value={idx}>{p.name || `Page ${idx + 1}`}</option>)}
+                </select>
+                <button className="secondary" disabled={busy} onClick={addPage}>Add page</button>
+                <button className="secondary" disabled={!projectHist.canUndo} onClick={projectHist.undo}>Undo</button>
+                <button className="secondary" disabled={!projectHist.canRedo} onClick={projectHist.redo}>Redo</button>
+                <span className="muted">|</span>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("left")}>Align L</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("center")}>C</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("right")}>R</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("top")}>T</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("middle")}>M</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("bottom")}>B</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("h")}>Dist H</button>
+                <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("v")}>Dist V</button>
+                <span className="muted">|</span>
+                <button className="secondary" disabled={!clipboard?.length} onClick={pasteClipboard}>Paste</button>
+                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={copySelected}>Copy</button>
+                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={deleteSelected}>Del</button>
+                <button className="secondary" disabled={busy} onClick={saveProject}>Save</button>
+              </div>
+              <div className="canvasAxis" style={{ alignSelf: "flex-start" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
+                  <div className="canvasAxisY" style={{ justifyContent: "space-between", height: (project as any)?.device?.screen?.height || 480, paddingTop: 4, paddingBottom: 4 }}>
+                    {Array.from({ length: Math.floor(((project as any)?.device?.screen?.height || 480) / 100) + 1 }, (_, i) => i * 100).map((y: number) => (
+                      <span key={y}>{y}</span>
+                    ))}
+                  </div>
+                  <div>
+                    <Canvas
                   widgets={widgets}
                   selectedIds={selectedWidgetIds}
                   width={(project as any)?.device?.screen?.width || 800}
@@ -2112,479 +2252,27 @@ function deleteSelected() {
                     setProject(p2, commit ?? true);
                   }}
                 />
+                  </div>
+                  <div className="canvasAxisX" style={{ marginTop: 4, paddingLeft: 28 }}>
+                    {Array.from({ length: Math.floor(((project as any)?.device?.screen?.width || 800) / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
+                      <span key={x} style={{ minWidth: 40, textAlign: "left" }}>{x}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
+            </>
+          )}
+        </div>
 
-        </section>
-
-        <section className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <h2>Editor</h2>
-          <div className="bar" style={{ justifyContent: "space-between" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button
-                className={editorTab === "design" ? "" : "secondary"}
-                onClick={() => setEditorTab("design")}
-                title="Designer tools"
-              >
-                Design
-              </button>
-              <button
-                className={editorTab === "compile" ? "" : "secondary"}
-                onClick={() => { setEditorTab("compile"); }}
-                title="Live compiled YAML preview"
-              >
-                Compile
-              </button>
-              <span className="muted" style={{ marginLeft: 8 }}>
-                {editorTab === "compile" ? "Live preview updates as you edit." : ""}
-              </span>
-            </div>
-
-            {editorTab === "compile" && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label className="muted" style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input type="checkbox" checked={autoCompile} onChange={(e) => setAutoCompile(e.target.checked)} />
-                  auto
-                </label>
-                <button className="secondary" disabled={compileBusy || !project} onClick={refreshCompile}>
-                  {compileBusy ? "Compiling…" : "Refresh"}
-                </button>
-                <button
-                  className="secondary"
-                  disabled={!compiledYaml}
-                  onClick={() => navigator.clipboard.writeText(compiledYaml)}
-                  title="Copy YAML to clipboard"
-                >
-                  Copy
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }}
-                  title="Import a raw ESPHome device YAML and convert it into a hardware recipe"
-                >
-                  Import recipe…
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }}
-                  title="Manage user hardware recipes (rename / delete)"
-                >
-                  Manage recipes…
-                </button>
-              </div>
-            )}
+        <aside className="designerPanel designerPanelRight" style={{ minWidth: 260 }}>
+          <div className="panelTabs">
+            <button type="button" className={`panelTab ${inspectorTab === "properties" ? "active" : ""}`} onClick={() => setInspectorTab("properties")}>Properties</button>
+            <button type="button" className={`panelTab ${inspectorTab === "bindings" ? "active" : ""}`} onClick={() => setInspectorTab("bindings")}>HA Bindings</button>
+            <button type="button" className={`panelTab ${inspectorTab === "builder" ? "active" : ""}`} onClick={() => setInspectorTab("builder")}>Binding Builder</button>
           </div>
-
-          <div style={{ flex: 1, minHeight: 0, maxHeight: "70vh", overflowY: "auto", marginTop: 8 }}>
-          {!selectedDevice || !project ? (
-            <div className="muted" style={{ marginTop: 12 }}>
-              Select a device from the dropdown above, or click <strong>New device</strong> to create one. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
-            </div>
-          ) : (
-            <>
-              {editorTab === "compile" ? (
-                <>
-                <div className="section">
-                  <div className="sectionTitle">Hardware (recipe)</div>
-                  <div className="muted">
-                    Select a hardware recipe for this device. The recipe defines the ESPHome hardware scaffold; the designer only owns the LVGL block.
-                  </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
-                    <select
-                      value={selectedRecipeId || ""}
-                      onChange={async (e) => {
-                        if (!selectedDeviceObj) return;
-                        const rid = e.target.value || null;
-                        setBusy(true);
-                        try {
-                          const res = await upsertDevice(entryId, {
-                            device_id: selectedDeviceObj.device_id,
-                            name: selectedDeviceObj.name,
-                            slug: selectedDeviceObj.slug,
-                            hardware_recipe_id: rid,
-                          });
-                          if (!res.ok) throw new Error(res.error);
-                          await refresh();
-                          setToast({ type: "ok", msg: rid ? `Recipe set: ${rid}` : "Recipe cleared" });
-                        } catch (err: any) {
-                          setToast({ type: "error", msg: String(err?.message || err) });
-                        } finally {
-                          setBusy(false);
-                        }
-                      }}
-                      title="Hardware recipe"
-                    >
-                      <option value="">(none)</option>
-                      {recipes.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.label || r.id}
-                        </option>
-                      ))}
-                    </select>
-                    {recipeValidateBusy && <span className="muted">validating…</span>}
-                    {recipeValidateRes?.ok && <span className="toast ok" style={{ padding: "6px 10px" }}>valid</span>}
-                    {recipeValidateRes && !recipeValidateRes.ok && <span className="toast error" style={{ padding: "6px 10px" }}>needs attention</span>}
-                  </div>
-
-                  {recipeValidateErr && (
-                    <div className="toast error" style={{ marginTop: 8 }}>
-                      Recipe check error: {recipeValidateErr}
-                    </div>
-                  )}
-
-                  {selectedRecipeId && (
-                    <div style={{ marginTop: 10 }}>
-                      {/* Metadata panel */}
-                      {recipeValidateRes?.meta && (
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                          {recipeValidateRes.meta?.platform && (
-                            <div className="pill"><span className="muted">platform</span> <code>{recipeValidateRes.meta.platform}</code></div>
-                          )}
-                          {recipeValidateRes.meta?.board && (
-                            <div className="pill"><span className="muted">board</span> <code>{recipeValidateRes.meta.board}</code></div>
-                          )}
-                          {recipeValidateRes.meta?.resolution?.width && recipeValidateRes.meta?.resolution?.height && (
-                            <div className="pill"><span className="muted">resolution</span> <code>{recipeValidateRes.meta.resolution.width}×{recipeValidateRes.meta.resolution.height}</code></div>
-                          )}
-                          {recipeValidateRes.meta?.touch?.platform && (
-                            <div className="pill"><span className="muted">touch</span> <code>{recipeValidateRes.meta.touch.platform}</code></div>
-                          )}
-                          {recipeValidateRes.meta?.backlight_pin && (
-                            <div className="pill"><span className="muted">backlight</span> <code>{String(recipeValidateRes.meta.backlight_pin)}</code></div>
-                          )}
-                          {typeof recipeValidateRes.meta?.psram === "boolean" && (
-                            <div className="pill"><span className="muted">psram</span> <code>{recipeValidateRes.meta.psram ? "yes" : "no"}</code></div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Validation issues */}
-                      {Array.isArray(recipeValidateRes?.issues) && recipeValidateRes.issues.length > 0 && (
-                        <div className="toast error" style={{ marginTop: 10 }}>
-                          <div style={{ fontWeight: 700, marginBottom: 6 }}>Recipe warnings</div>
-                          <ul style={{ margin: 0, paddingLeft: 18 }}>
-                            {recipeValidateRes.issues.map((it: string, idx: number) => (
-                              <li key={idx}>{it}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="sectionTitle">Compiled YAML (live preview)</div>
-                  <div className="muted">
-                    This is the YAML generated from your current project model. It updates as you edit (when auto is enabled).
-                  </div>
-                  {compileErr && (
-                    <div className="toast error" style={{ marginTop: 8 }}>
-                      Compile error: {compileErr}
-                    </div>
-                  )}
-                  <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", marginTop: 12, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)" }}>
-{compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}
-                  </pre>
-                </div>
-                <div className="section" style={{ marginTop: 16 }}>
-                  <div className="sectionTitle">Self-check (verification suite)</div>
-                  <div className="muted">
-                    Runs quick sanity checks (compile determinism, marker safety, and basic invariants). This does not deploy anything.
-                  </div>
-                  {selfCheckErr && (
-                    <div className="toast error" style={{ marginTop: 8 }}>
-                      Self-check error: {selfCheckErr}
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                    <button className="secondary" disabled={selfCheckBusy} onClick={runSelfCheck}>
-                      {selfCheckBusy ? "Running…" : "Run self-check"}
-                    </button>
-                    {selfCheckResult?.ok ? (
-                      <span className="toast ok" style={{ padding: "6px 10px" }}>PASS</span>
-                    ) : selfCheckResult && (
-                      <span className="toast error" style={{ padding: "6px 10px" }}>FAIL</span>
-                    )}
-                  </div>
-                  {selfCheckResult && (
-                    <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", marginTop: 12, padding: 12, border: "1px solid var(--border)", borderRadius: 8 }}>
-{JSON.stringify(selfCheckResult, null, 2)}
-                    </pre>
-                  )}
-
-                <div className="section" style={{ marginTop: 16 }}>
-                  <div className="sectionTitle">Deployment (export)</div>
-                  <div className="muted">
-                    Preview a safe-merge export (with diff) and then write to <code>/config/esphome/{selectedDevice ? devices.find(d=>d.device_id===selectedDevice)?.slug : "device"}.yaml</code>.
-                  </div>
-
-                  {exportPreviewErr && (
-                    <div className="toast error" style={{ marginTop: 8 }}>
-                      Preview error: {exportPreviewErr}
-                    </div>
-                  )}
-                  {exportErr && (
-                    <div className="toast error" style={{ marginTop: 8 }}>
-                      Export error: {exportErr}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
-                    <button className="secondary" disabled={exportBusy || !entryId || !selectedDevice} onClick={previewExport} title={!entryId ? "Integration context missing" : !selectedDevice ? "Select a device" : ""}>
-                      {exportBusy ? "Working…" : "Preview export"}
-                    </button>
-                    <button className="" disabled={exportBusy || !entryId || !exportPreview || exportPreview?.error || exportPreview?.externally_modified} onClick={doExport} title={exportPreview?.externally_modified ? "File changed externally — re-run preview then export" : !entryId ? "Integration context missing" : ""}>
-                      Export to /config/esphome/
-                    </button>
-                    <button className="secondary" onClick={() => window.open("/esphome", "_blank")} title="Opens the ESPHome dashboard panel (if installed at /esphome)">
-                      Open ESPHome Dashboard
-                    </button>
-
-                    {exportPreview?.ok && (
-                      <>
-                        <span className="toast ok" style={{ padding: "6px 10px" }}>
-                          {exportPreview.mode === "merged" ? "merge" : "new"}
-                        </span>
-                        {exportPreview.externally_modified && (
-                          <span className="toast error" style={{ padding: "6px 10px" }}>
-                            External change detected — preview again
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {exportResult?.ok && (
-                      <span className="toast ok" style={{ padding: "6px 10px" }}>
-                        Exported ({exportResult.mode})
-                      </span>
-                    )}
-                  </div>
-
-                  {exportPreview?.ok && (
-                    <div style={{ marginTop: 12 }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <button
-                          className="secondary"
-                          disabled={!exportPreview?.diff}
-                          onClick={() => navigator.clipboard.writeText(exportPreview.diff || "")}
-                          title="Copy unified diff"
-                        >
-                          Copy diff
-                        </button>
-                        <span className="muted">
-                          {(() => {
-                            const d = String(exportPreview.diff || "");
-                            const adds = d.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
-                            const dels = d.split("\n").filter((l) => l.startsWith("-") && !l.startsWith("---"));
-                            return `+${adds.length} / -${dels.length} lines`;
-                          })()}
-                        </span>
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: 10,
-                          padding: 12,
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          overflowX: "auto",
-                          fontFamily: "monospace",
-                          fontSize: 12,
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        {(exportPreview.diff || "(no diff)").split("\n").map((line: string, idx: number) => {
-                          const isAdd = line.startsWith("+") && !line.startsWith("+++");
-                          const isDel = line.startsWith("-") && !line.startsWith("---");
-                          const isHdr = line.startsWith("@@") || line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++");
-                          return (
-                            <div
-                              key={idx}
-                              style={{
-                                whiteSpace: "pre",
-                                opacity: isHdr ? 0.9 : 1,
-                                background: isAdd
-                                  ? "rgba(0,255,0,0.08)"
-                                  : isDel
-                                  ? "rgba(255,0,0,0.08)"
-                                  : "transparent",
-                                borderLeft: isAdd
-                                  ? "3px solid rgba(0,255,0,0.35)"
-                                  : isDel
-                                  ? "3px solid rgba(255,0,0,0.35)"
-                                  : isHdr
-                                  ? "3px solid rgba(255,255,255,0.15)"
-                                  : "3px solid transparent",
-                                paddingLeft: 8,
-                              }}
-                            >
-                              {line}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                </div>
-
-                </>
-              ) : (
-                <>
-              <div className="bar" style={{ flexShrink: 0 }}>
-                <select
-                  value={safePageIndex}
-                  onChange={(e) => {
-                    setCurrentPageIndex(Number(e.target.value));
-                    setSelectedWidgetIds([]);
-                    setSelectedSchema(null);
-                  }}
-                  title="Page"
-                >
-                  {pages.map((p, idx) => (
-                    <option key={p.page_id} value={idx}>
-                      {p.name || `Page ${idx + 1}`}
-                    </option>
-                  ))}
-                </select>
-                <button className="secondary" disabled={busy || !project} onClick={addPage}>Add page</button>
-                <button className="secondary" disabled={!projectHist.canUndo} onClick={projectHist.undo} title="Undo (Ctrl/Cmd+Z)">Undo</button>
-                <button className="secondary" disabled={!projectHist.canRedo} onClick={projectHist.redo} title="Redo (Ctrl/Cmd+Y)">Redo</button>
-                <select value={newWidgetType} onChange={(e) => setNewWidgetType(e.target.value)}>
-                  {(schemaIndex ?? []).filter(Boolean).map((s) => <option key={s?.type ?? ""} value={s?.type ?? ""}>{s?.title ?? s?.type ?? ""}</option>)}
-                </select>
-                <button className="secondary" disabled={busy} onClick={addWidget}>Add widget</button>
-                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={copySelected} title="Copy (Ctrl/Cmd+C)">Copy</button>
-                <button className="secondary" disabled={!clipboard?.length} onClick={pasteClipboard} title="Paste (Ctrl/Cmd+V)">Paste</button>
-                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={deleteSelected} title="Delete">Del</button>
-                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={() => moveZ("back")} title="Send backward">◀</button>
-                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={() => moveZ("front")} title="Bring forward">▶</button>
-                <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={groupSelected} title="Group into a container">Group</button>
-                <button className="secondary" disabled={selectedWidgetIds.length !== 1 || String(_findWidget(selectedWidgetIds[0])?.type).toLowerCase() !== "container"} onClick={ungroupSelected} title="Ungroup container">Ungroup</button>
-                <button className="secondary" disabled={busy} onClick={saveProject}>Save project</button>
-                <button className="secondary" disabled={busy} onClick={deploySelected}>Deploy</button>
-                <button className="secondary" disabled={!project} onClick={() => setLintOpen(!lintOpen)} title="Show project lint warnings">
-                  Lint
-                </button>
-              </div>
-
-              {lintOpen && (
-                <div className="section" style={{ marginTop: 12 }}>
-                  <div className="sectionTitle">Project lint (advisory)</div>
-                  {(() => {
-                    const diags = lintProject(project);
-                    if (diags.length === 0) return <div className="muted">No issues found.</div>;
-                    return (
-                      <ul>
-                        {diags.slice(0, 50).map((d, i) => (
-                          <li key={i}>
-                            <b>{d.level.toUpperCase()}</b>: {d.msg}
-                          </li>
-                        ))}
-                      </ul>
-                    );
-                  })()}
-                  <div className="muted" style={{ marginTop: 8 }}>
-                    Note: lint is best-effort. It doesn’t block saving/compiling.
-                  </div>
-                </div>
-              )}
-
-              
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">Palette (drag onto canvas)</div>
-  <div className="palette">
-    {(schemaIndex ?? []).filter(Boolean).map((s) => (
-      <div
-        key={s?.type ?? ""}
-        className="paletteItem"
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData("application/x-esphome-widget-type", s?.type ?? "");
-          e.dataTransfer.effectAllowed = "copy";
-        }}
-        title={`Drag ${s?.title ?? s?.type ?? ""} onto the canvas`}
-      >
-        {s?.title ?? s?.type ?? ""}
-      </div>
-    ))}
-  </div>
-  <div className="muted" style={{ marginTop: 8 }}>
-    Tip: hold <code>ALT</code> while dragging existing widgets to disable grid snapping.
-  </div>
-</div>
-
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">Controls (drag onto canvas)</div>
-  <div className="muted" style={{ marginBottom: 8 }}>
-    These are multi-widget macros (button+slider+labels, etc.). After dropping, set entity IDs in the bindings section.
-  </div>
-
-  <div className="palette">
-    {(() => {
-      const all = [...CONTROL_TEMPLATES, ...(pluginControls || [])].filter((t): t is ControlTemplate => !!t && !!(t as any).id);
-      const cards = all.filter((t) => String((t as any).title ?? "").startsWith("Card Library"));
-      const ha = all.filter((t) => (t as any).id === "ha_auto" || String((t as any).id ?? "").startsWith("ha_"));
-      const other = all.filter((t) => !cards.includes(t) && !ha.includes(t));
-
-      return (
-        <>
-          {cards.length > 0 && <div className="paletteSectionTitle">Card Library</div>}
-          {cards.map((t) => (
-            <div
-              key={t.id}
-              className="paletteItem"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/x-esphome-control-template", t.id);
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              title={t.description ?? ""}
-            >
-              {t.title ?? t.id}
-              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
-            </div>
-          ))}
-
-          <div className="paletteSectionTitle">Home Assistant Controls</div>
-          {ha.map((t) => (
-            <div
-              key={t.id}
-              className="paletteItem"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/x-esphome-control-template", t.id);
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              title={t.description ?? ""}
-            >
-              {t.title ?? t.id}
-              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
-            </div>
-          ))}
-
-          {other.length > 0 && <div className="paletteSectionTitle">Other</div>}
-          {other.map((t) => (
-            <div
-              key={t.id}
-              className="paletteItem"
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/x-esphome-control-template", t.id);
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              title={t.description ?? ""}
-            >
-              {t.title ?? t.id}
-              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
-            </div>
-          ))}
-        </>
-      );
-    })()}
-  </div>
-</div>
-
-
-<div className="split">
+          <div className="panelContent">
+            {inspectorTab === "properties" && (
+              <div className="split" style={{ gridTemplateColumns: "1fr" }}>
                 <div>
                   <div className="muted">Widgets</div>
                   <ul className="list compact">
@@ -2598,184 +2286,87 @@ function deleteSelected() {
                     ))}
                   </ul>
                 </div>
-
                 <div>
                   <div className="muted">Properties</div>
                   {!selectedWidget || !selectedSchema ? (
-                    <div className="muted">Select a widget to edit its properties.</div>
+                    <div className="muted">Select a widget.</div>
                   ) : (
                     <Inspector widget={selectedWidget} schema={selectedSchema} onChange={updateField} assets={assets} />
                   )}
                 </div>
               </div>
-            
-
-
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">Home Assistant Bindings</div>
-  <div className="muted">Generates ESPHome homeassistant sensors so controls can reflect HA state.</div>
-  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-    <select
-      value={(window as any).__bindDomain || ""}
-      onChange={(e)=>{ (window as any).__bindDomain = e.target.value; setProject(JSON.parse(JSON.stringify(project))); }}
-    >
-      <option value="">(domain)</option>
-      {DOMAIN_PRESETS.map((d)=> <option key={d.domain} value={d.domain}>{d.title}</option>)}
-    </select>
-    <input
-      placeholder="entity_id (e.g. light.kitchen)"
-      value={(window as any).__bindEntity || ""}
-      onChange={(e)=>{ (window as any).__bindEntity = e.target.value; setProject(JSON.parse(JSON.stringify(project))); }}
-    />
-    <button
-      onClick={() => {
-        if (!project) return;
-        const domain = (window as any).__bindDomain || "";
-        const entity_id = (window as any).__bindEntity || "";
-        const preset = DOMAIN_PRESETS.find((x)=>x.domain===domain);
-        if (!preset || !entity_id) return;
-        const p2 = JSON.parse(JSON.stringify(project));
-        (p2 as any).bindings = (p2 as any).bindings || [];
-        for (const b of preset.recommended) {
-          (p2 as any).bindings.push({ ...b, entity_id });
-        }
-        setProject(p2);
-      }}
-    >Add recommended</button>
-  </div>
-  <div style={{ marginTop: 8 }} className="muted">
-    Current bindings: {(project as any)?.bindings?.length || 0}
+            )}
+            {inspectorTab === "bindings" && (
+              <div className="section">
+                <div className="sectionTitle">Home Assistant Bindings</div>
+                <div className="muted">Generates ESPHome homeassistant sensors.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  <select value={(window as any).__bindDomain || ""} onChange={(e)=>{ (window as any).__bindDomain = e.target.value; setProject(JSON.parse(JSON.stringify(project || {}))); }}>
+                    <option value="">(domain)</option>
+                    {DOMAIN_PRESETS.map((d)=> <option key={d.domain} value={d.domain}>{d.title}</option>)}
+                  </select>
+                  <input placeholder="entity_id (e.g. light.kitchen)" value={(window as any).__bindEntity || ""} onChange={(e)=>{ (window as any).__bindEntity = e.target.value; setProject(JSON.parse(JSON.stringify(project || {}))); }} />
+                  <button onClick={() => {
+                    if (!project) return;
+                    const domain = (window as any).__bindDomain || "";
+                    const entity_id = (window as any).__bindEntity || "";
+                    const preset = DOMAIN_PRESETS.find((x)=>x.domain===domain);
+                    if (!preset || !entity_id) return;
+                    const p2 = JSON.parse(JSON.stringify(project));
+                    (p2 as any).bindings = (p2 as any).bindings || [];
+                    for (const b of preset.recommended) { (p2 as any).bindings.push({ ...b, entity_id }); }
+                    setProject(p2);
+                  }}>Add recommended</button>
                 </div>
-                <div style={{ marginTop: 4 }} className="muted">
-                  Current links: {(project as any)?.links?.length || 0}
-  </div>
-</div>
-
-
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">Binding Builder</div>
-  <div className="muted">
-    Bind the currently selected widget to a Home Assistant entity attribute/state and generate bindings + live links automatically.
-  </div>
-  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
-    <input
-      placeholder="search entities..."
-      value={entityQuery}
-      onChange={(e)=>setEntityQuery(e.target.value)}
-      style={{ width: 220 }}
-    />
-    <select value={bindEntity} onChange={(e)=>{ setBindEntity(e.target.value); setBindAttr(''); }}>
-      <option value="">(select entity)</option>
-      {entities
-        .filter((e)=> !entityQuery || String(e.entity_id).includes(entityQuery) || String(e.friendly_name||'').toLowerCase().includes(entityQuery.toLowerCase()))
-        .slice(0, 250)
-        .map((e)=> (
-          <option key={e.entity_id} value={e.entity_id}>
-            {e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}
-          </option>
-        ))}
-    </select>
-    <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)}>
-      <option value="">(state)</option>
-      {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=>x.entity_id===bindEntity))
-        .sort()
-        .slice(0, 200)
-        .map((k)=> <option key={k} value={k}>{k}</option>)}
-    </select>
-    <select value={bindAction} onChange={(e)=>setBindAction(e.target.value)}>
-      <option value="label_text">label: text</option>
-      <option value="slider_value">slider: value</option>
-      <option value="arc_value">arc: value</option>
-      <option value="widget_checked">widget: checked</option>
-    </select>
-    <input
-      placeholder="format (numeric)"
-      value={bindFormat}
-      onChange={(e)=>setBindFormat(e.target.value)}
-      style={{ width: 120 }}
-    />
-    <input
-      type="number"
-      value={bindScale}
-      onChange={(e)=>setBindScale(Number(e.target.value || 1))}
-      step="0.1"
-      style={{ width: 100 }}
-    />
-    <button
-      disabled={!project || !selectedWidgetIds.length || !bindEntity}
-      onClick={() => {
-        if (!project) return;
-        const widget_id = selectedWidgetIds[0]; // first pass: bind primary selection
-        const ent = bindEntity;
-        const attr = bindAttr;
-        const p2 = clone(project);
-        (p2 as any).bindings = (p2 as any).bindings || [];
-        (p2 as any).links = (p2 as any).links || [];
-        // Determine binding kind
-        let kind: any = "state";
-        if (bindAction === "widget_checked") kind = "binary";
-        else if (attr) kind = "attribute_number"; // default numeric when attribute chosen; user can adjust later
-        // If attribute exists and looks non-numeric, treat as text
-        const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[attr];
-        if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
-        if (!attr && (bindAction === "label_text")) kind = "state";
-        // Add binding
-        (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
-        // Add link
-        (p2 as any).links.push({
-          source: { entity_id: ent, kind, attribute: attr || "" },
-          target: { widget_id, action: bindAction, format: bindFormat, scale: bindScale }
-        });
-        setProject(p2, true);
-      }}
-    >
-      Bind selected widget
-    </button>
-  </div>
-  <div className="muted" style={{ marginTop: 8 }}>
-    Note: This is a first-pass binder. Next iteration will add per-widget property menus and type-safe bind kinds.
-  </div>
-</div>
-
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">Advanced YAML Injection</div>
-  <div className="muted">Optional raw YAML injected into the compiled file. Use with care.</div>
-  <div className="field">
-    <div className="fieldLabel">yaml_pre (prepended or replaces #__USER_YAML_PRE__ marker)</div>
-    <textarea
-      rows={6}
-      value={String((project as any)?.advanced?.yaml_pre ?? "")}
-      onChange={(e) => {
-        if (!project) return;
-        const p2 = JSON.parse(JSON.stringify(project));
-        (p2 as any).advanced = (p2 as any).advanced || {};
-        (p2 as any).advanced.yaml_pre = e.target.value;
-        setProject(p2);
-      }}
-    />
-  </div>
-  <div className="field">
-    <div className="fieldLabel">yaml_post (appended or replaces #__USER_YAML_POST__ marker)</div>
-    <textarea
-      rows={6}
-      value={String((project as any)?.advanced?.yaml_post ?? "")}
-      onChange={(e) => {
-        if (!project) return;
-        const p2 = JSON.parse(JSON.stringify(project));
-        (p2 as any).advanced = (p2 as any).advanced || {};
-        (p2 as any).advanced.yaml_post = e.target.value;
-        setProject(p2);
-      }}
-    />
-  </div>
-</div>
-                </>
-              )}
-
-            </>
-          )}
+                <div className="muted" style={{ marginTop: 8 }}>Bindings: {(project as any)?.bindings?.length || 0} • Links: {(project as any)?.links?.length || 0}</div>
+              </div>
+            )}
+            {inspectorTab === "builder" && (
+              <div className="section">
+                <div className="sectionTitle">Binding Builder</div>
+                <div className="muted">Bind selected widget to HA entity.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  <input placeholder="search entities..." value={entityQuery} onChange={(e)=>setEntityQuery(e.target.value)} />
+                  <select value={bindEntity} onChange={(e)=>{ setBindEntity(e.target.value); setBindAttr(''); }}>
+                    <option value="">(select entity)</option>
+                    {entities.filter((e)=> !entityQuery || String(e.entity_id).includes(entityQuery) || String(e.friendly_name||'').toLowerCase().includes(entityQuery.toLowerCase())).slice(0, 250).map((e)=> (
+                      <option key={e.entity_id} value={e.entity_id}>{e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}</option>
+                    ))}
+                  </select>
+                  <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)}>
+                    <option value="">(state)</option>
+                    {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=>x.entity_id===bindEntity)).sort().slice(0, 200).map((k)=> <option key={k} value={k}>{k}</option>)}
+                  </select>
+                  <select value={bindAction} onChange={(e)=>setBindAction(e.target.value)}>
+                    <option value="label_text">label: text</option>
+                    <option value="slider_value">slider: value</option>
+                    <option value="arc_value">arc: value</option>
+                    <option value="widget_checked">widget: checked</option>
+                  </select>
+                  <input placeholder="format" value={bindFormat} onChange={(e)=>setBindFormat(e.target.value)} />
+                  <input type="number" value={bindScale} onChange={(e)=>setBindScale(Number(e.target.value || 1))} step="0.1" />
+                  <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
+                    if (!project) return;
+                    const widget_id = selectedWidgetIds[0];
+                    const ent = bindEntity; const attr = bindAttr;
+                    const p2 = clone(project);
+                    (p2 as any).bindings = (p2 as any).bindings || [];
+                    (p2 as any).links = (p2 as any).links || [];
+                    let kind: any = "state";
+                    if (bindAction === "widget_checked") kind = "binary";
+                    else if (attr) kind = "attribute_number";
+                    const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[attr];
+                    if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
+                    if (!attr && bindAction === "label_text") kind = "state";
+                    (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
+                    (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id, action: bindAction, format: bindFormat, scale: bindScale } });
+                    setProject(p2, true);
+                  }}>Bind selected widget</button>
+                </div>
+              </div>
+            )}
           </div>
-        </section>
+        </aside>
       </main>
     </div>
   );

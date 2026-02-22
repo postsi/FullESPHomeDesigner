@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.39
+
+- Three-column designer layout: left palette | center canvas | right inspector.
+- Left palette tabs: Std LVGL | Card Library | Home Assistant.
+- Right inspector tabs: Properties | HA Bindings | Binding Builder.
+- Canvas with X/Y axis numbering from device screen dimensions.
+- Compile button on toolbar opens a modal with YAML output, recipe selector, deployment.
+
 ## v0.70.38
 
 - Top toolbar: device dropdown, New device, Edit device, Delete.
