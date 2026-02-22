@@ -103,6 +103,7 @@ export default function App() {
   const [newDeviceId, setNewDeviceId] = useState("");
   const [newDeviceName, setNewDeviceName] = useState("");
   const [newDeviceSlug, setNewDeviceSlug] = useState("");
+  const [newDeviceApiKey, setNewDeviceApiKey] = useState("");
 
   // New device wizard: hardware-first flow
   const [editDeviceModalOpen, setEditDeviceModalOpen] = useState(false);
@@ -635,13 +636,21 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
         device_id: selectedDevice,
         name: newDeviceName.trim(),
         slug: newDeviceSlug.trim() || undefined,
+        api_key: newDeviceApiKey.trim() || undefined,
       });
       if (!res.ok) return setToast({ type: "error", msg: res.error });
       setToast({ type: "ok", msg: "Device updated" });
       setEditDeviceModalOpen(false);
-      setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug("");
+      setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug(""); setNewDeviceApiKey("");
       await refresh();
     } finally { setBusy(false); }
+  }
+
+  function regenerateApiKey() {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    const base64 = btoa(String.fromCharCode(...arr));
+    setNewDeviceApiKey(base64);
   }
 
   async function createNewDeviceFromWizard() {
@@ -674,6 +683,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setNewDeviceId(selectedDeviceObj.device_id);
     setNewDeviceName(selectedDeviceObj.name || "");
     setNewDeviceSlug(selectedDeviceObj.slug || selectedDeviceObj.device_id || "");
+    setNewDeviceApiKey(selectedDeviceObj.api_key ?? "");
     setEditDeviceModalOpen(true);
   }
 
@@ -1881,6 +1891,22 @@ function deleteSelected() {
               onChange={(e) => setNewDeviceSlug(e.target.value)}
               placeholder="Used for .yaml export"
             />
+            <label className="label">API key</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                autoComplete="off"
+                value={newDeviceApiKey}
+                onChange={(e) => setNewDeviceApiKey(e.target.value)}
+                placeholder="32-byte base64 (generated on create)"
+                style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
+              />
+              <button type="button" className="secondary" onClick={regenerateApiKey} title="Generate new API key">Regenerate</button>
+              <button type="button" className="secondary" disabled={!newDeviceApiKey} onClick={() => newDeviceApiKey && navigator.clipboard.writeText(newDeviceApiKey)} title="Copy to clipboard">Copy</button>
+            </div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+              Required for Home Assistant API. Paste into ESPHome secrets or ensure it matches configuration.yaml.
+            </div>
             {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready.</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
               <button className="ghost" onClick={() => setEditDeviceModalOpen(false)}>Cancel</button>

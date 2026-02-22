@@ -3,6 +3,7 @@ export type DeviceSummary = {
   slug: string;
   name: string;
   hardware_recipe_id?: string | null;
+  api_key?: string | null;
 };
 
 export type WidgetSchemaIndexItem = {
@@ -63,7 +64,7 @@ export async function listDevices(entryId: string): Promise<ApiOk<{ devices: Dev
 
 export async function upsertDevice(
   entryId: string,
-  payload: { device_id: string; name?: string; slug?: string; hardware_recipe_id?: string | null }
+  payload: { device_id: string; name?: string; slug?: string; hardware_recipe_id?: string | null; api_key?: string | null }
 ): Promise<ApiOk<{}> | ApiErr> {
   const res = await fetch(url("devices", entryId), {
     method: "POST",

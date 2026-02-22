@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.37
+
+- Add per-device API encryption key for Home Assistant connectivity.
+  - Generated on device creation (32-byte base64).
+  - Stored with device; editable in Edit device modal with Regenerate and Copy.
+  - Injected into compiled YAML as `api: encryption: key:` when set.
+  - Included in project export/import.
+
 ## v0.70.36
 
 - Move Create/Update Device form into Edit device modal; add Edit device button next to New device.
