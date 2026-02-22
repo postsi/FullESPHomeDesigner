@@ -163,6 +163,14 @@ export default function App() {
   // v0.24: Design-time entity list snapshot for template wizard + linting.
   const [entities, setEntities] = useState<any[]>([]);
 
+  // Binding Builder: entity picker search + bind target fields.
+  const [entityQuery, setEntityQuery] = useState<string>("");
+  const [bindEntity, setBindEntity] = useState<string>("");
+  const [bindAttr, setBindAttr] = useState<string>("");
+  const [bindAction, setBindAction] = useState<string>("label_text");
+  const [bindFormat, setBindFormat] = useState<string>("");
+  const [bindScale, setBindScale] = useState<number>(1);
+
   // v0.35: Plugin controls (loaded from API)
   const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
 
@@ -386,14 +394,15 @@ useEffect(() => {
 
   function templateDomain(template_id: string): string {
     // Convention: ha_<domain>_...
-    // Examples: ha_light_full, ha_climate_full
     const m = /^ha_([a-z0-9]+)_/i.exec(template_id || "");
-      const allTemplatesForWizard = [...CONTROL_TEMPLATES, ...pluginControls];
-  const wizardTemplate = tmplWizard ? allTemplatesForWizard.find((t) => t.id === tmplWizard.template_id) : null;
+    return (m?.[1] || "").toLowerCase();
+  }
+
+  const allTemplatesForWizard = [...CONTROL_TEMPLATES, ...(pluginControls ?? [])];
+  const wizardTemplate = tmplWizard ? allTemplatesForWizard.find((t) => t?.id === tmplWizard.template_id) ?? null : null;
   const wizardIsCard = !!(wizardTemplate && String((wizardTemplate as any).title || "").startsWith("Card Library •"));
   const wizardIsMultiEntity = !!(tmplWizard && (tmplWizard.template_id.startsWith("glance_card") || tmplWizard.template_id.startsWith("grid_card_")));
   const wizardWantsTapAction = !!(tmplWizard && (tmplWizard.template_id === "entity_card" || tmplWizard.template_id === "tile_card" || tmplWizard.template_id.startsWith("glance_card") || tmplWizard.template_id.startsWith("grid_card_")));
-
   const wizardEntitySlots = (() => {
     if (!tmplWizard) return 1;
     if (tmplWizard.template_id.startsWith("glance_card")) return tmplGlanceRows || 4;
@@ -404,9 +413,6 @@ useEffect(() => {
     }
     return 1;
   })();
-
-return (m?.[1] || "").toLowerCase();
-  }
 
   function lintProject(p: ProjectModel | null) {
     const res: { level: "error" | "warn"; msg: string }[] = [];

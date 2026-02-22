@@ -206,7 +206,7 @@ const stageRef = useRef<any>(null);
         }}
         onTransformEnd={(e) => {
           const node = e.target;
-          const alt = !!e.evt.altKey; // hold ALT to disable snapping
+          const alt = !!(e.evt as { altKey?: boolean }).altKey; // hold ALT to disable snapping
           const scaleX = node.scaleX();
           const scaleY = node.scaleY();
           node.scaleX(1);

@@ -119,7 +119,7 @@ function buildGridCard({
  * - Widget events produce ESPHome action YAML fragments (homeassistant.action).
  * - Links are compiled into on_value/on_state triggers by the backend compiler.
  */
-export const CONTROL_TEMPLATES: ControlTemplate[] = [
+export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   {
     id: "ha_light_toggle",
     title: "Home Assistant • Light (Toggle)",
@@ -2512,4 +2512,4 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
     },
   },
 
-];
+]) as ControlTemplate[];
