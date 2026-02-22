@@ -30,6 +30,15 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(16).slice(2, 10)}`;
 }
 
+function friendlyToId(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    || "device";
+}
+
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
 }
@@ -633,7 +642,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
   }
 
   async function addDevice() {
-    if (!newDeviceId.trim()) return;
+    if (!newDeviceName.trim() || !newDeviceId.trim()) return;
     setBusy(true);
     try {
       const res = await upsertDevice(entryId, {
@@ -685,9 +694,10 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
 
   function wizardSelectRecipe(r: { id: string; label: string }) {
     setNewDeviceWizardRecipe(r);
-    setNewDeviceWizardId(r.id);
-    setNewDeviceWizardName(r.label);
-    setNewDeviceWizardSlug(r.id.replace(/\s+/g, "_").toLowerCase());
+    const derived = friendlyToId(r.label || r.id);
+    setNewDeviceWizardName(r.label || r.id);
+    setNewDeviceWizardId(derived);
+    setNewDeviceWizardSlug(derived);
     setNewDeviceWizardStep(2);
   }
 
@@ -1899,12 +1909,22 @@ function deleteSelected() {
                 <div className="muted" style={{ fontSize: 13 }}>
                   Profile: <strong>{newDeviceWizardRecipe?.label}</strong>
                 </div>
+                <label className="label">Friendly name</label>
+                <input
+                  value={newDeviceWizardName}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setNewDeviceWizardName(name);
+                    const derived = friendlyToId(name);
+                    setNewDeviceWizardId(derived);
+                    setNewDeviceWizardSlug(derived);
+                  }}
+                  placeholder="e.g. Living Room Display"
+                />
                 <label className="label">device_id</label>
-                <input value={newDeviceWizardId} onChange={(e) => setNewDeviceWizardId(e.target.value)} placeholder="e.g. living_room_display" />
-                <label className="label">name</label>
-                <input value={newDeviceWizardName} onChange={(e) => setNewDeviceWizardName(e.target.value)} placeholder="Display name" />
-                <label className="label">slug (optional)</label>
-                <input value={newDeviceWizardSlug} onChange={(e) => setNewDeviceWizardSlug(e.target.value)} placeholder="Used for .yaml filename" />
+                <input value={newDeviceWizardId} onChange={(e) => { setNewDeviceWizardId(e.target.value); setNewDeviceWizardSlug(e.target.value); }} placeholder="Derived from name" />
+                <label className="label">Filename</label>
+                <input value={newDeviceWizardSlug} onChange={(e) => setNewDeviceWizardSlug(e.target.value)} placeholder="Defaults to device_id, used for .yaml file" />
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button
                     className="secondary"
@@ -1913,7 +1933,7 @@ function deleteSelected() {
                     Back
                   </button>
                   <button
-                    disabled={busy || !newDeviceWizardId.trim()}
+                    disabled={busy || !newDeviceWizardName.trim()}
                     onClick={createNewDeviceFromWizard}
                   >
                     Create device
@@ -1928,13 +1948,23 @@ function deleteSelected() {
       <main className="grid">
         <section className="card">
           <h2>Create / Update Device</h2>
+          <label className="label">Friendly name</label>
+          <input
+            value={newDeviceName}
+            onChange={(e) => {
+              const name = e.target.value;
+              setNewDeviceName(name);
+              const derived = friendlyToId(name);
+              setNewDeviceId(derived);
+              setNewDeviceSlug(derived);
+            }}
+            placeholder="e.g. Living Room Display"
+          />
           <label className="label">device_id</label>
-          <input value={newDeviceId} onChange={(e) => setNewDeviceId(e.target.value)} />
-          <label className="label">name</label>
-          <input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} />
-          <label className="label">slug (optional)</label>
-          <input value={newDeviceSlug} onChange={(e) => setNewDeviceSlug(e.target.value)} />
-          <button disabled={busy || !entryId} onClick={addDevice} title={!entryId ? "Waiting for integration context. Reload the page or check HA logs." : ""}>Save device</button>
+          <input value={newDeviceId} onChange={(e) => { setNewDeviceId(e.target.value); setNewDeviceSlug(e.target.value); }} placeholder="Derived from name" />
+          <label className="label">Filename</label>
+          <input value={newDeviceSlug} onChange={(e) => setNewDeviceSlug(e.target.value)} placeholder="Defaults to device_id, used for .yaml file" />
+          <button disabled={busy || !entryId || !newDeviceName.trim()} onClick={addDevice} title={!entryId ? "Waiting for integration context. Reload the page or check HA logs." : !newDeviceName.trim() ? "Enter a friendly name" : ""}>Save device</button>
           {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready — reload the page or check Settings → Devices & Services.</div>}
         
               <div style={{ marginTop: 12 }}>
@@ -2018,7 +2048,7 @@ function deleteSelected() {
               <li key={d.device_id} className={d.device_id === selectedDevice ? "row selected" : "row"}>
                 <div className="grow clickable" onClick={() => loadDevice(d.device_id)}>
                   <div className="title">{d.name}</div>
-                  <div className="muted"><code>{d.device_id}</code> → <code>{d.slug}.yaml</code></div>
+                  <div className="muted"><code>{d.device_id}</code> → <code>{(d.slug || d.device_id)}.yaml</code></div>
                 </div>
                 <button className="danger" disabled={busy} onClick={() => removeDevice(d.device_id)}>Delete</button>
               </li>
