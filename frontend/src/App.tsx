@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
 import { CONTROL_TEMPLATES } from "./controls";
@@ -82,6 +82,8 @@ export default function App() {
 
   // Hardware recipes are loaded once for pickers and metadata display.
   const [recipes, setRecipes] = useState<any[]>([]);
+  const setRecipesRef = useRef(setRecipes);
+  setRecipesRef.current = setRecipes;
   const [recipeValidateBusy, setRecipeValidateBusy] = useState(false);
   const [recipeValidateErr, setRecipeValidateErr] = useState<string>("");
   const [recipeValidateRes, setRecipeValidateRes] = useState<any>(null);
@@ -244,14 +246,14 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
     setDevices(res.devices);
   }
 
-  async function refreshRecipes() {
+  const refreshRecipes = useCallback(async () => {
     try {
       const rs = await listRecipes();
-      setRecipes(rs);
+      setRecipesRef.current(rs);
     } catch (e: any) {
       setError(String(e?.message || e));
     }
-  }
+  }, []);
 
   useEffect(() => {
     refreshRecipes();
