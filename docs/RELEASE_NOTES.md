@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.7
+
+- Switch to zip_release to fix "No module named config_flow" - HACS now downloads a proper zip with correct structure.
+
 ## v0.70.6
 
 - Fix Invalid handler: simplify config flow to match koosoli pattern (named ConfigFlow, single_instance, minimal options flow with super().__init__).
