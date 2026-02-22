@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.40
+
+- Fix axis labelling: Y axis uses LVGL convention (0,0 top-left, Y down).
+- Fix canvas sizing: extract resolution from recipe ID when not in YAML (e.g. jc1060p470_esp32p4_1024x600 → 1024×600).
+
 ## v0.70.39
 
 - Three-column designer layout: left palette | center canvas | right inspector.

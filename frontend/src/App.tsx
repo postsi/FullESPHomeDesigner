@@ -2253,9 +2253,9 @@ function deleteSelected() {
                   }}
                 />
                   </div>
-                  <div className="canvasAxisX" style={{ marginTop: 4, paddingLeft: 28 }}>
+                  <div className="canvasAxisX" style={{ marginTop: 4, marginLeft: 28, width: (project as any)?.device?.screen?.width || 800, display: "flex", justifyContent: "space-between" }}>
                     {Array.from({ length: Math.floor(((project as any)?.device?.screen?.width || 800) / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
-                      <span key={x} style={{ minWidth: 40, textAlign: "left" }}>{x}</span>
+                      <span key={x} style={{ flex: "0 0 auto" }}>{x}</span>
                     ))}
                   </div>
                 </div>
