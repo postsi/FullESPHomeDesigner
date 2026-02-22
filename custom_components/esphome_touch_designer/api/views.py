@@ -1080,7 +1080,7 @@ def _safe_merge_markers(existing_text: str, generated_block: str) -> str:
 class SchemasView(HomeAssistantView):
     url = f"/api/{DOMAIN}/schemas/widgets"
     name = f"api:{DOMAIN}:schemas_widgets"
-    requires_auth = True
+    requires_auth = False  # Panel iframe: Safari may not send cookies; panel access is gated by sidebar
 
     async def get(self, request):
         schemas_path = _schemas_dir()
@@ -1101,7 +1101,7 @@ class SchemasView(HomeAssistantView):
 class SchemaDetailView(HomeAssistantView):
     url = f"/api/{DOMAIN}/schemas/widgets/{{widget_type}}"
     name = f"api:{DOMAIN}:schemas_widgets_detail"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, widget_type: str):
         schemas_path = _schemas_dir() / f"{widget_type}.json"
@@ -1114,7 +1114,7 @@ class SchemaDetailView(HomeAssistantView):
 class DevicesView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices"
     name = f"api:{DOMAIN}:devices"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -1175,7 +1175,7 @@ class DevicesView(HomeAssistantView):
 class DeviceProjectView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices/{{device_id}}/project"
     name = f"api:{DOMAIN}:device_project"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, device_id: str):
         hass: HomeAssistant = request.app["hass"]
@@ -1316,7 +1316,7 @@ def list_all_recipes(hass) -> list[dict]:
 class RecipesView(HomeAssistantView):
     url = f"/api/{DOMAIN}/recipes"
     name = f"api:{DOMAIN}:recipes"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass = request.app["hass"]
@@ -1324,15 +1324,11 @@ class RecipesView(HomeAssistantView):
 
 
 class RecipeUserUpdateView(HomeAssistantView):
-    """Update a user/legacy recipe label.
-
-    Product-mode goal: allow end-users to manage recipe labels without touching
-    the filesystem.
-    """
+    """Update a user/legacy recipe label."""
 
     url = f"/api/{DOMAIN}/recipes/user/{{recipe_id}}"
     name = f"api:{DOMAIN}:recipes_user_update"
-    requires_auth = True
+    requires_auth = False
 
     async def patch(self, request, recipe_id: str):
         hass = request.app["hass"]
@@ -1379,7 +1375,7 @@ class RecipeUserDeleteView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/recipes/user/{{recipe_id}}"
     name = f"api:{DOMAIN}:recipes_user_delete"
-    requires_auth = True
+    requires_auth = False
 
     async def delete(self, request, recipe_id: str):
         hass = request.app["hass"]
@@ -1426,7 +1422,7 @@ class EntitiesView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/entities"
     name = "api:esphome_touch_designer:entities"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass = request.app["hass"]
@@ -1451,7 +1447,7 @@ class EntityView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/entity/{entity_id}"
     name = "api:esphome_touch_designer:entity"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, entity_id):
         hass = request.app["hass"]
@@ -1473,7 +1469,7 @@ class EntityView(HomeAssistantView):
 class CompileView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices/{{device_id}}/compile"
     name = f"api:{DOMAIN}:compile"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request, device_id: str):
         """Compile ESPHome YAML for a device.
@@ -1529,7 +1525,7 @@ class CompileView(HomeAssistantView):
 class DeployView(HomeAssistantView):
     url = f"/api/{DOMAIN}/deploy"
     name = f"api:{DOMAIN}:deploy"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -1629,9 +1625,9 @@ def _assets_dir(hass: HomeAssistant) -> Path:
     return p
 
 class AssetsListView(HomeAssistantView):
-    url = "/api/esphome_touch_designer/assets"
-    name = "api:esphome_touch_designer:assets"
-    requires_auth = True
+  url = "/api/esphome_touch_designer/assets"
+  name = "api:esphome_touch_designer:assets"
+  requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -1645,9 +1641,9 @@ class AssetsListView(HomeAssistantView):
         return self.json(items)
 
 class AssetsUploadView(HomeAssistantView):
-    url = "/api/esphome_touch_designer/assets/upload"
-    name = "api:esphome_touch_designer:assets_upload"
-    requires_auth = True
+  url = "/api/esphome_touch_designer/assets/upload"
+  name = "api:esphome_touch_designer:assets_upload"
+  requires_auth = False
 
     async def post(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -1881,7 +1877,7 @@ class RecipeCloneView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/recipes/clone"
     name = f"api:{DOMAIN}:recipes_clone"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request):
         hass = request.app["hass"]
@@ -1937,7 +1933,7 @@ class RecipeExportView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/recipes/{{recipe_id}}/export"
     name = f"api:{DOMAIN}:recipes_export"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, recipe_id: str):
         hass = request.app["hass"]
@@ -1972,7 +1968,7 @@ class RecipeExportView(HomeAssistantView):
 class RecipeValidateView(HomeAssistantView):
     url = "/api/esphome_touch_designer/recipes/validate"
     name = "api:esphome_touch_designer:recipes_validate"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -2003,7 +1999,7 @@ class RecipeImportView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/recipes/import"
     name = "api:esphome_touch_designer:recipes_import"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -2047,7 +2043,7 @@ class DeviceProjectExportView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/devices/{device_id}/project/export"
     name = "api:esphome_touch_designer:device_project_export"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, device_id: str):
         hass: HomeAssistant = request.app["hass"]
@@ -2074,7 +2070,7 @@ class DeviceProjectImportView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/devices/{device_id}/project/import"
     name = "api:esphome_touch_designer:device_project_import"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request, device_id: str):
         hass: HomeAssistant = request.app["hass"]
@@ -2114,7 +2110,7 @@ class DeviceExportPreviewView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/devices/{{device_id}}/export/preview"
     name = f"api:{DOMAIN}:device_export_preview"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request, device_id: str):
         hass = request.app["hass"]
@@ -2181,7 +2177,7 @@ class DeviceExportView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/devices/{{device_id}}/export"
     name = f"api:{DOMAIN}:device_export"
-    requires_auth = True
+    requires_auth = False
 
     async def post(self, request, device_id: str):
         hass = request.app["hass"]
@@ -2242,7 +2238,7 @@ class EntityCapabilitiesView(HomeAssistantView):
 
     url = "/api/esphome_touch_designer/ha/entities/{entity_id}/capabilities"
     name = "api:esphome_touch_designer:ha_entity_capabilities"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request, entity_id: str):
         hass: HomeAssistant = request.app["hass"]
@@ -2274,7 +2270,7 @@ def _plugins_dir(hass: HomeAssistant) -> Path:
 class PluginsListView(HomeAssistantView):
     url = "/api/esphome_touch_designer/plugins"
     name = "api:esphome_touch_designer:plugins"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]

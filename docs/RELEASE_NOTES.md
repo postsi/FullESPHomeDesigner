@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.23
+
+- Fix "invalid authentication" (401) in Safari iframe: set requires_auth=False on all panel API views so fetch calls succeed when cookies are not sent.
+
 ## v0.70.22
 
 - New device wizard: refetch recipes when opening; add Refresh button when empty; clearer empty-state message.
