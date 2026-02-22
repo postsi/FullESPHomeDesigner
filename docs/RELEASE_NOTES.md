@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.38
+
+- Top toolbar: device dropdown, New device, Edit device, Delete.
+- Devices section replaced by dropdown on toolbar; selecting loads device and populates canvas.
+- API key generated when entering New device wizard step 2; shown as editable field with Regenerate/Copy.
+- API key visibility: Edit modal shows key (plain text) and clearer persistence hint.
+
 ## v0.70.37
 
 - Add per-device API encryption key for Home Assistant connectivity.

@@ -113,6 +113,7 @@ export default function App() {
   const [newDeviceWizardId, setNewDeviceWizardId] = useState("");
   const [newDeviceWizardName, setNewDeviceWizardName] = useState("");
   const [newDeviceWizardSlug, setNewDeviceWizardSlug] = useState("");
+  const [newDeviceWizardApiKey, setNewDeviceWizardApiKey] = useState("");
 
   const [selectedDevice, setSelectedDevice] = useState<string>("");
   const projectHist = useHistory<ProjectModel | null>(null);
@@ -663,6 +664,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
         name: newDeviceWizardName.trim() || did,
         slug: newDeviceWizardSlug.trim() || undefined,
         hardware_recipe_id: newDeviceWizardRecipe.id,
+        api_key: newDeviceWizardApiKey.trim() || undefined,
       });
       if (!res.ok) return setToast({ type: "error", msg: res.error });
       setToast({ type: "ok", msg: "Device created" });
@@ -672,6 +674,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       setNewDeviceWizardId("");
       setNewDeviceWizardName("");
       setNewDeviceWizardSlug("");
+      setNewDeviceWizardApiKey("");
       await refresh();
       setEditorTab("design");
       await loadDevice(did);
@@ -694,7 +697,14 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setNewDeviceWizardId("");
     setNewDeviceWizardName("");
     setNewDeviceWizardSlug("");
+    setNewDeviceWizardApiKey("");
     refreshRecipes(); // Refetch recipes when wizard opens (handles late load or retry)
+  }
+
+  function regenerateWizardApiKey() {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    setNewDeviceWizardApiKey(btoa(String.fromCharCode(...arr)));
   }
 
   function wizardSelectRecipe(r: { id: string; label: string }) {
@@ -703,6 +713,9 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setNewDeviceWizardName(r.label || r.id);
     setNewDeviceWizardId(derived);
     setNewDeviceWizardSlug(derived);
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    setNewDeviceWizardApiKey(btoa(String.fromCharCode(...arr)));
     setNewDeviceWizardStep(2);
   }
 
@@ -1898,14 +1911,14 @@ function deleteSelected() {
                 autoComplete="off"
                 value={newDeviceApiKey}
                 onChange={(e) => setNewDeviceApiKey(e.target.value)}
-                placeholder="32-byte base64 (generated on create)"
+                placeholder={newDeviceApiKey ? "" : "No key—click Regenerate to create one"}
                 style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
               />
               <button type="button" className="secondary" onClick={regenerateApiKey} title="Generate new API key">Regenerate</button>
               <button type="button" className="secondary" disabled={!newDeviceApiKey} onClick={() => newDeviceApiKey && navigator.clipboard.writeText(newDeviceApiKey)} title="Copy to clipboard">Copy</button>
             </div>
             <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-              Required for Home Assistant API. Paste into ESPHome secrets or ensure it matches configuration.yaml.
+              Required for Home Assistant API. Visible for debugging. Saves with device; paste into ESPHome secrets or ensure it matches configuration.yaml.
             </div>
             {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready.</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
@@ -1975,6 +1988,19 @@ function deleteSelected() {
                 <input value={newDeviceWizardId} onChange={(e) => { setNewDeviceWizardId(e.target.value); setNewDeviceWizardSlug(e.target.value); }} placeholder="Derived from name" />
                 <label className="label">Filename</label>
                 <input value={newDeviceWizardSlug} onChange={(e) => setNewDeviceWizardSlug(e.target.value)} placeholder="Defaults to device_id, used for .yaml file" />
+                <label className="label">API key</label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    value={newDeviceWizardApiKey}
+                    onChange={(e) => setNewDeviceWizardApiKey(e.target.value)}
+                    placeholder="32-byte base64 (auto-generated)"
+                    style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
+                  />
+                  <button type="button" className="secondary" onClick={regenerateWizardApiKey} title="Generate new API key">Regenerate</button>
+                  <button type="button" className="secondary" disabled={!newDeviceWizardApiKey} onClick={() => newDeviceWizardApiKey && navigator.clipboard.writeText(newDeviceWizardApiKey)} title="Copy to clipboard">Copy</button>
+                </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button
                     className="secondary"
@@ -1994,6 +2020,28 @@ function deleteSelected() {
           </div>
         </div>
       )}
+
+      <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
+        <select
+          value={selectedDevice}
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id) loadDevice(id);
+          }}
+          title="Select device"
+          style={{ minWidth: 180, padding: "6px 10px" }}
+        >
+          <option value="">Select device…</option>
+          {devices.map((d) => (
+            <option key={d.device_id} value={d.device_id}>
+              {d.name || d.device_id}
+            </option>
+          ))}
+        </select>
+        <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
+        <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
+        <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
+      </nav>
 
       <main className="grid">
         <section className="card">
@@ -2068,27 +2116,6 @@ function deleteSelected() {
 
         </section>
 
-        <section className="card">
-          <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            Devices
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
-              <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
-            </div>
-          </h2>
-          <ul className="list">
-            {devices.map((d) => (
-              <li key={d.device_id} className={d.device_id === selectedDevice ? "row selected" : "row"}>
-                <div className="grow clickable" onClick={() => loadDevice(d.device_id)}>
-                  <div className="title">{d.name}</div>
-                  <div className="muted"><code>{d.device_id}</code> → <code>{(d.slug || d.device_id)}.yaml</code></div>
-                </div>
-                <button className="danger" disabled={busy} onClick={() => removeDevice(d.device_id)}>Delete</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         <section className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <h2>Editor</h2>
           <div className="bar" style={{ justifyContent: "space-between" }}>
@@ -2150,7 +2177,7 @@ function deleteSelected() {
           <div style={{ flex: 1, minHeight: 0, maxHeight: "70vh", overflowY: "auto", marginTop: 8 }}>
           {!selectedDevice || !project ? (
             <div className="muted" style={{ marginTop: 12 }}>
-              Select a device to edit: click <strong>New device</strong> (recommended) to create with a hardware profile, or use the form above for devices without a recipe. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
+              Select a device from the dropdown above, or click <strong>New device</strong> to create one. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
             </div>
           ) : (
             <>
