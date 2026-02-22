@@ -1,0 +1,14 @@
+---
+description: Bump version and push after making changes
+alwaysApply: true
+---
+
+# Release Workflow
+
+When you have made any changes to this project:
+
+1. **Bump version** in all of: `manifest.json`, `frontend/package.json`, `README.md`, `docs/RELEASE_NOTES.md`
+2. **Add a release note** entry for the new version in `docs/RELEASE_NOTES.md`
+3. **Commit, push, tag, and create a GitHub release** (do not skip this)
+
+This applies to every edit — bug fixes, features, config changes. No exceptions.

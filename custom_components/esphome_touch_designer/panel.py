@@ -15,10 +15,10 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PanelIndexView(HomeAssistantView):
-    """Serves the SPA entrypoint."""
+    """Serves the SPA entrypoint. requires_auth=False so iframe loads reliably (sidebar is admin-only)."""
     url = f"/{PANEL_URL_PATH}"
     name = f"{DOMAIN}:panel"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]

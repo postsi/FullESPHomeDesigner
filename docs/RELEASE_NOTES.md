@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.14
+
+- Fix 401 Unauthorized: set requires_auth=False on panel view (match postsi/ESPHomeDesigner).
+- Add .cursor rule for version-and-release workflow.
+
 ## v0.70.13
 
 - Fix AttributeError: use async_register_static_paths instead of deprecated register_static_path.
