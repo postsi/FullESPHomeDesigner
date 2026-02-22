@@ -1186,7 +1186,26 @@ class DeviceProjectView(HomeAssistantView):
         device = storage.get_device(device_id)
         if not device:
             return self.json({"ok": False, "error": "device_not_found"}, status_code=404)
-        return self.json({"ok": True, "project": device.project})
+        project = dict(device.project) if device.project else {}
+        # Enrich project with device.screen from recipe when device has hardware_recipe_id
+        if device.hardware_recipe_id:
+            screen = (project.get("device") or {}).get("screen") or {}
+            if not (screen.get("width") and screen.get("height")):
+                recipe_path = _find_recipe_path_by_id(hass, device.hardware_recipe_id)
+                if recipe_path and recipe_path.exists():
+                    try:
+                        meta = _extract_recipe_metadata_from_text(recipe_path.read_text("utf-8"))
+                        res = meta.get("resolution")
+                        if isinstance(res, dict) and res.get("width") and res.get("height"):
+                            project.setdefault("device", {})
+                            project["device"]["hardware_recipe_id"] = device.hardware_recipe_id
+                            project["device"]["screen"] = {
+                                "width": int(res["width"]),
+                                "height": int(res["height"]),
+                            }
+                    except Exception:
+                        pass
+        return self.json({"ok": True, "project": project})
 
     async def put(self, request, device_id: str):
         hass: HomeAssistant = request.app["hass"]

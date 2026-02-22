@@ -93,6 +93,14 @@ export default function App() {
   const [newDeviceName, setNewDeviceName] = useState("");
   const [newDeviceSlug, setNewDeviceSlug] = useState("");
 
+  // New device wizard: hardware-first flow
+  const [newDeviceWizardOpen, setNewDeviceWizardOpen] = useState(false);
+  const [newDeviceWizardStep, setNewDeviceWizardStep] = useState<1 | 2>(1);
+  const [newDeviceWizardRecipe, setNewDeviceWizardRecipe] = useState<{ id: string; label: string } | null>(null);
+  const [newDeviceWizardId, setNewDeviceWizardId] = useState("");
+  const [newDeviceWizardName, setNewDeviceWizardName] = useState("");
+  const [newDeviceWizardSlug, setNewDeviceWizardSlug] = useState("");
+
   const [selectedDevice, setSelectedDevice] = useState<string>("");
   const projectHist = useHistory<ProjectModel | null>(null);
   const project = projectHist.present;
@@ -625,6 +633,48 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug("");
       await refresh();
     } finally { setBusy(false); }
+  }
+
+  async function createNewDeviceFromWizard() {
+    if (!newDeviceWizardRecipe || !newDeviceWizardId.trim()) return;
+    const did = newDeviceWizardId.trim();
+    setBusy(true);
+    try {
+      const res = await upsertDevice(entryId, {
+        device_id: did,
+        name: newDeviceWizardName.trim() || did,
+        slug: newDeviceWizardSlug.trim() || undefined,
+        hardware_recipe_id: newDeviceWizardRecipe.id,
+      });
+      if (!res.ok) return setToast({ type: "error", msg: res.error });
+      setToast({ type: "ok", msg: "Device created" });
+      setNewDeviceWizardOpen(false);
+      setNewDeviceWizardStep(1);
+      setNewDeviceWizardRecipe(null);
+      setNewDeviceWizardId("");
+      setNewDeviceWizardName("");
+      setNewDeviceWizardSlug("");
+      await refresh();
+      setEditorTab("design");
+      await loadDevice(did);
+    } finally { setBusy(false); }
+  }
+
+  function openNewDeviceWizard() {
+    setNewDeviceWizardOpen(true);
+    setNewDeviceWizardStep(1);
+    setNewDeviceWizardRecipe(null);
+    setNewDeviceWizardId("");
+    setNewDeviceWizardName("");
+    setNewDeviceWizardSlug("");
+  }
+
+  function wizardSelectRecipe(r: { id: string; label: string }) {
+    setNewDeviceWizardRecipe(r);
+    setNewDeviceWizardId(r.id);
+    setNewDeviceWizardName(r.label);
+    setNewDeviceWizardSlug(r.id.replace(/\s+/g, "_").toLowerCase());
+    setNewDeviceWizardStep(2);
   }
 
   async function removeDevice(id: string) {
@@ -1766,6 +1816,72 @@ function deleteSelected() {
         </div>
       )}
 
+      {newDeviceWizardOpen && (
+        <div className="modalOverlay" onClick={() => setNewDeviceWizardOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modalHeader">
+              <div>
+                <div className="title">New device</div>
+                <div className="muted">
+                  {newDeviceWizardStep === 1 ? "Step 1: Choose a hardware profile" : "Step 2: Device details"}
+                </div>
+              </div>
+              <button className="ghost" onClick={() => setNewDeviceWizardOpen(false)}>✕</button>
+            </div>
+            {newDeviceWizardStep === 1 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Select the hardware recipe for this device. The canvas size will match the recipe resolution.
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+                  {recipes.map((r: any) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className={newDeviceWizardRecipe?.id === r.id ? "" : "secondary"}
+                      style={{ textAlign: "left", padding: 12 }}
+                      onClick={() => wizardSelectRecipe({ id: r.id, label: String(r.label || r.id) })}
+                    >
+                      <div className="title" style={{ fontSize: 14 }}>{r.label || r.id}</div>
+                      <div className="muted" style={{ fontSize: 12 }}><code>{r.id}</code></div>
+                    </button>
+                  ))}
+                </div>
+                {recipes.length === 0 && (
+                  <div className="muted" style={{ padding: 12 }}>No recipes found. Add a hardware recipe first.</div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Profile: <strong>{newDeviceWizardRecipe?.label}</strong>
+                </div>
+                <label className="label">device_id</label>
+                <input value={newDeviceWizardId} onChange={(e) => setNewDeviceWizardId(e.target.value)} placeholder="e.g. living_room_display" />
+                <label className="label">name</label>
+                <input value={newDeviceWizardName} onChange={(e) => setNewDeviceWizardName(e.target.value)} placeholder="Display name" />
+                <label className="label">slug (optional)</label>
+                <input value={newDeviceWizardSlug} onChange={(e) => setNewDeviceWizardSlug(e.target.value)} placeholder="Used for .yaml filename" />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    className="secondary"
+                    onClick={() => { setNewDeviceWizardStep(1); setNewDeviceWizardRecipe(null); }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    disabled={busy || !newDeviceWizardId.trim()}
+                    onClick={createNewDeviceFromWizard}
+                  >
+                    Create device
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <main className="grid">
         <section className="card">
           <h2>Create / Update Device</h2>
@@ -1846,7 +1962,10 @@ function deleteSelected() {
         </section>
 
         <section className="card">
-          <h2>Devices</h2>
+          <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            Devices
+            <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
+          </h2>
           <ul className="list">
             {devices.map((d) => (
               <li key={d.device_id} className={d.device_id === selectedDevice ? "row selected" : "row"}>
@@ -1921,7 +2040,7 @@ function deleteSelected() {
           <div style={{ flex: 1, minHeight: 0, maxHeight: "70vh", overflowY: "auto", marginTop: 8 }}>
           {!selectedDevice || !project ? (
             <div className="muted" style={{ marginTop: 12 }}>
-              Select a device to edit: create one above (device_id, name) → Save device, then click it in the Devices list. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
+              Select a device to edit: click <strong>New device</strong> (recommended) to create with a hardware profile, or use the form above for devices without a recipe. Use the <strong>Design</strong> tab to see palettes and drag widgets onto the canvas.
             </div>
           ) : (
             <>
