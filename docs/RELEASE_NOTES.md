@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.15
+
+- Fix AttributeError: use aiohttp web.Response instead of non-existent self.Response in panel.
+
 ## v0.70.14
 
 - Fix 401 Unauthorized: set requires_auth=False on panel view (match postsi/ESPHomeDesigner).

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import frontend
@@ -32,9 +33,9 @@ class PanelIndexView(HomeAssistantView):
                 "<pre>cd frontend\n\n# install deps\nnpm install\n\n# build into custom_components/.../web/dist\nnpm run build</pre>"
                 "</body></html>"
             )
-            return self.Response(text=fallback, content_type="text/html")
+            return web.Response(text=fallback, content_type="text/html")
         html = await hass.async_add_executor_job(index_path.read_text, "utf-8")
-        return self.Response(text=html, content_type="text/html")
+        return web.Response(text=html, content_type="text/html")
 
 
 async def async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
