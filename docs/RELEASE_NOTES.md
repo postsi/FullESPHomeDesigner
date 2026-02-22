@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.36
+
+- Move Create/Update Device form into Edit device modal; add Edit device button next to New device.
+- Edit device form populates with selected device (name, filename); device_id shown read-only.
+
 ## v0.70.35
 
 - Remove redundant LVGL Widgets section (duplicates Palette).

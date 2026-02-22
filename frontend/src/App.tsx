@@ -105,6 +105,7 @@ export default function App() {
   const [newDeviceSlug, setNewDeviceSlug] = useState("");
 
   // New device wizard: hardware-first flow
+  const [editDeviceModalOpen, setEditDeviceModalOpen] = useState(false);
   const [newDeviceWizardOpen, setNewDeviceWizardOpen] = useState(false);
   const [newDeviceWizardStep, setNewDeviceWizardStep] = useState<1 | 2>(1);
   const [newDeviceWizardRecipe, setNewDeviceWizardRecipe] = useState<{ id: string; label: string } | null>(null);
@@ -626,17 +627,18 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setTmplWizard(null);
   }
 
-  async function addDevice() {
-    if (!newDeviceName.trim() || !newDeviceId.trim()) return;
+  async function saveEditedDevice() {
+    if (!selectedDevice || !newDeviceName.trim()) return;
     setBusy(true);
     try {
       const res = await upsertDevice(entryId, {
-        device_id: newDeviceId.trim(),
-        name: newDeviceName.trim() || newDeviceId.trim(),
+        device_id: selectedDevice,
+        name: newDeviceName.trim(),
         slug: newDeviceSlug.trim() || undefined,
       });
       if (!res.ok) return setToast({ type: "error", msg: res.error });
-      setToast({ type: "ok", msg: "Device saved" });
+      setToast({ type: "ok", msg: "Device updated" });
+      setEditDeviceModalOpen(false);
       setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug("");
       await refresh();
     } finally { setBusy(false); }
@@ -665,6 +667,14 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       setEditorTab("design");
       await loadDevice(did);
     } finally { setBusy(false); }
+  }
+
+  function openEditDeviceModal() {
+    if (!selectedDeviceObj) return;
+    setNewDeviceId(selectedDeviceObj.device_id);
+    setNewDeviceName(selectedDeviceObj.name || "");
+    setNewDeviceSlug(selectedDeviceObj.slug || selectedDeviceObj.device_id || "");
+    setEditDeviceModalOpen(true);
   }
 
   function openNewDeviceWizard() {
@@ -1851,6 +1861,35 @@ function deleteSelected() {
         </div>
       )}
 
+      {editDeviceModalOpen && selectedDeviceObj && (
+        <div className="modalOverlay" onClick={() => setEditDeviceModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modalHeader">
+              <div className="title">Edit device</div>
+              <button className="ghost" onClick={() => setEditDeviceModalOpen(false)}>✕</button>
+            </div>
+            <div className="muted" style={{ marginBottom: 12 }}><code>{selectedDeviceObj.device_id}</code></div>
+            <label className="label">Friendly name</label>
+            <input
+              value={newDeviceName}
+              onChange={(e) => setNewDeviceName(e.target.value)}
+              placeholder="e.g. Living Room Display"
+            />
+            <label className="label">Filename</label>
+            <input
+              value={newDeviceSlug}
+              onChange={(e) => setNewDeviceSlug(e.target.value)}
+              placeholder="Used for .yaml export"
+            />
+            {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready.</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              <button className="ghost" onClick={() => setEditDeviceModalOpen(false)}>Cancel</button>
+              <button disabled={busy || !newDeviceName.trim()} onClick={saveEditedDevice}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {newDeviceWizardOpen && (
         <div className="modalOverlay">
           <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
@@ -1932,27 +1971,7 @@ function deleteSelected() {
 
       <main className="grid">
         <section className="card">
-          <h2>Create / Update Device</h2>
-          <label className="label">Friendly name</label>
-          <input
-            value={newDeviceName}
-            onChange={(e) => {
-              const name = e.target.value;
-              setNewDeviceName(name);
-              const derived = friendlyToId(name);
-              setNewDeviceId(derived);
-              setNewDeviceSlug(derived);
-            }}
-            placeholder="e.g. Living Room Display"
-          />
-          <label className="label">device_id</label>
-          <input value={newDeviceId} onChange={(e) => { setNewDeviceId(e.target.value); setNewDeviceSlug(e.target.value); }} placeholder="Derived from name" />
-          <label className="label">Filename</label>
-          <input value={newDeviceSlug} onChange={(e) => setNewDeviceSlug(e.target.value)} placeholder="Defaults to device_id, used for .yaml file" />
-          <button disabled={busy || !entryId || !newDeviceName.trim()} onClick={addDevice} title={!entryId ? "Waiting for integration context. Reload the page or check HA logs." : !newDeviceName.trim() ? "Enter a friendly name" : ""}>Save device</button>
-          {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready — reload the page or check Settings → Devices & Services.</div>}
-        
-              <div style={{ marginTop: 12 }}>
+              <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div className="muted">Canvas</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
@@ -2026,7 +2045,10 @@ function deleteSelected() {
         <section className="card">
           <h2 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             Devices
-            <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
+              <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
+            </div>
           </h2>
           <ul className="list">
             {devices.map((d) => (
