@@ -184,22 +184,7 @@ export default function App() {
   const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
 
   // v0.24: Lint output shown in the UI (best-effort, purely advisory).
-  const WIDGET_PALETTE: {type: string; title: string}[] = [
-  { type: "label", title: "Label" },
-  { type: "button", title: "Button" },
-  { type: "slider", title: "Slider" },
-  { type: "arc", title: "Arc" },
-  { type: "switch", title: "Switch" },
-  { type: "image", title: "Image" },
-  { type: "container", title: "Container" },
-];
-
-function onDragWidgetStart(e: React.DragEvent, type: string) {
-  e.dataTransfer.setData("application/x-esphome-widget-type", type);
-  e.dataTransfer.effectAllowed = "copy";
-}
-
-// --- Assets panel (v0.27) ---
+  // --- Assets panel (v0.27) ---
 const [assets, setAssets] = React.useState<{name:string; size:number}[]>([]);
 const [assetError, setAssetError] = React.useState<string | null>(null);
 
@@ -2449,23 +2434,6 @@ function deleteSelected() {
   </div>
   <div className="muted" style={{ marginTop: 8 }}>
     Tip: hold <code>ALT</code> while dragging existing widgets to disable grid snapping.
-  </div>
-</div>
-
-<div className="section" style={{ marginTop: 12 }}>
-  <div className="sectionTitle">LVGL Widgets</div>
-  <div className="palette">
-    {WIDGET_PALETTE.map((w) => (
-      <div
-        key={w.type}
-        className="paletteItem"
-        draggable
-        onDragStart={(e) => onDragWidgetStart(e, w.type)}
-        title="Drag onto canvas"
-      >
-        {w.title}
-      </div>
-    ))}
   </div>
 </div>
 

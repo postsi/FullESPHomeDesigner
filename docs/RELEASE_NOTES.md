@@ -1,5 +1,15 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.35
+
+- Remove redundant LVGL Widgets section (duplicates Palette).
+
+## v0.70.34
+
+- Rename "slug" to "Filename" in the UI.
+- Auto-fill Filename from device_id (both update together until user edits Filename).
+- New device: ask for Friendly name first, derive device_id and Filename from it (legal chars: lowercase, underscores).
+
 ## v0.70.33
 
 - Fix export preview/export "missing_entry_id": pass entry_id as query param to export APIs.
