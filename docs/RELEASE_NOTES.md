@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.24
+
+- Fix "Invalid handler specified" on add integration: remove panel_iframe from after_dependencies (removed in HA 2025.1+).
+
 ## v0.70.23
 
 - Fix "invalid authentication" (401) in Safari iframe: set requires_auth=False on all panel API views so fetch calls succeed when cookies are not sent.
