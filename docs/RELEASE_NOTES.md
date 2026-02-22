@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.28
+
+- Fix New device wizard: only close on backdrop click (e.target === e.currentTarget), not when clicking/focusing inputs.
+
 ## v0.70.27
 
 - Fix IndentationError in AssetsListView and AssetsUploadView (broken by requires_auth edit).

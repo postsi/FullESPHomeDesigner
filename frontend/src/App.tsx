@@ -1818,8 +1818,11 @@ function deleteSelected() {
       )}
 
       {newDeviceWizardOpen && (
-        <div className="modalOverlay" onClick={() => setNewDeviceWizardOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+        <div
+          className="modalOverlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setNewDeviceWizardOpen(false); }}
+        >
+          <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modalHeader">
               <div>
                 <div className="title">New device</div>
