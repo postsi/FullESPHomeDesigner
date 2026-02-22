@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.8
+
+- Fix HACS structure: remove root manifest.json, use standard layout (no content_in_root, no zip_release).
+  Root cause of "No module named config_flow" was content_in_root + root manifest causing wrong files to be installed.
+
 ## v0.70.7
 
 - Switch to zip_release to fix "No module named config_flow" - HACS now downloads a proper zip with correct structure.
