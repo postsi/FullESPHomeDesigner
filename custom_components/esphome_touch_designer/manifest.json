@@ -1,11 +1,15 @@
 {
+  "domain": "esphome_touch_designer",
+  "name": "ESPHome Touch Designer",
+  "documentation": "https://github.com/postsi/FullESPHomeDesigner",
+  "issue_tracker": "https://github.com/postsi/FullESPHomeDesigner/issues",
+  "configuration_url": "/esphome-touch-designer",
+  "version": "0.70.4",
+  "after_dependencies": ["http", "frontend", "panel_iframe"],
   "codeowners": ["@postsi"],
   "config_flow": true,
-  "documentation": "https://github.com/postsi/FullESPHomeDesigner",
-  "domain": "esphome_touch_designer",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/postsi/FullESPHomeDesigner/issues",
-  "name": "ESPHome Touch Designer",
+  "integration_type": "hub",
   "requirements": [],
-  "version": "0.70.3"
+  "loggers": ["custom_components.esphome_touch_designer"]
 }

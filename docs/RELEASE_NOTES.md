@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.4
+
+- Fix "Invalid handler": restore options flow with `super().__init__()`, align with koosoli/ESPHomeDesigner.
+- Remove root manifest; align manifest (configuration_url, after_dependencies, integration_type, loggers) and hacs.json (render_readme, homeassistant min).
+
 ## v0.70.3
 
 - Simplify config flow to minimal one-click add (no form) to fix "Invalid handler" error.

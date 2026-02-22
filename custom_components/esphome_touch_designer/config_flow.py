@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from homeassistant import config_entries
+import voluptuous as vol
 
-from .const import DOMAIN
+from homeassistant import config_entries
+from homeassistant.core import callback
+
+from .const import DOMAIN, CONF_WIFI_SSID, CONF_WIFI_PASSWORD_SECRET, CONF_DEFAULT_LOG_LEVEL
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -14,4 +17,39 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
-        return self.async_create_entry(title="ESPHome Touch Designer", data={})
+        if user_input is not None:
+            return self.async_create_entry(title="ESPHome Touch Designer", data=user_input)
+
+        schema = vol.Schema({
+            vol.Optional(CONF_WIFI_SSID, default="!secret wifi_ssid"): str,
+            vol.Optional(CONF_WIFI_PASSWORD_SECRET, default="!secret wifi_password"): str,
+            vol.Optional(CONF_DEFAULT_LOG_LEVEL, default="INFO"): vol.In(["DEBUG", "INFO", "WARNING", "ERROR"]),
+        })
+        return self.async_show_form(step_id="user", data_schema=schema)
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        return OptionsFlowHandler(config_entry)
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Options flow - must call super().__init__() per HA pattern."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        super().__init__()
+        self._config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Options step."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        opts = self._config_entry.options
+        data = self._config_entry.data
+        schema = vol.Schema({
+            vol.Optional(CONF_WIFI_SSID, default=opts.get(CONF_WIFI_SSID, data.get(CONF_WIFI_SSID, "!secret wifi_ssid"))): str,
+            vol.Optional(CONF_WIFI_PASSWORD_SECRET, default=opts.get(CONF_WIFI_PASSWORD_SECRET, data.get(CONF_WIFI_PASSWORD_SECRET, "!secret wifi_password"))): str,
+            vol.Optional(CONF_DEFAULT_LOG_LEVEL, default=opts.get(CONF_DEFAULT_LOG_LEVEL, data.get(CONF_DEFAULT_LOG_LEVEL, "INFO"))): vol.In(["DEBUG", "INFO", "WARNING", "ERROR"]),
+        })
+        return self.async_show_form(step_id="init", data_schema=schema)
