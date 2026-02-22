@@ -522,8 +522,15 @@ if (baseId.startsWith("glance_card")) {
 }
 
 // ha_auto returns empty widgets; must resolve to real template from entity domain + caps
+    // Card Library templates are never resolved via pickCapabilityVariant (that's for ha_* only)
+    const isCardLibrary = (tid: string) => {
+      const t = allTemplates.find((x) => x?.id === tid);
+      return t && String((t as any).title ?? "").startsWith("Card Library •");
+    };
     let resolvedId = baseId;
-    if (baseId === "ha_auto") {
+    if (isCardLibrary(baseId)) {
+      resolvedId = baseId;
+    } else if (baseId === "ha_auto") {
       const dom = (entity_id || "").split(".")[0]?.toLowerCase() || "";
       const caps = tmplCaps;
       if (dom === "light") resolvedId = pickCapabilityVariant("ha_light_full", caps, tmplVariant);
@@ -786,6 +793,18 @@ if (baseId.startsWith("glance_card")) {
   const pages = project?.pages ?? [];
   const safePageIndex = Math.max(0, Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
   const widgets = pages?.[safePageIndex]?.widgets ?? [];
+
+  // Derive canvas size: device.screen from project, or extract from hardware_recipe_id (e.g. jc1060p470_esp32p4_1024x600)
+  const screenSize = useMemo(() => {
+    const dev = (project as any)?.device;
+    const sw = dev?.screen?.width;
+    const sh = dev?.screen?.height;
+    if (sw && sh) return { width: sw, height: sh };
+    const rid = selectedDeviceObj?.hardware_recipe_id ?? dev?.hardware_recipe_id ?? "";
+    const m = /(\d{3,4})x(\d{3,4})/i.exec(String(rid));
+    if (m) return { width: parseInt(m[1], 10), height: parseInt(m[2], 10) };
+    return { width: 800, height: 480 };
+  }, [project, selectedDeviceObj?.hardware_recipe_id]);
   function _findWidget(id: string) {
     return widgets.find((w: any) => w.id === id);
   }
@@ -2246,8 +2265,8 @@ function deleteSelected() {
               </div>
               <div className="canvasAxis" style={{ alignSelf: "flex-start" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
-                  <div className="canvasAxisY" style={{ justifyContent: "space-between", height: (project as any)?.device?.screen?.height || 480, paddingTop: 4, paddingBottom: 4 }}>
-                    {Array.from({ length: Math.floor(((project as any)?.device?.screen?.height || 480) / 100) + 1 }, (_, i) => i * 100).map((y: number) => (
+                  <div className="canvasAxisY" style={{ justifyContent: "space-between", height: screenSize.height, paddingTop: 4, paddingBottom: 4 }}>
+                    {Array.from({ length: Math.floor(screenSize.height / 100) + 1 }, (_, i) => i * 100).map((y: number) => (
                       <span key={y}>{y}</span>
                     ))}
                   </div>
@@ -2255,8 +2274,8 @@ function deleteSelected() {
                     <Canvas
                   widgets={widgets}
                   selectedIds={selectedWidgetIds}
-                  width={(project as any)?.device?.screen?.width || 800}
-                  height={(project as any)?.device?.screen?.height || 480}
+                  width={screenSize.width}
+                  height={screenSize.height}
                   gridSize={(project as any)?.ui?.gridSize || 10}
                   showGrid={((project as any)?.ui?.showGrid ?? true) as any}
                   onSelect={(id, additive) => selectWidget(id, additive)}
@@ -2304,8 +2323,8 @@ function deleteSelected() {
                   }}
                 />
                   </div>
-                  <div className="canvasAxisX" style={{ marginTop: 4, marginLeft: 28, width: (project as any)?.device?.screen?.width || 800, display: "flex", justifyContent: "space-between" }}>
-                    {Array.from({ length: Math.floor(((project as any)?.device?.screen?.width || 800) / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
+                  <div className="canvasAxisX" style={{ marginTop: 4, marginLeft: 0, width: screenSize.width, minWidth: screenSize.width, display: "flex", justifyContent: "space-between", direction: "ltr" }}>
+                    {Array.from({ length: Math.floor(screenSize.width / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
                       <span key={x} style={{ flex: "0 0 auto" }}>{x}</span>
                     ))}
                   </div>

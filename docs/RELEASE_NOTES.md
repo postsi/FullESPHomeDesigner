@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.43
+
+- Fix Card Library Insert: skip pickCapabilityVariant for Card Library templates (Cover card, etc.).
+- Canvas sizing: derive screen size from hardware_recipe_id when device.screen missing (e.g. jc1060p470_esp32p4_1024x600 → 1024×600).
+- X-axis: align 0 with canvas left edge (remove marginLeft), add direction:ltr.
+
 ## v0.70.42
 
 - Fix Insert: resolve ha_auto to real template from entity domain (climate, light, cover, switch, etc.) so Home Assistant • Auto produces widgets.
