@@ -245,7 +245,9 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
     description:
       "Light control with toggle + brightness + color temperature slider (for lights that support color_temp).",
     build: ({ entity_id, x = 20, y = 20, label = "Light" }) => {
-      const built = CONTROL_TEMPLATES.find((t) => t.id === "ha_light_full")!.build({ entity_id, x, y, label });
+      const baseTmpl = CONTROL_TEMPLATES.find((t) => t.id === "ha_light_full");
+      if (!baseTmpl) throw new Error("ha_light_full template not found");
+      const built = baseTmpl.build({ entity_id, x, y, label });
       const ctId = uid("sld_ct");
       const lblId = uid("lbl_ct");
       const ent = entity_id || "light.example";
@@ -1480,7 +1482,9 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
     title: "Home Assistant • Climate (Heat + Setpoint)",
     description: "Climate control for heat-only thermostats: Heat/Off + setpoint slider.",
     build: ({ entity_id, x = 20, y = 160, label = "Thermostat" }) => {
-      const base = CONTROL_TEMPLATES.find((t) => t.id === "ha_climate_full")!.build({ entity_id, x, y, label });
+      const baseTmpl = CONTROL_TEMPLATES.find((t) => t.id === "ha_climate_full");
+      if (!baseTmpl) throw new Error("ha_climate_full template not found");
+      const base = baseTmpl.build({ entity_id, x, y, label });
       // Remove cool/auto buttons if present
       const widgets = (base.widgets || []).filter((w: any) => {
         const id = String(w.id || "");
@@ -1495,7 +1499,9 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
     title: "Home Assistant • Climate (Heat/Cool + Setpoint)",
     description: "Climate control for heat/cool thermostats: Heat/Cool/Off + setpoint slider.",
     build: ({ entity_id, x = 20, y = 160, label = "Thermostat" }) => {
-      const base = CONTROL_TEMPLATES.find((t) => t.id === "ha_climate_full")!.build({ entity_id, x, y, label });
+      const baseTmpl = CONTROL_TEMPLATES.find((t) => t.id === "ha_climate_full");
+      if (!baseTmpl) throw new Error("ha_climate_full template not found");
+      const base = baseTmpl.build({ entity_id, x, y, label });
       // Remove auto button if present
       const widgets = (base.widgets || []).filter((w: any) => {
         const id = String(w.id || "");

@@ -1,5 +1,16 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.31
+
+- Fix crash "undefined is not an object (evaluating 'Q.title')": filter invalid templates, add optional chaining for title/description, guard schemaIndex mapping.
+- Fix api.ts: add missing apiGet/apiPost helpers (was crashing Assets panel, plugins, recipe validation, export).
+- Fix App.tsx: import listAssets/uploadAsset from api instead of undefined api object.
+- Fix entity attributes selector: safe handling when entity is undefined.
+- Fix pages[safePageIndex] guards across group, ungroup, copy, paste, delete, add widget, update field, template wizard, canvas drop.
+- Fix _findWidget(parentId) in groupSelected/ungroupSelected when parent is missing.
+- Fix CONTROL_TEMPLATES.find() non-null assertions in controls/index.ts (ha_light_full, ha_climate_full).
+- Fix Map.get()! non-null assertions in App.tsx and Canvas.tsx.
+
 ## v0.70.30
 
 - Fix New device wizard: disable overlay click-to-close (was closing on Safari when typing in name field). Use X or Back/Create to close.

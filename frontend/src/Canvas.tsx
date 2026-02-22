@@ -40,8 +40,9 @@ function computeLayoutPositions(widgets: Widget[]): Map<string, {x:number;y:numb
   const children = new Map<string, Widget[]>();
   widgets.forEach(w => {
     if (w.parent_id) {
-      if (!children.has(w.parent_id)) children.set(w.parent_id, []);
-      children.get(w.parent_id)!.push(w);
+      let arr = children.get(w.parent_id);
+      if (!arr) { arr = []; children.set(w.parent_id, arr); }
+      arr.push(w);
     }
   });
 
@@ -111,8 +112,9 @@ const stageRef = useRef<any>(null);
     const m = new Map<string, Widget[]>();
     for (const w of widgets) {
       if (!w.parent_id) continue;
-      if (!m.has(w.parent_id)) m.set(w.parent_id, []);
-      m.get(w.parent_id)!.push(w);
+      let arr = m.get(w.parent_id);
+      if (!arr) { arr = []; m.set(w.parent_id, arr); }
+      arr.push(w);
     }
     return m;
   }, [widgets]);

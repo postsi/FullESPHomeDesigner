@@ -114,40 +114,56 @@ export async function deploy(entryId: string, deviceId: string): Promise<ApiOk<{
 }
 
 
-export async function listAssets(): Promise<{name:string; size:number}[]> {
-  return apiGet('/api/esphome_touch_designer/assets');
+async function apiGet<T = any>(path: string): Promise<T> {
+  const res = await fetch(path, { credentials: "include" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || `Request failed: ${res.status}`);
+  return data;
+}
+
+async function apiPost<T = any>(path: string, body: object): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || `Request failed: ${res.status}`);
+  return data;
+}
+
+const API_BASE = "/api/esphome_touch_designer";
+
+export async function listAssets(): Promise<{ name: string; size: number }[]> {
+  const data = await apiGet<{ name: string; size: number }[] | unknown>(`${API_BASE}/assets`);
+  return Array.isArray(data) ? data : [];
 }
 
 export async function uploadAsset(name: string, dataBase64: string) {
-  return apiPost('/api/esphome_touch_designer/assets/upload', { name, data_base64: dataBase64 });
+  return apiPost(`${API_BASE}/assets/upload`, { name, data_base64: dataBase64 });
 }
-
 
 export async function validateRecipe(recipe_id: string) {
-  return apiPost('/api/esphome_touch_designer/recipes/validate', { recipe_id });
+  return apiPost(`${API_BASE}/recipes/validate`, { recipe_id });
 }
-
 
 export async function exportDeviceYaml(device_id: string) {
-  return apiPost(`/api/esphome_touch_designer/devices/${device_id}/export`, {});
+  return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, {});
 }
-
 
 export async function getEntityCapabilities(entity_id: string) {
-  const enc = encodeURIComponent(entity_id);
-  return apiGet(`/api/esphome_touch_designer/ha/entities/${enc}/capabilities`);
+  return apiGet(`${API_BASE}/ha/entities/${encodeURIComponent(entity_id)}/capabilities`);
 }
-
 
 export async function listPlugins() {
-  return apiGet('/api/esphome_touch_designer/plugins');
+  return apiGet(`${API_BASE}/plugins`);
 }
 
-
 export async function exportDeviceYamlPreview(device_id: string) {
-  return apiPost(`/api/esphome_touch_designer/devices/${device_id}/export/preview`, {});
+  return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export/preview`, {});
 }
 
 export async function exportDeviceYamlWithExpectedHash(device_id: string, expected_hash: string) {
-  return apiPost(`/api/esphome_touch_designer/devices/${device_id}/export`, { expected_hash });
+  return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, { expected_hash });
 }

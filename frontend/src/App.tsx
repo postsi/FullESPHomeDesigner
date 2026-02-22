@@ -11,9 +11,11 @@ import {
   getContext,
   getProject,
   getWidgetSchema,
+  listAssets,
   listDevices,
   listWidgetSchemas,
   putProject,
+  uploadAsset,
   upsertDevice,
   validateRecipe,
   type DeviceSummary,
@@ -186,7 +188,7 @@ const [assetError, setAssetError] = React.useState<string | null>(null);
 
 async function refreshAssets() {
   try {
-    const items = await api.listAssets();
+    const items = await listAssets();
     setAssets(items);
     setAssetError(null);
   } catch (e: any) {
@@ -197,7 +199,7 @@ async function refreshAssets() {
 async function onUploadAssetFile(file: File) {
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-  await api.uploadAsset(file.name, b64);
+  await uploadAsset(file.name, b64);
   await refreshAssets();
 }
 
@@ -611,7 +613,9 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
       return l;
     });
 
-    p2.pages[safePageIndex].widgets.push(...ws);
+    const page = p2.pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    page.widgets.push(...ws);
     (p2 as any).bindings = Array.isArray((p2 as any).bindings) ? (p2 as any).bindings : [];
     (p2 as any).links = Array.isArray((p2 as any).links) ? (p2 as any).links : [];
     (p2 as any).bindings.push(...(built.bindings || []));
@@ -750,12 +754,14 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     const maxX = Math.max(...abs.map((x) => x.ax + (x.w.w || 0)));
     const maxY = Math.max(...abs.map((x) => x.ay + (x.w.h || 0)));
 
+    const parentWidget = parentId ? _findWidget(parentId) : null;
+    const parentAbs = parentWidget ? _absPos(parentWidget) : { ax: 0, ay: 0 };
     const containerId = uid("container");
     const container = {
       id: containerId,
       type: "container",
-      x: minX - (parentId ? _absPos(_findWidget(parentId)!).ax : 0),
-      y: minY - (parentId ? _absPos(_findWidget(parentId)!).ay : 0),
+      x: minX - parentAbs.ax,
+      y: minY - parentAbs.ay,
       w: Math.max(40, maxX - minX),
       h: Math.max(40, maxY - minY),
       parent_id: parentId || undefined,
@@ -765,7 +771,9 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     };
 
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     // Insert container just before the first selected widget to keep approximate z-order.
     const firstIdx = Math.min(...sel.map((w) => list.findIndex((x) => x.id === w.id)).filter((i) => i >= 0));
     list.splice(firstIdx >= 0 ? firstIdx : list.length, 0, container);
@@ -792,12 +800,15 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     const kids = _childrenOf(w0.id);
 
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const container = list.find((x) => x.id === w0.id);
     if (!container) return;
     const parentId = container.parent_id || "";
     const containerAbs = _absPos(container);
-    const parentAbs = parentId ? _absPos(_findWidget(parentId)!) : { ax: 0, ay: 0 };
+    const parentWidget = parentId ? _findWidget(parentId) : null;
+    const parentAbs = parentWidget ? _absPos(parentWidget) : { ax: 0, ay: 0 };
 
     for (const k of kids) {
       const kk = list.find((x) => x.id === k.id);
@@ -822,7 +833,9 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     if (!project) return;
     if (!selectedWidgetIds.length) return;
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
     if (!sel.length) return;
     const parentId = sel[0].parent_id || "";
@@ -864,7 +877,9 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     if (!project) return;
     if (!clipboard?.length) return;
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
 
     // Paste offset: 12px right/down each time.
     const offset = 12;
@@ -903,7 +918,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     if (!project) return;
     if (!selectedWidgetIds.length) return;
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
     if (!sel.length) return;
 
@@ -911,8 +928,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     const byParent = new Map<string, any[]>();
     for (const w of sel) {
       const pid = String(w.parent_id || "");
-      if (!byParent.has(pid)) byParent.set(pid, []);
-      byParent.get(pid)!.push(w);
+      let arr = byParent.get(pid);
+      if (!arr) { arr = []; byParent.set(pid, arr); }
+      arr.push(w);
     }
 
     for (const [pid, items] of byParent.entries()) {
@@ -930,7 +948,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     if (selectedWidgetIds.length < 2) return;
 
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
     if (sel.length < 2) return;
 
@@ -938,8 +958,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     const byParent = new Map<string, any[]>();
     for (const w of sel) {
       const pid = String(w.parent_id || "");
-      if (!byParent.has(pid)) byParent.set(pid, []);
-      byParent.get(pid)!.push(w);
+      let arr = byParent.get(pid);
+      if (!arr) { arr = []; byParent.set(pid, arr); }
+      arr.push(w);
     }
 
     for (const items of byParent.values()) {
@@ -969,15 +990,18 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     if (selectedWidgetIds.length < 3) return;
 
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
     if (sel.length < 3) return;
 
     const byParent = new Map<string, any[]>();
     for (const w of sel) {
       const pid = String(w.parent_id || "");
-      if (!byParent.has(pid)) byParent.set(pid, []);
-      byParent.get(pid)!.push(w);
+      let arr = byParent.get(pid);
+      if (!arr) { arr = []; byParent.set(pid, arr); }
+      arr.push(w);
     }
 
     for (const items of byParent.values()) {
@@ -1014,7 +1038,9 @@ function deleteSelected() {
     if (!project) return;
     if (!selectedWidgetIds.length) return;
     const p2 = clone(project);
-    const list = (p2 as any).pages[safePageIndex].widgets as any[];
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const list = page.widgets as any[];
     const toDelete = new Set(selectedWidgetIds);
     // If a container is deleted, also delete its descendants.
     let changed = true;
@@ -1028,7 +1054,7 @@ function deleteSelected() {
       }
     }
     const kept = list.filter((w) => !toDelete.has(w.id));
-    (p2 as any).pages[safePageIndex].widgets = kept;
+    page.widgets = kept;
     setProject(p2, true);
     setSelectedWidgetIds([]);
   }
@@ -1072,7 +1098,9 @@ function deleteSelected() {
     const w = { id: uid(newWidgetType), type: newWidgetType, x: 10, y: 10, w: 160, h: 60, props, style, events };
 
     const p2 = clone(project);
-    p2.pages[safePageIndex].widgets.push(w);
+    const page = p2.pages?.[safePageIndex];
+    if (!page?.widgets) return setToast({ type: "error", msg: "No page to add widget to" });
+    page.widgets.push(w);
     setProject(p2);
     setSelectedWidgetIds([w.id]);
     setSelectedSchema(s);
@@ -1262,7 +1290,9 @@ function deleteSelected() {
   function updateField(section: "props"|"style"|"events", key: string, value: any) {
     if (!project || !selectedWidgetId) return;
     const p2 = clone(project);
-    const w = p2.pages[safePageIndex].widgets.find((x: any) => x.id === selectedWidgetId);
+    const page = p2.pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    const w = page.widgets.find((x: any) => x.id === selectedWidgetId);
     if (!w) return;
     w[section] = w[section] || {};
     // If the UI clears a field, remove it entirely so the compiler won't emit it.
@@ -1949,15 +1979,19 @@ function deleteSelected() {
                       style: {},
                       events: {},
                     };
-                    p2.pages[safePageIndex].widgets.push(w as any);
+                    const pg = p2.pages?.[safePageIndex];
+                    if (!pg?.widgets) return;
+                    pg.widgets.push(w as any);
                     setProject(p2, true);
                     setSelectedWidgetIds([id]);
                   }}
                   onChangeMany={(patches, commit) => {
                     if (!project) return;
                     const p2 = clone(project);
+                    const pg = (p2 as any).pages?.[safePageIndex];
+                    if (!pg?.widgets) return;
                     for (const { id, patch } of patches) {
-                      const w = (p2 as any).pages[safePageIndex].widgets.find((x: any) => x.id === id);
+                      const w = pg.widgets.find((x: any) => x.id === id);
                       if (!w) continue;
                       Object.assign(w, patch);
                     }
@@ -2319,7 +2353,7 @@ function deleteSelected() {
                 <button className="secondary" disabled={!projectHist.canUndo} onClick={projectHist.undo} title="Undo (Ctrl/Cmd+Z)">Undo</button>
                 <button className="secondary" disabled={!projectHist.canRedo} onClick={projectHist.redo} title="Redo (Ctrl/Cmd+Y)">Redo</button>
                 <select value={newWidgetType} onChange={(e) => setNewWidgetType(e.target.value)}>
-                  {schemaIndex.map((s) => <option key={s.type} value={s.type}>{s.title}</option>)}
+                  {(schemaIndex ?? []).filter(Boolean).map((s) => <option key={s?.type ?? ""} value={s?.type ?? ""}>{s?.title ?? s?.type ?? ""}</option>)}
                 </select>
                 <button className="secondary" disabled={busy} onClick={addWidget}>Add widget</button>
                 <button className="secondary" disabled={!selectedWidgetIds.length} onClick={copySelected} title="Copy (Ctrl/Cmd+C)">Copy</button>
@@ -2362,18 +2396,18 @@ function deleteSelected() {
 <div className="section" style={{ marginTop: 12 }}>
   <div className="sectionTitle">Palette (drag onto canvas)</div>
   <div className="palette">
-    {schemaIndex.map((s) => (
+    {(schemaIndex ?? []).filter(Boolean).map((s) => (
       <div
-        key={s.type}
+        key={s?.type ?? ""}
         className="paletteItem"
         draggable
         onDragStart={(e) => {
-          e.dataTransfer.setData("application/x-esphome-widget-type", s.type);
+          e.dataTransfer.setData("application/x-esphome-widget-type", s?.type ?? "");
           e.dataTransfer.effectAllowed = "copy";
         }}
-        title={`Drag ${s.title} onto the canvas`}
+        title={`Drag ${s?.title ?? s?.type ?? ""} onto the canvas`}
       >
-        {s.title}
+        {s?.title ?? s?.type ?? ""}
       </div>
     ))}
   </div>
@@ -2407,9 +2441,9 @@ function deleteSelected() {
 
   <div className="palette">
     {(() => {
-      const all = [...CONTROL_TEMPLATES, ...pluginControls];
-      const cards = all.filter((t) => String(t.title || "").startsWith("Card Library"));
-      const ha = all.filter((t) => t.id === "ha_auto" || t.id.startsWith("ha_"));
+      const all = [...CONTROL_TEMPLATES, ...(pluginControls || [])].filter((t): t is ControlTemplate => !!t && !!(t as any).id);
+      const cards = all.filter((t) => String((t as any).title ?? "").startsWith("Card Library"));
+      const ha = all.filter((t) => (t as any).id === "ha_auto" || String((t as any).id ?? "").startsWith("ha_"));
       const other = all.filter((t) => !cards.includes(t) && !ha.includes(t));
 
       return (
@@ -2424,10 +2458,10 @@ function deleteSelected() {
                 e.dataTransfer.setData("application/x-esphome-control-template", t.id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              title={t.description}
+              title={t.description ?? ""}
             >
-              {t.title}
-              {pluginControls.some((p) => p.id === t.id) ? " (plugin)" : ""}
+              {t.title ?? t.id}
+              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
             </div>
           ))}
 
@@ -2441,10 +2475,10 @@ function deleteSelected() {
                 e.dataTransfer.setData("application/x-esphome-control-template", t.id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              title={t.description}
+              title={t.description ?? ""}
             >
-              {t.title}
-              {pluginControls.some((p) => p.id === t.id) ? " (plugin)" : ""}
+              {t.title ?? t.id}
+              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
             </div>
           ))}
 
@@ -2458,10 +2492,10 @@ function deleteSelected() {
                 e.dataTransfer.setData("application/x-esphome-control-template", t.id);
                 e.dataTransfer.effectAllowed = "copy";
               }}
-              title={t.description}
+              title={t.description ?? ""}
             >
-              {t.title}
-              {pluginControls.some((p) => p.id === t.id) ? " (plugin)" : ""}
+              {t.title ?? t.id}
+              {(pluginControls ?? []).some((p) => p && p.id === t.id) ? " (plugin)" : ""}
             </div>
           ))}
         </>
@@ -2564,7 +2598,7 @@ function deleteSelected() {
     </select>
     <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)}>
       <option value="">(state)</option>
-      {(entities.find((x)=>x.entity_id===bindEntity)?.attributes ? Object.keys(entities.find((x)=>x.entity_id===bindEntity).attributes) : [])
+      {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=>x.entity_id===bindEntity))
         .sort()
         .slice(0, 200)
         .map((k)=> <option key={k} value={k}>{k}</option>)}
