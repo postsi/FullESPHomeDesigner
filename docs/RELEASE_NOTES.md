@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.18
+
+- Fix Save device disabled: fallback to first config entry when active_entry_id is missing.
+- Show "Integration not ready" hint when context fails.
+
 ## v0.70.17
 
 - Fix palette visibility: Editor scrollable (max-height 70vh), clearer empty-state hint.

@@ -595,7 +595,15 @@ from ..storage import DeviceProject
 
 
 def _active_entry_id(hass: HomeAssistant) -> str | None:
-    return hass.data.get(DOMAIN, {}).get("active_entry_id")
+    data = hass.data.get(DOMAIN, {})
+    eid = data.get("active_entry_id")
+    if eid and eid in data:
+        return eid
+    # Fallback: use first config entry (e.g. after unload/reload left active_entry_id cleared)
+    for k, v in data.items():
+        if k != "active_entry_id" and isinstance(v, dict) and "storage" in v:
+            return k
+    return None
 
 
 def _get_storage(hass: HomeAssistant, entry_id: str):

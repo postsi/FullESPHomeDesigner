@@ -1775,7 +1775,8 @@ function deleteSelected() {
           <input value={newDeviceName} onChange={(e) => setNewDeviceName(e.target.value)} />
           <label className="label">slug (optional)</label>
           <input value={newDeviceSlug} onChange={(e) => setNewDeviceSlug(e.target.value)} />
-          <button disabled={busy || !entryId} onClick={addDevice}>Save device</button>
+          <button disabled={busy || !entryId} onClick={addDevice} title={!entryId ? "Waiting for integration context. Reload the page or check HA logs." : ""}>Save device</button>
+          {!entryId && <div className="muted" style={{ marginTop: 6 }}>Integration not ready — reload the page or check Settings → Devices & Services.</div>}
         
               <div style={{ marginTop: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
