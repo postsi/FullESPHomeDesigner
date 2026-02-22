@@ -1586,7 +1586,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(AssetsUploadView)
 
     # Home Assistant entity helpers
-    hass.http.register_view(EntitiesListView)
+    hass.http.register_view(EntitiesView)
     hass.http.register_view(EntityView)
     hass.http.register_view(EntityCapabilitiesView)
 
