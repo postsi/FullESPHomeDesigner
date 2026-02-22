@@ -235,6 +235,16 @@ const stageRef = useRef<any>(null);
 
     // Type-specific adornments
     const type = w.type.toLowerCase();
+    if (type === "image_button") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#1f2937" stroke="#4b5563" strokeWidth={1} cornerRadius={6} listening={false} />
+          <Text text={String(p.text ?? "Img")} x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill={textColor} listening={false} />
+        </Group>
+      );
+    }
+
     if (type.includes("label")) {
       return (
         <Group key={w.id}>
@@ -302,13 +312,16 @@ const stageRef = useRef<any>(null);
     }
 
     if (type.includes("slider") || type.includes("bar")) {
-      const pct = Math.max(0, Math.min(1, Number(p.value ?? 0.5)));
+      const barMin = Number(p.min_value ?? p.min ?? 0);
+      const barMax = Number(p.max_value ?? p.max ?? 100);
+      const val = Number(p.value ?? (barMin + barMax) / 2);
+      const norm = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
       return (
         <Group key={w.id}>
           {base}
           <Rect
-            x={w.x + 10}
-            y={w.y + w.h / 2 - 6}
+            x={ax + 10}
+            y={ay + w.h / 2 - 6}
             width={w.w - 20}
             height={12}
             fill={String(s.track_color ?? "#0b1220")}
@@ -318,17 +331,17 @@ const stageRef = useRef<any>(null);
             listening={false}
           />
           <Rect
-            x={w.x + 10}
-            y={w.y + w.h / 2 - 6}
-            width={(w.w - 20) * pct}
+            x={ax + 10}
+            y={ay + w.h / 2 - 6}
+            width={(w.w - 20) * norm}
             height={12}
             fill={String(s.fill_color ?? "#10b981")}
             cornerRadius={6}
             listening={false}
           />
           <Circle
-            x={w.x + 10 + (w.w - 20) * pct}
-            y={w.y + w.h / 2}
+            x={ax + 10 + (w.w - 20) * norm}
+            y={ay + w.h / 2}
             radius={10}
             fill={String(s.knob_color ?? "#111827")}
             stroke={String(s.knob_border_color ?? "#10b981")}
@@ -339,19 +352,19 @@ const stageRef = useRef<any>(null);
       );
     }
 
-    if (type.includes("arc") || type.includes("gauge")) {
-      // placeholder: a circle ring + value label
+    if (type.includes("arc") || type.includes("gauge") || type === "meter") {
       const r = Math.max(12, Math.min(w.w, w.h) / 2 - 10);
-      const cx = w.x + w.w / 2;
-      const cy = w.y + w.h / 2;
+      const cx = ax + w.w / 2;
+      const cy = ay + w.h / 2;
+      const arcVal = String(p.value ?? p.start_value ?? "");
       return (
         <Group key={w.id}>
           {base}
-          <Circle x={cx} y={cy} radius={r} stroke={String(s.track_color ?? "#1f2937")} strokeWidth={Number(s.track_width ?? 12)} listening={false} />
-          <Circle x={cx} y={cy} radius={r} stroke={String(s.fill_color ?? "#10b981")} strokeWidth={Number(s.track_width ?? 12)} listening={false} opacity={Number(s.fill_opacity ?? 0.35)} />
+          <Circle x={cx} y={cy} radius={r} stroke={String(s.track_color ?? "#1f2937")} strokeWidth={Number(s.track_width ?? s.arc_width ?? 12)} listening={false} />
+          <Circle x={cx} y={cy} radius={r} stroke={String(s.fill_color ?? "#10b981")} strokeWidth={Number(s.track_width ?? s.arc_width ?? 12)} listening={false} opacity={Number(s.fill_opacity ?? 0.35)} />
           <Text
-            text={String(p.value ?? "")}
-            x={layoutPos.get(w.id)?.x ?? w.x}
+            text={arcVal}
+            x={ax}
             y={cy - 10}
             width={w.w}
             align="center"
@@ -359,6 +372,224 @@ const stageRef = useRef<any>(null);
             fill={textColor}
             listening={false}
           />
+        </Group>
+      );
+    }
+
+    if (type === "switch") {
+      const checked = !!(p.checked ?? p.state);
+      const knobX = checked ? ax + w.w - 20 : ax + 4;
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 4} y={ay + 4} width={w.w - 8} height={w.h - 8} fill={checked ? String(s.fill_color ?? "#10b981") : "#1f2937"} cornerRadius={(w.h - 8) / 2} listening={false} />
+          <Circle x={knobX + 8} y={ay + w.h / 2} radius={8} fill="#e5e7eb" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "checkbox") {
+      const checked = !!(p.checked ?? p.state);
+      const size = Math.min(24, w.h - 8);
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + (w.h - size) / 2} width={size} height={size} stroke="#6b7280" strokeWidth={2} cornerRadius={4} fill="transparent" listening={false} />
+          {checked && (
+            <Text text="✓" x={ax + 6} y={ay + (w.h - size) / 2 - 2} width={size} height={size} align="center" fontSize={size - 4} fill="#10b981" listening={false} />
+          )}
+          <Text text={String(title || "Checkbox")} x={ax + 6 + size + 8} y={ay + (w.h - 16) / 2} fontSize={fontSize} fill={textColor} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "dropdown") {
+      const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2"];
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
+          <Text text={String(opts[0] ?? "Select…")} x={ax + 14} y={ay + (w.h - 16) / 2} width={w.w - 36} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={textColor} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "image" || type === "animimg") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#1f2937" stroke="#4b5563" strokeWidth={1} listening={false} />
+          <Text text="🖼" x={ax} y={ay + (w.h - 20) / 2} width={w.w} align="center" fontSize={14} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "obj") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Text text="obj" x={ax + 8} y={ay + (w.h - 14) / 2} fontSize={12} fill="#9ca3af" fontStyle="italic" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "textarea") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          <Text text={String(p.text ?? "Text…")} x={ax + 12} y={ay + 12} width={w.w - 24} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "roller") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          <Text text="▸ ▸ ▸" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill={textColor} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "spinner") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 4} stroke="#10b981" strokeWidth={3} listening={false} />
+          <Text text="◌" x={ax} y={ay + (w.h - 16) / 2} width={w.w} align="center" fontSize={14} fill="#10b981" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "spinbox") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
+          <Text text={String(p.value ?? "0")} x={ax + 12} y={ay + (w.h - 16) / 2} width={w.w - 24} align="center" fontSize={fontSize} fill={textColor} listening={false} />
+          <Text text="−" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+          <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "qrcode") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + (w.w - Math.min(w.w, w.h) * 0.6) / 2} y={ay + (w.h - Math.min(w.w, w.h) * 0.6) / 2} width={Math.min(w.w, w.h) * 0.6} height={Math.min(w.w, w.h) * 0.6} fill="#fff" stroke="#374151" listening={false} />
+          <Text text="QR" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill="#111827" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "led") {
+      const on = !!(p.state ?? p.value);
+      return (
+        <Group key={w.id}>
+          {base}
+          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 2} fill={on ? String(s.bg_color ?? "#00ff00") : "#1f2937"} stroke={on ? "#34d399" : "#374151"} strokeWidth={2} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "chart") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Line points={[ax + 10, ay + w.h - 20, ax + w.w / 4, ay + w.h / 2, ax + w.w / 2, ay + 30, ax + w.w - 10, ay + 50]} stroke="#10b981" strokeWidth={2} listening={false} />
+          <Text text="Chart" x={ax} y={ay + 6} fontSize={12} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "line") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Line points={[ax, ay, ax + w.w, ay + w.h]} stroke={String(s.line_color ?? "#10b981")} strokeWidth={Number(s.line_width ?? 2)} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "tabview" || type === "tileview") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 8} y={ay + 8} width={60} height={20} fill="#374151" cornerRadius={4} listening={false} />
+          <Text text={type} x={ax + 8} y={ay + 36} fontSize={12} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "buttonmatrix") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 8} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
+          <Rect x={ax + 16 + (w.w - 24) / 3} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
+          <Rect x={ax + 24 + 2 * (w.w - 24) / 3} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "keyboard") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Text text="⌨" x={ax} y={ay + (w.h - 24) / 2} width={w.w} align="center" fontSize={18} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "list" || type === "table") {
+      return (
+        <Group key={w.id}>
+          {base}
+          {[0, 1, 2].map((i) => (
+            <Rect key={i} x={ax + 8} y={ay + 12 + i * 18} width={w.w - 16} height={14} fill="#1f2937" cornerRadius={2} listening={false} />
+          ))}
+        </Group>
+      );
+    }
+
+    if (type === "calendar") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Text text="📅" x={ax} y={ay + (w.h - 24) / 2} width={w.w} align="center" fontSize={18} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "colorwheel") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 4} stroke="#e879f9" strokeWidth={4} listening={false} />
+          <Text text="🎨" x={ax} y={ay + 6} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "canvas") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#0b1220" stroke="#374151" strokeWidth={1} listening={false} />
+          <Text text="canvas" x={ax} y={ay + (w.h - 12) / 2} width={w.w} align="center" fontSize={11} fill="#6b7280" fontStyle="italic" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "msgboxes") {
+      return (
+        <Group key={w.id}>
+          {base}
+          <Text text="msgbox" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
         </Group>
       );
     }

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.41
+
+- Canvas: LVGL-equivalent previews for all 32 Std LVGL palette widgets (switch, checkbox, dropdown, image, image_button, obj, textarea, roller, spinner, spinbox, qrcode, led, chart, line, tabview, tileview, buttonmatrix, keyboard, list, table, calendar, colorwheel, canvas, msgboxes).
+- Canvas: Fix slider/bar and arc/gauge positioning to use absolute coordinates (ax, ay) for correct rendering inside containers.
+
 ## v0.70.40
 
 - Fix axis labelling: Y axis uses LVGL convention (0,0 top-left, Y down).
