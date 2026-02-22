@@ -1922,6 +1922,7 @@ function deleteSelected() {
           ) : (
             <>
               {editorTab === "compile" ? (
+                <>
                 <div className="section">
                   <div className="sectionTitle">Hardware (recipe)</div>
                   <div className="muted">
@@ -2165,9 +2166,9 @@ function deleteSelected() {
 
                 </div>
 
+                </>
               ) : (
                 <>
-
               <div className="bar">
                 <select
                   value={safePageIndex}

@@ -1834,8 +1834,6 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
 
   // --- v0.57.0 : Card Library v1 (container macros) ---
   {
-    
-  {
     id: "conditional_card",
     title: "Card Library • Conditional",
     description: "Shows/hides its contents based on a condition over an entity value. Product-mode helper.",
@@ -1861,8 +1859,8 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = [
       };
     },
   },
-
-id: "entity_card",
+  {
+    id: "entity_card",
     title: "Card Library • Entity Card",
     description: "Lovelace-style entity card (icon, name, state) with configurable tap action.",
     build: ({ entity_id, x = 20, y = 20, label = "Entity", tap_action = "more-info", service, service_data }) => {

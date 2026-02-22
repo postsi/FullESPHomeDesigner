@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.16
+
+- Fix "Can't find variable: setRecipes" crash: use ref for async recipe load (Safari closure).
+- Fix compile tab JSX: wrap ternary branches in fragments.
+- Fix controls/index.ts duplicate brace syntax.
+
 ## v0.70.15
 
 - Fix AttributeError: use aiohttp web.Response instead of non-existent self.Response in panel.
