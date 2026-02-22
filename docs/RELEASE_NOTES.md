@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.9
+
+- Restore root manifest.json (required by HACS for download validation).
+
 ## v0.70.8
 
 - Fix HACS structure: remove root manifest.json, use standard layout (no content_in_root, no zip_release).

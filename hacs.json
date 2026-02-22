@@ -1,6 +1,6 @@
 {
   "name": "ESPHome Touch Designer",
-  "version": "0.70.8",
+  "version": "0.70.9",
   "render_readme": true,
   "homeassistant": "2024.6.0"
 }
