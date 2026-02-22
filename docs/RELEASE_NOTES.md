@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.30
+
+- Fix New device wizard: disable overlay click-to-close (was closing on Safari when typing in name field). Use X or Back/Create to close.
+
 ## v0.70.29
 
 - Fix "Can't find variable: pluginControls" crash: add missing pluginControls state declaration.
