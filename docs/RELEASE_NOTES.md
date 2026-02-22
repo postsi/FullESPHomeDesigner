@@ -1,8 +1,8 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
-## v0.70.10
+## v0.70.11
 
-- Match koosoli/ESPHomeDesigner: no root manifest, zip_release + workflow. Manifest only in custom_components/domain/.
+- Match postsi/ESPHomeDesigner: content_in_root false, no zip_release, manifest in custom_components/domain/ only.
 
 ## v0.70.9
 
