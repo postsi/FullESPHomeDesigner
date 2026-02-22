@@ -1625,9 +1625,9 @@ def _assets_dir(hass: HomeAssistant) -> Path:
     return p
 
 class AssetsListView(HomeAssistantView):
-  url = "/api/esphome_touch_designer/assets"
-  name = "api:esphome_touch_designer:assets"
-  requires_auth = False
+    url = "/api/esphome_touch_designer/assets"
+    name = "api:esphome_touch_designer:assets"
+    requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]
@@ -1641,9 +1641,9 @@ class AssetsListView(HomeAssistantView):
         return self.json(items)
 
 class AssetsUploadView(HomeAssistantView):
-  url = "/api/esphome_touch_designer/assets/upload"
-  name = "api:esphome_touch_designer:assets_upload"
-  requires_auth = False
+    url = "/api/esphome_touch_designer/assets/upload"
+    name = "api:esphome_touch_designer:assets_upload"
+    requires_auth = False
 
     async def post(self, request):
         hass: HomeAssistant = request.app["hass"]

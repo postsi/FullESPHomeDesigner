@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.27
+
+- Fix IndentationError in AssetsListView and AssetsUploadView (broken by requires_auth edit).
+
 ## v0.70.26
 
 - Fix "Invalid handler specified": defer panel/storage imports in __init__.py so config flow loads without pulling in api.views.
