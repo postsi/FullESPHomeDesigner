@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.22
+
+- New device wizard: refetch recipes when opening; add Refresh button when empty; clearer empty-state message.
+
+## v0.70.21
+
+- Hardware-profile-first New device wizard: select recipe, then device details; backend enriches project with recipe resolution; auto-load new device for design.
+
 ## v0.70.20
 
 - Fix Save device disabled: context API now requires_auth=False (iframe cookie issues).

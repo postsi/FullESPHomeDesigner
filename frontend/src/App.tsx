@@ -667,6 +667,7 @@ const resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     setNewDeviceWizardId("");
     setNewDeviceWizardName("");
     setNewDeviceWizardSlug("");
+    refreshRecipes(); // Refetch recipes when wizard opens (handles late load or retry)
   }
 
   function wizardSelectRecipe(r: { id: string; label: string }) {
@@ -1848,7 +1849,10 @@ function deleteSelected() {
                   ))}
                 </div>
                 {recipes.length === 0 && (
-                  <div className="muted" style={{ padding: 12 }}>No recipes found. Add a hardware recipe first.</div>
+                  <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="muted">No recipes found. The integration ships with built-in recipes — if none appear, try Refresh or check the Home Assistant logs.</div>
+                    <button className="secondary" onClick={refreshRecipes}>Refresh</button>
+                  </div>
                 )}
               </div>
             ) : (

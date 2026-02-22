@@ -1,14 +1,36 @@
 ---
-description: Bump version and push after making changes
+description: Bump version, rebuild frontend, push, and create release tag after changes
 alwaysApply: true
 ---
 
 # Release Workflow
 
-When you have made any changes to this project:
+When you have made any changes to this project, complete these steps **every time**:
 
-1. **Bump version** in all of: `manifest.json`, `frontend/package.json`, `README.md`, `docs/RELEASE_NOTES.md`
-2. **Add a release note** entry for the new version in `docs/RELEASE_NOTES.md`
-3. **Commit, push, tag, and create a GitHub release** (do not skip this)
+1. **Bump version** in both:
+   - `custom_components/esphome_touch_designer/manifest.json`
+   - `frontend/package.json`
+   (Also update `README.md` and `docs/RELEASE_NOTES.md` if they reference the version.)
 
-This applies to every edit — bug fixes, features, config changes. No exceptions.
+2. **Add a release note** for the new version in `docs/RELEASE_NOTES.md`.
+
+3. **Rebuild the frontend** if you changed anything in `frontend/` or the backend that affects the UI:
+   ```bash
+   cd frontend && npm run build
+   ```
+   The build outputs to `custom_components/.../web/dist/` — stage those changes too.
+
+4. **Commit and push**:
+   ```bash
+   git add -A && git commit -m "..." && git push origin main
+   ```
+
+5. **Create the release tag and GitHub Release** (HACS requires a GitHub Release, not just a tag):
+   ```bash
+   git tag vX.YY.ZZ -m "vX.YY.ZZ: brief description"
+   git push origin vX.YY.ZZ
+   gh release create vX.YY.ZZ --title "vX.YY.ZZ" --notes "Release notes here"
+   ```
+   If `gh` (GitHub CLI) is not available, create the release manually on GitHub: Releases → Create a new release → choose the tag.
+
+No exceptions. If you edit this project, you must do all of the above.
