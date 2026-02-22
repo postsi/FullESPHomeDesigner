@@ -160,10 +160,14 @@ export async function listPlugins() {
   return apiGet(`${API_BASE}/plugins`);
 }
 
-export async function exportDeviceYamlPreview(device_id: string) {
-  return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export/preview`, {});
+export async function exportDeviceYamlPreview(device_id: string, entry_id: string) {
+  const u = new URL(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export/preview`, window.location.origin);
+  u.searchParams.set("entry_id", entry_id);
+  return apiPost(u.toString(), {});
 }
 
-export async function exportDeviceYamlWithExpectedHash(device_id: string, expected_hash: string) {
-  return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, { expected_hash });
+export async function exportDeviceYamlWithExpectedHash(device_id: string, expected_hash: string, entry_id: string) {
+  const u = new URL(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, window.location.origin);
+  u.searchParams.set("entry_id", entry_id);
+  return apiPost(u.toString(), { expected_hash });
 }

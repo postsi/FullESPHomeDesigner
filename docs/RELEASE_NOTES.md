@@ -1,5 +1,18 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.33
+
+- Fix export preview/export "missing_entry_id": pass entry_id as query param to export APIs.
+- Fix self-check 401: set requires_auth=False, add credentials to fetch.
+- Disable Preview/Export buttons when entryId missing; show hint.
+
+## v0.70.32
+
+- Fix crash "Can't find variable: entityQuery": add missing Binding Builder state (entityQuery, bindEntity, bindAttr, bindAction, bindFormat, bindScale).
+- Fix crash "Can't find variable: wizardIsCard" etc: move wizardTemplate, wizardIsCard, wizardIsMultiEntity, wizardEntitySlots, wizardWantsTapAction out of templateDomain into component scope.
+- Fix Canvas.tsx: altKey type cast for Konva transform event.
+- Fix controls/index.ts: type assertion for CONTROL_TEMPLATES array.
+
 ## v0.70.31
 
 - Fix crash "undefined is not an object (evaluating 'Q.title')": filter invalid templates, add optional chaining for title/description, guard schemaIndex mapping.

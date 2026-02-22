@@ -930,7 +930,7 @@ class SelfCheckView(HomeAssistantView):
 
     url = f"/api/{DOMAIN}/self_check"
     name = f"api:{DOMAIN}:self_check"
-    requires_auth = True
+    requires_auth = False
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]

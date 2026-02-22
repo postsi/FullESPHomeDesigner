@@ -1244,11 +1244,11 @@ function deleteSelected() {
   }
 
   async function previewExport() {
-    if (!selectedDevice) return;
+    if (!selectedDevice || !entryId) return;
     setExportBusy(true);
     setExportPreviewErr("");
     try {
-      const res: any = await exportDeviceYamlPreview(selectedDevice);
+      const res: any = await exportDeviceYamlPreview(selectedDevice, entryId);
       if (!res?.ok) throw new Error(res?.error || "preview_failed");
       setExportPreview(res);
     } catch (e: any) {
@@ -1259,12 +1259,12 @@ function deleteSelected() {
   }
 
   async function doExport() {
-    if (!selectedDevice) return;
+    if (!selectedDevice || !entryId) return;
     setExportBusy(true);
     setExportErr("");
     try {
       const expected = exportPreview?.existing_hash || "";
-      const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected);
+      const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected, entryId);
       if (!res?.ok) throw new Error(res?.error || "export_failed");
       setExportResult(res);
       // Refresh preview so hashes/diff reflect latest write.
@@ -1282,7 +1282,7 @@ function deleteSelected() {
     setSelfCheckErr("");
     setSelfCheckResult(null);
     try {
-      const r = await fetch("/api/esphome_touch_designer/self_check");
+      const r = await fetch("/api/esphome_touch_designer/self_check", { credentials: "include" });
       if (!r.ok) throw new Error(`self_check failed: ${r.status}`);
       const data = await r.json();
       setSelfCheckResult(data);
@@ -2238,10 +2238,10 @@ function deleteSelected() {
                   )}
 
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
-                    <button className="secondary" disabled={exportBusy} onClick={previewExport}>
+                    <button className="secondary" disabled={exportBusy || !entryId || !selectedDevice} onClick={previewExport} title={!entryId ? "Integration context missing" : !selectedDevice ? "Select a device" : ""}>
                       {exportBusy ? "Working…" : "Preview export"}
                     </button>
-                    <button className="" disabled={exportBusy || !exportPreview || exportPreview?.error || exportPreview?.externally_modified} onClick={doExport} title={exportPreview?.externally_modified ? "File changed externally — re-run preview then export" : ""}>
+                    <button className="" disabled={exportBusy || !entryId || !exportPreview || exportPreview?.error || exportPreview?.externally_modified} onClick={doExport} title={exportPreview?.externally_modified ? "File changed externally — re-run preview then export" : !entryId ? "Integration context missing" : ""}>
                       Export to /config/esphome/
                     </button>
                     <button className="secondary" onClick={() => window.open("/esphome", "_blank")} title="Opens the ESPHome dashboard panel (if installed at /esphome)">
