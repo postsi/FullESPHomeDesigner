@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.10
+
+- Match koosoli/ESPHomeDesigner: no root manifest, zip_release + workflow. Manifest only in custom_components/domain/.
+
 ## v0.70.9
 
 - Restore root manifest.json (required by HACS for download validation).

@@ -1,4 +1,4 @@
-# ESPHome Touch Designer (v0.70.9)
+# ESPHome Touch Designer (v0.70.10)
 
 A Lovelace-style UI designer for ESP32 LVGL touch screens. Compiles designs into ESPHome YAML and deploys through Home Assistant.
 
