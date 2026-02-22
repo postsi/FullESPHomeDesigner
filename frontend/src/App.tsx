@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
-import { CONTROL_TEMPLATES } from "./controls";
+import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { DOMAIN_PRESETS } from "./bindings/domains";
 import {
   deleteDevice,
@@ -160,6 +160,9 @@ export default function App() {
 
   // v0.24: Design-time entity list snapshot for template wizard + linting.
   const [entities, setEntities] = useState<any[]>([]);
+
+  // v0.35: Plugin controls (loaded from API)
+  const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
 
   // v0.24: Lint output shown in the UI (best-effort, purely advisory).
   const WIDGET_PALETTE: {type: string; title: string}[] = [
