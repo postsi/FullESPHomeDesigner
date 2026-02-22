@@ -4,7 +4,7 @@
   "documentation": "https://github.com/postsi/FullESPHomeDesigner",
   "issue_tracker": "https://github.com/postsi/FullESPHomeDesigner/issues",
   "configuration_url": "/esphome-touch-designer",
-  "version": "0.70.4",
+  "version": "0.70.5",
   "after_dependencies": ["http", "frontend", "panel_iframe"],
   "codeowners": ["@postsi"],
   "config_flow": true,

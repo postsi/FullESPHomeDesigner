@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.5
+
+- Restore root manifest.json for HACS (required for content_in_root downloads).
+
 ## v0.70.4
 
 - Fix "Invalid handler": restore options flow with `super().__init__()`, align with koosoli/ESPHomeDesigner.
