@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.3
+
+- Simplify config flow to minimal one-click add (no form) to fix "Invalid handler" error.
+
 ## v0.70.2
 
 - Remove options flow handler to fix "Invalid handler" error when adding integration.
