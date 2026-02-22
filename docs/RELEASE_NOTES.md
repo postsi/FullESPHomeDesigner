@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.20
+
+- Fix Save device disabled: context API now requires_auth=False (iframe cookie issues).
+
 ## v0.70.19
 
 - Fix ValueError "Overwriting panel": remove panel before re-registering; unregister on unload.

@@ -872,7 +872,7 @@ def _collect_recipe_files(hass):
 class ContextView(HomeAssistantView):
     url = f"/api/{DOMAIN}/context"
     name = f"api:{DOMAIN}:context"
-    requires_auth = True
+    requires_auth = False  # Panel loads in iframe; context needed before session may be available
 
     async def get(self, request):
         hass: HomeAssistant = request.app["hass"]
