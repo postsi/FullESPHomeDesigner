@@ -33,12 +33,18 @@ function snap(n: number, grid: number) {
 }
 
 
+// Ensure only valid widgets (avoids "undefined is not an object (evaluating '*.id')" when array has holes)
+function safeWidgets(list: Widget[]): Widget[] {
+  return (list || []).filter((w): w is Widget => !!w && typeof w === "object" && w.id != null);
+}
+
 // --- v0.31: simple layout preview for container.flex_* ---
 function computeLayoutPositions(widgets: Widget[]): Map<string, {x:number;y:number}> {
+  const list = safeWidgets(widgets);
   const byId = new Map<string, Widget>();
-  widgets.forEach(w => byId.set(w.id, w));
+  list.forEach(w => byId.set(w.id, w));
   const children = new Map<string, Widget[]>();
-  widgets.forEach(w => {
+  list.forEach(w => {
     if (w.parent_id) {
       let arr = children.get(w.parent_id);
       if (!arr) { arr = []; children.set(w.parent_id, arr); }
@@ -67,13 +73,13 @@ function computeLayoutPositions(widgets: Widget[]): Map<string, {x:number;y:numb
     });
     kids.forEach(k => walk(k.id));
   }
-  widgets.filter(w => !w.parent_id).forEach(w => walk(w.id));
+  list.filter(w => !w.parent_id).forEach(w => walk(w.id));
   return pos;
 }
 
 
 export default function Canvas({
-  widgets,
+  widgets: rawWidgets,
   selectedIds,
   width,
   height,
@@ -84,6 +90,7 @@ export default function Canvas({
   onDropCreate,
   onChangeMany,
 }: Props) {
+  const widgets = useMemo(() => safeWidgets(rawWidgets), [rawWidgets]);
     const layoutPos = useMemo(() => computeLayoutPositions(widgets), [widgets]);
 const stageRef = useRef<any>(null);
   const trRef = useRef<any>(null);

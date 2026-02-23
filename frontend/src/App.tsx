@@ -422,12 +422,15 @@ useEffect(() => {
     const pages = p.pages || [];
     const allWidgets: any[] = [];
     for (const pg of pages) {
-      for (const w of (pg?.widgets || [])) allWidgets.push(w);
+      if (!pg) continue;
+      for (const w of (pg.widgets || []).filter((w: any) => w && typeof w === "object" && w.id != null)) {
+        allWidgets.push(w);
+      }
     }
-    const widgetIds = new Set(allWidgets.map((w) => w?.id).filter(Boolean));
+    const widgetIds = new Set(allWidgets.map((w) => w.id).filter(Boolean));
 
-    const bindings = (p as any).bindings || [];
-    const links = (p as any).links || [];
+    const bindings = ((p as any).bindings || []).filter((b: any) => b && typeof b === "object");
+    const links = ((p as any).links || []).filter((l: any) => l && typeof l === "object");
 
     for (const b of bindings) {
       const eid = String(b?.entity_id || "").trim();
@@ -629,22 +632,21 @@ if (baseId.startsWith("glance_card")) {
         .replaceAll("media_player.example", entity_id)
         .replaceAll("switch.example", entity_id);
     };
-    for (const w of (built.widgets || [])) {
-      if (w?.events) {
+    for (const w of (built.widgets || []).filter((w: any) => w && typeof w === "object")) {
+      if (w.events) {
         for (const k of Object.keys(w.events)) {
           if (typeof w.events[k] === "string") w.events[k] = replaceEntity(w.events[k]);
         }
       }
-      if (label && w?.props?.text && typeof w.props.text === "string") {
-        // Optional: if plugin template uses ${label}
+      if (label && w.props?.text && typeof w.props.text === "string") {
         w.props.text = String(w.props.text).replaceAll("${label}", label);
       }
     }
-    for (const b of (built.bindings || [])) {
+    for (const b of (built.bindings || []).filter((x: any) => x && typeof x === "object")) {
       if (entity_id && (!b.entity_id || String(b.entity_id).endsWith(".example"))) b.entity_id = entity_id;
     }
-    for (const l of (built.links || [])) {
-      if (entity_id && l?.source && (!l.source.entity_id || String(l.source.entity_id).endsWith(".example"))) l.source.entity_id = entity_id;
+    for (const l of (built.links || []).filter((x: any) => x && typeof x === "object")) {
+      if (entity_id && l.source && (!l.source.entity_id || String(l.source.entity_id).endsWith(".example"))) l.source.entity_id = entity_id;
     }
     const rawWidgets = (built.widgets || []).filter((w: any) => w && typeof w === "object");
     if (rawWidgets.length === 0) {
@@ -661,7 +663,8 @@ if (baseId.startsWith("glance_card")) {
       const src = rawWidgets[i];
       if (src?.id != null && ws[i]) idMap.set(String(src.id), ws[i].id);
     }
-    const links = (built.links || []).map((l: any) => {
+    const validLinks = (built.links || []).filter((l: any) => l && typeof l === "object");
+    const links = validLinks.map((l: any) => {
       const wid = l?.target?.widget_id;
       if (wid && idMap.has(wid)) {
         return { ...l, target: { ...l.target, widget_id: idMap.get(wid) } };
@@ -679,8 +682,10 @@ if (baseId.startsWith("glance_card")) {
     page.widgets.push(...ws);
     (p2 as any).bindings = Array.isArray((p2 as any).bindings) ? (p2 as any).bindings : [];
     (p2 as any).links = Array.isArray((p2 as any).links) ? (p2 as any).links : [];
-    (p2 as any).bindings.push(...(built.bindings || []));
-    (p2 as any).links.push(...links);
+    (p2 as any).bindings.push(
+      ...(built.bindings || []).filter((b: any) => b && typeof b === "object")
+    );
+    (p2 as any).links.push(...links.filter((l: any) => l && typeof l === "object"));
 
     setProject(p2, true);
     setProjectDirty(true);
@@ -816,7 +821,13 @@ if (baseId.startsWith("glance_card")) {
 
   const pages = project?.pages ?? [];
   const safePageIndex = Math.max(0, Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
-  const widgets = pages?.[safePageIndex]?.widgets ?? [];
+  const widgets = useMemo(
+    () =>
+      (pages?.[safePageIndex]?.widgets ?? []).filter(
+        (w: any) => w && typeof w === "object" && w.id != null
+      ),
+    [pages, safePageIndex]
+  );
 
   // Derive canvas size: device.screen from project, or extract from hardware_recipe_id (e.g. jc1060p470_esp32p4_1024x600)
   const screenSize = useMemo(() => {
@@ -830,11 +841,11 @@ if (baseId.startsWith("glance_card")) {
     return { width: 800, height: 480, source: "default" as const };
   }, [project, selectedDeviceObj?.hardware_recipe_id]);
   function _findWidget(id: string) {
-    return widgets.find((w: any) => w.id === id);
+    return widgets.find((w: any) => w && w.id === id);
   }
 
   function _childrenOf(parentId: string) {
-    return widgets.filter((w: any) => w.parent_id === parentId);
+    return widgets.filter((w: any) => w && w.parent_id === parentId);
   }
 
   function _absPos(w: any): { ax: number; ay: number } {
@@ -890,12 +901,12 @@ if (baseId.startsWith("glance_card")) {
     if (!page?.widgets) return;
     const list = page.widgets as any[];
     // Insert container just before the first selected widget to keep approximate z-order.
-    const firstIdx = Math.min(...sel.map((w) => list.findIndex((x) => x.id === w.id)).filter((i) => i >= 0));
+    const firstIdx = Math.min(...sel.map((w) => list.findIndex((x) => x && x.id === w.id)).filter((i) => i >= 0));
     list.splice(firstIdx >= 0 ? firstIdx : list.length, 0, container);
 
     // Re-parent selected widgets under container with relative coords.
     for (const entry of abs) {
-      const w = list.find((x) => x.id === entry.w.id);
+      const w = list.find((x) => x && x.id === entry.w.id);
       if (!w) continue;
       w.parent_id = containerId;
       w.x = entry.ax - minX;
@@ -919,7 +930,7 @@ if (baseId.startsWith("glance_card")) {
     const page = (p2 as any).pages?.[safePageIndex];
     if (!page?.widgets) return;
     const list = page.widgets as any[];
-    const container = list.find((x) => x.id === w0.id);
+    const container = list.find((x) => x && x.id === w0.id);
     if (!container) return;
     const parentId = container.parent_id || "";
     const containerAbs = _absPos(container);
@@ -927,7 +938,7 @@ if (baseId.startsWith("glance_card")) {
     const parentAbs = parentWidget ? _absPos(parentWidget) : { ax: 0, ay: 0 };
 
     for (const k of kids) {
-      const kk = list.find((x) => x.id === k.id);
+      const kk = list.find((x) => x && x.id === k.id);
       if (!kk) continue;
       // Convert from container-relative -> parent-relative (or top-level absolute)
       const absKx = containerAbs.ax + Number(kk.x || 0);
@@ -938,7 +949,7 @@ if (baseId.startsWith("glance_card")) {
     }
 
     // Remove container
-    const idx = list.findIndex((x) => x.id === container.id);
+    const idx = list.findIndex((x) => x && x.id === container.id);
     if (idx >= 0) list.splice(idx, 1);
     setProject(p2, true);
     setProjectDirty(true);
@@ -953,14 +964,14 @@ if (baseId.startsWith("glance_card")) {
     const page = (p2 as any).pages?.[safePageIndex];
     if (!page?.widgets) return;
     const list = page.widgets as any[];
-    const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
+    const sel = selectedWidgetIds.map((id) => list.find((x) => x && x.id === id)).filter(Boolean) as any[];
     if (!sel.length) return;
     const parentId = sel[0].parent_id || "";
     if (!sel.every((w) => (w.parent_id || "") === parentId)) {
       setToast({ type: "error", msg: "Z-order moves currently require all selected widgets to share the same parent." });
       return;
     }
-    const idxs = sel.map((w) => list.findIndex((x) => x.id === w.id)).filter((i) => i >= 0).sort((a, b) => a - b);
+    const idxs = sel.map((w) => list.findIndex((x) => x && x.id === w.id)).filter((i) => i >= 0).sort((a, b) => a - b);
     if (!idxs.length) return;
     // We'll treat the list order as z-order; move block up/down by 1.
     if (direction === "front") {
@@ -1005,8 +1016,8 @@ if (baseId.startsWith("glance_card")) {
     const pasted: any[] = [];
 
     // Only paste widgets that either have no parent or whose parent also exists in the clipboard.
-    const clipIds = new Set(clipboard.map((w) => w.id));
-    const clipRoots = clipboard.filter((w) => !w.parent_id || clipIds.has(w.parent_id));
+    const clipIds = new Set(clipboard.filter((w) => w && w.id).map((w) => w.id));
+    const clipRoots = clipboard.filter((w) => w && w.id && (!w.parent_id || clipIds.has(w.parent_id)));
 
     for (const w0 of clipRoots) {
       const w = clone(w0);
@@ -1040,7 +1051,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     const page = (p2 as any).pages?.[safePageIndex];
     if (!page?.widgets) return;
     const list = page.widgets as any[];
-    const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
+    const sel = selectedWidgetIds.map((id) => list.find((x) => x && x.id === id)).filter(Boolean) as any[];
     if (!sel.length) return;
 
     // Group by parent to keep relative semantics predictable.
@@ -1071,7 +1082,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     const page = (p2 as any).pages?.[safePageIndex];
     if (!page?.widgets) return;
     const list = page.widgets as any[];
-    const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
+    const sel = selectedWidgetIds.map((id) => list.find((x) => x && x.id === id)).filter(Boolean) as any[];
     if (sel.length < 2) return;
 
     // Align only within shared-parent groups (predictable for nested containers)
@@ -1114,7 +1125,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     const page = (p2 as any).pages?.[safePageIndex];
     if (!page?.widgets) return;
     const list = page.widgets as any[];
-    const sel = selectedWidgetIds.map((id) => list.find((x) => x.id === id)).filter(Boolean) as any[];
+    const sel = selectedWidgetIds.map((id) => list.find((x) => x && x.id === id)).filter(Boolean) as any[];
     if (sel.length < 3) return;
 
     const byParent = new Map<string, any[]>();
@@ -1169,19 +1180,20 @@ function deleteSelected() {
     while (changed) {
       changed = false;
       for (const w of list) {
+        if (!w || !w.id) continue;
         if (w.parent_id && toDelete.has(w.parent_id) && !toDelete.has(w.id)) {
           toDelete.add(w.id);
           changed = true;
         }
       }
     }
-    const kept = list.filter((w) => !toDelete.has(w.id));
+    const kept = list.filter((w) => w && w.id && !toDelete.has(w.id));
     page.widgets = kept;
     setProject(p2, true);
     setProjectDirty(true);
     setSelectedWidgetIds([]);
   }
-  const selectedWidget = selectedWidgetId ? widgets.find((w: any) => w.id === selectedWidgetId) : null;
+  const selectedWidget = selectedWidgetId ? widgets.find((w: any) => w && w.id === selectedWidgetId) : null;
 
   function addPage() {
     if (!project) return;
@@ -1233,7 +1245,7 @@ function deleteSelected() {
 
   async function selectWidget(id: string, additive = false) {
     if (!project) return;
-    const w = widgets.find((x: any) => x.id === id);
+    const w = widgets.find((x: any) => x && x.id === id);
     if (!w) return;
     setSelectedWidgetIds((prev) => {
       if (!additive) return [id];
@@ -1421,7 +1433,7 @@ function deleteSelected() {
     const p2 = clone(project);
     const page = p2.pages?.[safePageIndex];
     if (!page?.widgets) return;
-    const w = page.widgets.find((x: any) => x.id === selectedWidgetId);
+    const w = page.widgets.find((x: any) => x && x.id === selectedWidgetId);
     if (!w) return;
     w[section] = w[section] || {};
     // If the UI clears a field, remove it entirely so the compiler won't emit it.
@@ -2354,7 +2366,9 @@ function deleteSelected() {
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
                 <select value={safePageIndex} onChange={(e) => { setCurrentPageIndex(Number(e.target.value)); setSelectedWidgetIds([]); setSelectedSchema(null); }} title="Page">
-                  {pages.map((p, idx) => <option key={p.page_id} value={idx}>{p.name || `Page ${idx + 1}`}</option>)}
+                  {pages.map((p, idx) => (
+                    <option key={p?.page_id ?? `page-${idx}`} value={idx}>{p?.name || `Page ${idx + 1}`}</option>
+                  ))}
                 </select>
                 <button className="secondary" disabled={busy} onClick={addPage}>Add page</button>
                 <button className="secondary" disabled={!projectHist.canUndo} onClick={projectHist.undo}>Undo</button>
@@ -2453,7 +2467,7 @@ function deleteSelected() {
                     const pg = (p2 as any).pages?.[safePageIndex];
                     if (!pg?.widgets) return;
                     for (const { id, patch } of patches) {
-                      const w = pg.widgets.find((x: any) => x.id === id);
+                      const w = pg.widgets.find((x: any) => x && x.id === id);
                       if (!w) continue;
                       Object.assign(w, patch);
                     }
@@ -2554,7 +2568,7 @@ function deleteSelected() {
                   </select>
                   <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)}>
                     <option value="">(state)</option>
-                    {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=>x.entity_id===bindEntity)).sort().slice(0, 200).map((k)=> <option key={k} value={k}>{k}</option>)}
+                    {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=> x && x.entity_id===bindEntity)).sort().slice(0, 200).map((k)=> <option key={k} value={k}>{k}</option>)}
                   </select>
                   <select value={bindAction} onChange={(e)=>setBindAction(e.target.value)}>
                     <option value="label_text">label: text</option>

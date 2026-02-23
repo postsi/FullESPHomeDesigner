@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.58
+
+- **Insert/Canvas robustness**: Canvas filters invalid widgets before use (safeWidgets). App uses a filtered widgets list for the current page and guards all list.find/list.filter over page.widgets so undefined entries don’t throw. applyTemplateWizard and lintProject filter bindings/links/widgets when iterating. Pages dropdown guards against undefined pages. No project normalizer — invalid data should be fixed at source.
+
 ## v0.70.57
 
 - **Insert fix**: Avoid “undefined is not an object (evaluating 'me.id')” by filtering template widgets to valid objects and guarding idMap construction. Show “Template returned no widgets.” when a template returns no valid widgets.
