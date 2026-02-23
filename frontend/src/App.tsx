@@ -2263,6 +2263,21 @@ function deleteSelected() {
                 <button className="secondary" disabled={!selectedWidgetIds.length} onClick={deleteSelected}>Del</button>
                 <button className="secondary" disabled={busy} onClick={saveProject}>Save</button>
               </div>
+              {/* Physical screen dimensions - prominent box above canvas */}
+              <div style={{
+                marginBottom: 12,
+                padding: "10px 14px",
+                background: "rgba(16, 185, 129, 0.12)",
+                border: "1px solid rgba(16, 185, 129, 0.4)",
+                borderRadius: 8,
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--ha-text-primary)",
+              }}>
+                <span style={{ marginRight: 8 }}>Physical screen:</span>
+                <span>{screenSize.width} × {screenSize.height} px</span>
+                <span className="muted" style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>({screenSize.source})</span>
+              </div>
               <div className="canvasAxis" style={{ alignSelf: "flex-start" }}>
                 <div style={{
                   display: "grid",
@@ -2272,11 +2287,14 @@ function deleteSelected() {
                   justifyItems: "stretch",
                 }}>
                   <div className="canvasAxisY" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", paddingTop: 4, paddingBottom: 4, paddingRight: 6, fontSize: 11, color: "var(--muted)", textAlign: "right" }}>
-                    {Array.from({ length: Math.floor(screenSize.height / 100) + 1 }, (_, i) => i * 100).map((y: number) => (
-                      <span key={y}>{y}</span>
-                    ))}
+                    {(() => {
+                      const ticks: number[] = [];
+                      for (let v = 0; v <= screenSize.height; v += 100) ticks.push(v);
+                      if (ticks[ticks.length - 1] !== screenSize.height) ticks.push(screenSize.height);
+                      return ticks.map((y) => <span key={y}>{y}</span>);
+                    })()}
                   </div>
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, outline: "2px solid rgba(16, 185, 129, 0.4)", borderRadius: 12 }}>
                     <Canvas
                   widgets={widgets}
                   selectedIds={selectedWidgetIds}
@@ -2331,9 +2349,12 @@ function deleteSelected() {
                   </div>
                   <div />
                   <div className="canvasAxisX" style={{ display: "flex", justifyContent: "space-between", alignSelf: "start", width: screenSize.width, fontSize: 11, color: "var(--muted)", direction: "ltr" }}>
-                    {Array.from({ length: Math.floor(screenSize.width / 100) + 1 }, (_, i) => i * 100).map((x: number) => (
-                      <span key={x} style={{ flex: "0 0 auto" }}>{x}</span>
-                    ))}
+                    {(() => {
+                      const ticks: number[] = [];
+                      for (let v = 0; v <= screenSize.width; v += 100) ticks.push(v);
+                      if (ticks[ticks.length - 1] !== screenSize.width) ticks.push(screenSize.width);
+                      return ticks.map((x) => <span key={x} style={{ flex: "0 0 auto" }}>{x}</span>);
+                    })()}
                   </div>
                 </div>
               </div>

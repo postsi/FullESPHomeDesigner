@@ -1733,7 +1733,7 @@ def _extract_recipe_metadata(model: dict, yaml_text: str, label: str | None = No
     if board: meta["board"] = board
     if platform: meta["platform"] = platform
 
-    # Resolution heuristics: look for width/height near 'display'
+    # Resolution heuristics: look for width/height in display (top-level or dimensions block)
     width = height = None
     try:
         displays = model.get("display")
@@ -1742,6 +1742,10 @@ def _extract_recipe_metadata(model: dict, yaml_text: str, label: str | None = No
             if isinstance(d0, dict):
                 width = d0.get("width") or width
                 height = d0.get("height") or height
+                dims = d0.get("dimensions")
+                if isinstance(dims, dict) and (width is None or height is None):
+                    width = dims.get("width") or width
+                    height = dims.get("height") or height
     except Exception:
         pass
     # fallback regex
