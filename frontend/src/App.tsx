@@ -512,6 +512,7 @@ useEffect(() => {
       return;
     }
     const entity_id = tmplEntity.trim();
+    let built: { widgets?: any[]; bindings?: any[]; links?: any[] } | undefined;
     try {
     const p2 = clone(project);
     const allTemplates = [...CONTROL_TEMPLATES, ...pluginControls];
@@ -575,7 +576,7 @@ if (baseId.startsWith("glance_card")) {
     }
 
     const label = tmplLabel.trim() || undefined;
-    const built = tmpl.build({
+    built = tmpl.build({
       entity_id,
       entities: tmplEntities,
       x: tmplWizard.x,
@@ -648,20 +649,27 @@ if (baseId.startsWith("glance_card")) {
     for (const l of (built.links || []).filter((x: any) => x && typeof x === "object")) {
       if (entity_id && l.source && (!l.source.entity_id || String(l.source.entity_id).endsWith(".example"))) l.source.entity_id = entity_id;
     }
-    const rawWidgets = (built.widgets || []).filter((w: any) => w && typeof w === "object");
+    const rawWidgets = (built.widgets || []).filter((w: any) => w != null && typeof w === "object");
     if (rawWidgets.length === 0) {
       setToast({ type: "error", msg: "Template returned no widgets." });
       return;
     }
-    const ws = rawWidgets.map((w: any) => ({
-      ...w,
-      id: uid(w.type || "w"),
-    }));
-    // Preserve template internal links by remapping ids.
+    const ws: any[] = [];
     const idMap = new Map<string, string>();
     for (let i = 0; i < rawWidgets.length; i++) {
-      const src = rawWidgets[i];
-      if (src?.id != null && ws[i]) idMap.set(String(src.id), ws[i].id);
+      const w = rawWidgets[i];
+      const newId = uid(w.type || "w");
+      const obj = { ...w, id: newId };
+      if (obj.id == null) {
+        console.warn("[Insert] Widget at index", i, "had no id after spread:", w);
+        continue;
+      }
+      ws.push(obj);
+      if (w.id != null) idMap.set(String(w.id), newId);
+    }
+    if (ws.length === 0) {
+      setToast({ type: "error", msg: "Template returned no valid widgets (check console)." });
+      return;
     }
     const validLinks = (built.links || []).filter((l: any) => l && typeof l === "object");
     const links = validLinks.map((l: any) => {
@@ -679,6 +687,12 @@ if (baseId.startsWith("glance_card")) {
     const page = p2.pages[safePageIndex] ?? p2.pages[0];
     if (!page) return setToast({ type: "error", msg: "No page to add widgets to" });
     if (!Array.isArray(page.widgets)) page.widgets = [];
+    // Strip any null/undefined from existing page.widgets so next render never sees them
+    const beforeLen = page.widgets.length;
+    page.widgets = page.widgets.filter((w: any) => w != null && typeof w === "object" && w.id != null);
+    if (page.widgets.length < beforeLen) {
+      console.warn("[Insert] Removed", beforeLen - page.widgets.length, "invalid widget(s) from current page (existing data).");
+    }
     page.widgets.push(...ws);
     (p2 as any).bindings = Array.isArray((p2 as any).bindings) ? (p2 as any).bindings : [];
     (p2 as any).links = Array.isArray((p2 as any).links) ? (p2 as any).links : [];
@@ -699,7 +713,14 @@ if (baseId.startsWith("glance_card")) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setToast({ type: "error", msg: `Insert failed: ${msg}` });
-      console.error("applyTemplateWizard", err);
+      console.error("[Insert] applyTemplateWizard failed:", msg, "template_id:", tmplWizard?.template_id);
+      try {
+        if (typeof built !== "undefined") {
+          const w = (built as any).widgets;
+          console.error("[Insert] built.widgets:", Array.isArray(w) ? w.length + " items" : typeof w, Array.isArray(w) ? w.slice(0, 10).map((x: any, i: number) => (x != null && x.id != null ? x.id : "null/undefined@" + i)) : []);
+        }
+      } catch (_) {}
+      console.error(err);
     }
   }
 

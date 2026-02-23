@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.59
+
+- **Insert**: Build `ws` in a loop so only widgets with valid `id` are pushed; sanitize current page.widgets (remove null/undefined) before appending so the next render never sees invalid entries. Console warnings when invalid widgets are skipped or stripped. Richer catch logging (template_id, built.widgets summary) to help identify the source of “Insert failed: me.id” errors.
+
 ## v0.70.58
 
 - **Insert/Canvas robustness**: Canvas filters invalid widgets before use (safeWidgets). App uses a filtered widgets list for the current page and guards all list.find/list.filter over page.widgets so undefined entries don’t throw. applyTemplateWizard and lintProject filter bindings/links/widgets when iterating. Pages dropdown guards against undefined pages. No project normalizer — invalid data should be fixed at source.
