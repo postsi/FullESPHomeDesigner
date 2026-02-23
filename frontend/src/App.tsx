@@ -711,15 +711,17 @@ if (baseId.startsWith("glance_card")) {
     setTmplWizard(null);
     setToast({ type: "ok", msg: `Added ${ws.length} widget(s) to canvas` });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToast({ type: "error", msg: `Insert failed: ${msg}` });
-      console.error("[Insert] applyTemplateWizard failed:", msg, "template_id:", tmplWizard?.template_id);
       try {
+        const msg = String(err instanceof Error ? err.message : err ?? "unknown");
+        setToast({ type: "error", msg: `Insert failed: ${msg}` });
+        console.error("[Insert] applyTemplateWizard failed:", msg, "template_id:", tmplWizard?.template_id);
         if (typeof built !== "undefined") {
           const w = (built as any).widgets;
           console.error("[Insert] built.widgets:", Array.isArray(w) ? w.length + " items" : typeof w, Array.isArray(w) ? w.slice(0, 10).map((x: any, i: number) => (x != null && x.id != null ? x.id : "null/undefined@" + i)) : []);
         }
-      } catch (_) {}
+      } catch (_) {
+        setToast({ type: "error", msg: "Insert failed (see console)." });
+      }
       console.error(err);
     }
   }

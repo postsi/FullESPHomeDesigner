@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.61
+
+- **Recipes validate 404**: RecipeValidateView now uses `f"/api/{DOMAIN}/recipes/validate"` so the route matches the integration’s DOMAIN and is registered correctly.
+- **Insert catch (line 716)**: Catch block wrapped in try/catch so reporting the error never throws; message coerced with `String(... ?? "unknown")`; fallback toast "Insert failed (see console)." if reporting fails.
+
 ## v0.70.60
 
 - **Insert fix (root cause)**: The "ge.id" / "me.id" error was from `allTemplates.find((t) => t.id === resolvedId)` at line 572 when `allTemplates` contained an undefined entry (e.g. from `pluginControls`). Guard the callback with `t &&` and filter `allTemplates` to valid template objects so `.find()` never receives undefined.

@@ -2027,8 +2027,8 @@ class RecipeExportView(HomeAssistantView):
         return self.json({"ok": True, "id": recipe_id, "label": r.get("label"), "yaml": yaml_text, "metadata": meta})
 
 class RecipeValidateView(HomeAssistantView):
-    url = "/api/esphome_touch_designer/recipes/validate"
-    name = "api:esphome_touch_designer:recipes_validate"
+    url = f"/api/{DOMAIN}/recipes/validate"
+    name = f"api:{DOMAIN}:recipes_validate"
     requires_auth = False
 
     async def post(self, request):
