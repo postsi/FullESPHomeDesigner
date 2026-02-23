@@ -11,7 +11,9 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "transparent": "transparent",
+      "clip_corner": "clip_corner"
     },
     "style": {
       "bg_color": "bg_color",
@@ -90,6 +92,16 @@
       "type": "string",
       "title": "Input group",
       "default": ""
+    },
+    "transparent": {
+      "type": "boolean",
+      "title": "Transparent",
+      "default": false
+    },
+    "clip_corner": {
+      "type": "boolean",
+      "title": "Clip corner",
+      "default": false
     }
   },
   "style": {
@@ -125,6 +137,13 @@
   },
   "events": {},
   "groups": {
+    "Canvas": {
+      "section": "props",
+      "keys": [
+        "transparent",
+        "clip_corner"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -141,11 +160,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

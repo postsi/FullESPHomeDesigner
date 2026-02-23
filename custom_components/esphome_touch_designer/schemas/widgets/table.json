@@ -97,7 +97,41 @@
       "default": ""
     }
   },
-  "groups": [
-    "data"
-  ]
+  "groups": {
+    "Common": {
+      "section": "props",
+      "keys": [
+        "align",
+        "hidden",
+        "clickable",
+        "opacity",
+        "group"
+      ]
+    },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "cell_padding",
+        "row_cnt",
+        "col_cnt"
+      ]
+    },
+    "Style": {
+      "section": "style",
+      "keys": [
+        "border_width",
+        "bg_color",
+        "bg_opa",
+        "radius",
+        "border_color",
+        "text_color"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_cell_clicked"
+      ]
+    }
+  }
 }

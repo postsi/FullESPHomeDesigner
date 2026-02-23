@@ -1381,7 +1381,7 @@ function deleteSelected() {
     }
   }
 
-  function updateField(section: "props"|"style"|"events", key: string, value: any) {
+  function updateField(section: string, key: string, value: any) {
     if (!project || !selectedWidgetId) return;
     const p2 = clone(project);
     const page = p2.pages?.[safePageIndex];

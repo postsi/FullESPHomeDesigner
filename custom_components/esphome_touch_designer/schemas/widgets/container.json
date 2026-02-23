@@ -177,18 +177,30 @@
         "scrollbar_mode",
         "scroll_dir",
         "opacity",
-        "group",
-        "clip_children"
+        "group"
+      ]
+    },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "clip_children",
+        "layout"
       ]
     },
     "Style": {
       "section": "style",
       "keys": [
         "bg_color",
+        "shadow_width",
+        "radius",
+        "pad_bottom",
+        "shadow_color",
+        "border_color",
+        "pad_left",
         "text_color",
         "border_width",
-        "border_color",
-        "radius"
+        "pad_right",
+        "pad_top"
       ]
     }
   }

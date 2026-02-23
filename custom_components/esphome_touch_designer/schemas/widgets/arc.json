@@ -152,15 +152,82 @@
       "default": 0
     }
   },
+  "knob": {
+    "bg_color": {
+      "type": "color",
+      "title": "Background",
+      "default": ""
+    },
+    "radius": {
+      "type": "number",
+      "title": "Radius",
+      "min": 0,
+      "max": 127,
+      "default": 0
+    },
+    "width": {
+      "type": "number",
+      "title": "Width (px)",
+      "min": 0,
+      "max": 255,
+      "default": 0
+    },
+    "height": {
+      "type": "number",
+      "title": "Height (px or %)",
+      "min": 0,
+      "max": 255,
+      "default": 0
+    },
+    "padding": {
+      "type": "number",
+      "title": "Padding (size vs indicator)",
+      "min": 0,
+      "max": 50,
+      "default": 0
+    }
+  },
+  "indicator": {
+    "bg_color": {
+      "type": "color",
+      "title": "Indicator color",
+      "default": ""
+    },
+    "radius": {
+      "type": "number",
+      "title": "Radius",
+      "min": 0,
+      "max": 127,
+      "default": 0
+    }
+  },
   "events": {},
   "groups": {
-    "Arc": {
-      "section": "props",
-      "keys": ["rotation", "bg_start_angle", "bg_end_angle", "knob_offset", "mode"]
-    },
     "Value & range": {
       "section": "props",
-      "keys": ["min", "max", "value", "adjustable"]
+      "keys": [
+        "min",
+        "max",
+        "value",
+        "adjustable"
+      ]
+    },
+    "Knob": {
+      "section": "knob",
+      "keys": [
+        "bg_color",
+        "radius",
+        "width",
+        "height",
+        "padding"
+      ]
+    },
+    "Indicator": {
+      "section": "indicator",
+      "keys": [
+        "bg_color",
+        "radius"
+      ]
     },
     "Common": {
       "section": "props",
@@ -179,10 +246,10 @@
       "section": "style",
       "keys": [
         "bg_color",
-        "text_color",
-        "border_width",
+        "radius",
         "border_color",
-        "radius"
+        "text_color",
+        "border_width"
       ]
     }
   }

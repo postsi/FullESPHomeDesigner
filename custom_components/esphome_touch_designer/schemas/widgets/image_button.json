@@ -120,7 +120,46 @@
       "default": ""
     }
   },
-  "groups": [
-    "inputs"
-  ]
+  "groups": {
+    "Common": {
+      "section": "props",
+      "keys": [
+        "align",
+        "hidden",
+        "clickable",
+        "opacity",
+        "group"
+      ]
+    },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "src",
+        "toggled_src"
+      ]
+    },
+    "Style": {
+      "section": "style",
+      "keys": [
+        "bg_color",
+        "shadow_width",
+        "bg_opa",
+        "radius",
+        "pad_bottom",
+        "shadow_color",
+        "border_color",
+        "pad_left",
+        "text_color",
+        "border_width",
+        "pad_right",
+        "pad_top"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_click"
+      ]
+    }
+  }
 }

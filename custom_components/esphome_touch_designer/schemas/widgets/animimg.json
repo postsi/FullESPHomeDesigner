@@ -11,7 +11,9 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "srcs": "srcs",
+      "duration": "duration"
     },
     "style": {
       "bg_color": "bg_color",
@@ -135,6 +137,12 @@
   },
   "events": {},
   "groups": {
+    "Animimg": {
+      "section": "props",
+      "keys": [
+        "duration"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -148,14 +156,20 @@
         "group"
       ]
     },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "srcs"
+      ]
+    },
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

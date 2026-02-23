@@ -11,7 +11,9 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "mode": "mode",
+      "textarea_id": "textarea"
     },
     "style": {
       "bg_color": "bg_color",
@@ -130,6 +132,12 @@
   },
   "events": {},
   "groups": {
+    "Keyboard": {
+      "section": "props",
+      "keys": [
+        "textarea_id"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -146,11 +154,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

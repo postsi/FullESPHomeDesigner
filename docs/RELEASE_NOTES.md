@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.50
+
+- All LVGL widgets: every schema uses object-form `groups` so all properties are visible in the Properties inspector with collapsible sections (Arc, Bar, Slider: Knob/Indicator; Line, LED, QR code, Canvas, Textarea, Keyboard, etc.).
+- New/compilable props: line (points, line_width, line_color, line_rounded), led (color, brightness), qrcode (light_color, dark_color), canvas (transparent, clip_corner), textarea (one_line, max_length), keyboard (mode, textarea_id), animimg (srcs, duration).
+- Script `scripts/ensure_widget_groups.py` normalizes all widget schemas (groups object + every key in a group). Audit doc updated.
+
 ## v0.70.49
 
 - Properties: auto-select Properties tab and widget/schema when dragging a widget onto canvas or applying a template.

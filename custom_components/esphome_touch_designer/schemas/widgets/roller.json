@@ -149,6 +149,13 @@
     }
   },
   "groups": {
+    "Roller": {
+      "section": "props",
+      "keys": [
+        "options",
+        "selected"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -165,11 +172,17 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_change"
       ]
     }
   }

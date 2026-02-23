@@ -103,7 +103,42 @@
       "default": ""
     }
   },
-  "groups": [
-    "visualization"
-  ]
+  "groups": {
+    "Common": {
+      "section": "props",
+      "keys": [
+        "align",
+        "hidden",
+        "clickable",
+        "opacity",
+        "group"
+      ]
+    },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "point_count",
+        "type",
+        "range_max",
+        "range_min"
+      ]
+    },
+    "Style": {
+      "section": "style",
+      "keys": [
+        "border_width",
+        "bg_color",
+        "bg_opa",
+        "radius",
+        "border_color",
+        "text_color"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_value_changed"
+      ]
+    }
+  }
 }

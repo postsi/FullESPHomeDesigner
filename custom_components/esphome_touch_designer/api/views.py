@@ -747,6 +747,28 @@ def _emit_widget_from_schema(widget: dict, schema: dict) -> str:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
                     out.append(_emit_kv("        ", yaml_key, field_def.get("default")))
 
+    # Style parts and nested blocks: any schema section that is a dict of field defs (not props/style/events)
+    _skip = {"props", "style", "events", "type", "title", "esphome", "groups"}
+    for part_section, part_fields in (schema or {}).items():
+        if part_section in _skip or not isinstance(part_fields, dict):
+            continue
+        if not part_fields or not any(
+            isinstance(v, dict) and ("type" in v or "default" in v)
+            for v in part_fields.values()
+        ):
+            continue
+        values = widget.get(part_section) or {}
+        if not values:
+            continue
+        out.append(f"        {part_section}:\n")
+        for k, field_def in part_fields.items():
+            if k not in values:
+                continue
+            v = values[k]
+            if v is None or v == "":
+                continue
+            out.append(_emit_kv("          ", k, v))
+
     return "".join(out)
 
 

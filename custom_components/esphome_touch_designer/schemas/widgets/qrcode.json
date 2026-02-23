@@ -13,7 +13,9 @@
       "opacity": "opacity",
       "group": "group",
       "text": "text",
-      "size": "size"
+      "size": "size",
+      "light_color": "light_color",
+      "dark_color": "dark_color"
     },
     "style": {
       "bg_color": "bg_color",
@@ -102,6 +104,16 @@
       "type": "number",
       "title": "Size",
       "default": 120
+    },
+    "light_color": {
+      "type": "color",
+      "title": "Light color",
+      "default": "0xFFFFFF"
+    },
+    "dark_color": {
+      "type": "color",
+      "title": "Dark color",
+      "default": "0x000000"
     }
   },
   "style": {
@@ -137,6 +149,15 @@
   },
   "events": {},
   "groups": {
+    "QR code": {
+      "section": "props",
+      "keys": [
+        "text",
+        "size",
+        "light_color",
+        "dark_color"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -153,11 +174,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

@@ -180,6 +180,14 @@
     }
   },
   "groups": {
+    "Button": {
+      "section": "props",
+      "keys": [
+        "text",
+        "font",
+        "checkable"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -190,18 +198,29 @@
         "scrollbar_mode",
         "scroll_dir",
         "opacity",
-        "group",
-        "font"
+        "group"
       ]
     },
     "Style": {
       "section": "style",
       "keys": [
         "bg_color",
+        "shadow_width",
+        "radius",
+        "pad_bottom",
+        "shadow_color",
+        "border_color",
+        "pad_left",
         "text_color",
         "border_width",
-        "border_color",
-        "radius"
+        "pad_right",
+        "pad_top"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_click"
       ]
     }
   }

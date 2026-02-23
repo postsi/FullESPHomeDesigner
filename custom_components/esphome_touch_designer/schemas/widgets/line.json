@@ -11,7 +11,11 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "points": "points",
+      "line_width": "line_width",
+      "line_color": "line_color",
+      "line_rounded": "line_rounded"
     },
     "style": {
       "bg_color": "bg_color",
@@ -90,6 +94,31 @@
       "type": "string",
       "title": "Input group",
       "default": ""
+    },
+    "points": {
+      "type": "string_list",
+      "title": "Points (x,y per line)",
+      "default": [
+        "0,0",
+        "100,100"
+      ]
+    },
+    "line_width": {
+      "type": "number",
+      "title": "Line width",
+      "min": 1,
+      "max": 50,
+      "default": 2
+    },
+    "line_color": {
+      "type": "color",
+      "title": "Line color",
+      "default": "0x0000FF"
+    },
+    "line_rounded": {
+      "type": "boolean",
+      "title": "Rounded caps",
+      "default": false
     }
   },
   "style": {
@@ -125,6 +154,15 @@
   },
   "events": {},
   "groups": {
+    "Line": {
+      "section": "props",
+      "keys": [
+        "points",
+        "line_width",
+        "line_color",
+        "line_rounded"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -141,11 +179,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

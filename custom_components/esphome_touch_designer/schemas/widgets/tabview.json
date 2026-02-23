@@ -147,14 +147,20 @@
         "group"
       ]
     },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "tabs"
+      ]
+    },
     "Style": {
       "section": "style",
       "keys": [
+        "border_width",
         "bg_color",
         "text_color",
-        "border_width",
-        "border_color",
-        "radius"
+        "radius",
+        "border_color"
       ]
     }
   }

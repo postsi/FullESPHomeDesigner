@@ -13,7 +13,9 @@
       "opacity": "opacity",
       "group": "group",
       "placeholder_text": "placeholder_text",
-      "text": "text"
+      "text": "text",
+      "one_line": "one_line",
+      "max_length": "max_length"
     },
     "style": {
       "bg_color": "bg_color",
@@ -102,6 +104,18 @@
       "type": "string",
       "title": "Placeholder",
       "default": ""
+    },
+    "one_line": {
+      "type": "boolean",
+      "title": "One line",
+      "default": false
+    },
+    "max_length": {
+      "type": "number",
+      "title": "Max length",
+      "min": 0,
+      "max": 65535,
+      "default": 0
     }
   },
   "style": {
@@ -143,6 +157,15 @@
     }
   },
   "groups": {
+    "Textarea": {
+      "section": "props",
+      "keys": [
+        "text",
+        "placeholder_text",
+        "one_line",
+        "max_length"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -159,11 +182,17 @@
     "Style": {
       "section": "style",
       "keys": [
+        "border_width",
         "bg_color",
         "text_color",
-        "border_width",
-        "border_color",
-        "radius"
+        "radius",
+        "border_color"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_ready"
       ]
     }
   }

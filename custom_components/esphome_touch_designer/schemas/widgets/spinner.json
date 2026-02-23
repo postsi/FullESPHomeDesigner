@@ -135,6 +135,13 @@
   },
   "events": {},
   "groups": {
+    "Spinner": {
+      "section": "props",
+      "keys": [
+        "time",
+        "arc_length"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -151,11 +158,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }

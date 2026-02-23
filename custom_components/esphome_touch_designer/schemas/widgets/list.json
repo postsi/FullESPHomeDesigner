@@ -93,7 +93,40 @@
       "default": ""
     }
   },
-  "groups": [
-    "containers"
-  ]
+  "groups": {
+    "Common": {
+      "section": "props",
+      "keys": [
+        "align",
+        "hidden",
+        "clickable",
+        "opacity",
+        "group"
+      ]
+    },
+    "Props": {
+      "section": "props",
+      "keys": [
+        "item_height",
+        "items"
+      ]
+    },
+    "Style": {
+      "section": "style",
+      "keys": [
+        "border_width",
+        "bg_color",
+        "bg_opa",
+        "radius",
+        "border_color",
+        "text_color"
+      ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": [
+        "on_item_clicked"
+      ]
+    }
+  }
 }

@@ -11,7 +11,9 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "color": "color",
+      "brightness": "brightness"
     },
     "style": {
       "bg_color": "bg_color",
@@ -137,6 +139,13 @@
   },
   "events": {},
   "groups": {
+    "LED": {
+      "section": "props",
+      "keys": [
+        "color",
+        "brightness"
+      ]
+    },
     "Common": {
       "section": "props",
       "keys": [
@@ -153,11 +162,11 @@
     "Style": {
       "section": "style",
       "keys": [
-        "bg_color",
-        "text_color",
         "border_width",
+        "bg_color",
+        "radius",
         "border_color",
-        "radius"
+        "text_color"
       ]
     }
   }
