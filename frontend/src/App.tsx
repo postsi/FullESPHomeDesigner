@@ -646,14 +646,20 @@ if (baseId.startsWith("glance_card")) {
     for (const l of (built.links || [])) {
       if (entity_id && l?.source && (!l.source.entity_id || String(l.source.entity_id).endsWith(".example"))) l.source.entity_id = entity_id;
     }
-    const ws = (built.widgets || []).map((w: any) => ({
+    const rawWidgets = (built.widgets || []).filter((w: any) => w && typeof w === "object");
+    if (rawWidgets.length === 0) {
+      setToast({ type: "error", msg: "Template returned no widgets." });
+      return;
+    }
+    const ws = rawWidgets.map((w: any) => ({
       ...w,
       id: uid(w.type || "w"),
     }));
     // Preserve template internal links by remapping ids.
     const idMap = new Map<string, string>();
-    for (let i = 0; i < (built.widgets || []).length; i++) {
-      idMap.set(built.widgets[i].id, ws[i].id);
+    for (let i = 0; i < rawWidgets.length; i++) {
+      const src = rawWidgets[i];
+      if (src?.id != null && ws[i]) idMap.set(String(src.id), ws[i].id);
     }
     const links = (built.links || []).map((l: any) => {
       const wid = l?.target?.widget_id;

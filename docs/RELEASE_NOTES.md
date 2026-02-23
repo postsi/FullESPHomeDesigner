@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.57
+
+- **Insert fix**: Avoid “undefined is not an object (evaluating 'me.id')” by filtering template widgets to valid objects and guarding idMap construction. Show “Template returned no widgets.” when a template returns no valid widgets.
+
 ## v0.70.56
 
 - **Home Assistant Entity selector**: Replaced input + datalist with a filterable dropdown (combobox). The list is populated only with entities relevant to the card type using the template’s `entityDomain` (e.g. climate for Thermostat). Typing filters the list by entity_id and friendly_name. Label is “Home Assistant Entity”.
