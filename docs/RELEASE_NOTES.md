@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.54
+
+- **Card Library • Thermostat**: Single capability-driven Thermostat card. Layout is built from the bound entity’s capabilities: HVAC modes dropdown (only modes the entity supports), optional preset dropdown (if `preset_modes` present), optional fan dropdown (if `fan_modes` present). Temperature range and step use entity `min_temp` / `max_temp` / `target_temp_step` when available.
+
 ## v0.70.53
 
 - Save project: prominent **Save** button in the top nav (next to Compile); label shows **Save (unsaved)** when there are changes. **Ctrl+S** / **Cmd+S** saves. Unsaved state is tracked; switching device or closing the tab prompts to avoid losing changes.

@@ -1917,110 +1917,160 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   },
 
   // --- v0.60.0 : Card Library Phase 2 enhancements (Phase 2 cards + layout helpers) ---
+  // v0.70: Single Thermostat card — capability-driven (hvac/preset/fan from entity caps).
   {
     id: "thermostat_card",
     title: "Card Library • Thermostat Card",
-    description: "Thermostat card: title, current temp, setpoint slider, mode shortcuts. Binds to climate.* entities.",
+    description: "One Thermostat card: layout from entity capabilities (HVAC modes, optional preset/fan). Binds to climate.*",
     build: ({ entity_id, x = 20, y = 20, label = "Thermostat", th_min = 5, th_max = 35, th_step = 1, caps = null }) => {
       const ent = entity_id || "climate.example";
+      const attrs = caps?.attributes || {};
+      const hvacModes = (Array.isArray(attrs.hvac_modes) ? attrs.hvac_modes : ["off", "heat", "cool", "auto"]).filter(Boolean);
+      const presetModes = (Array.isArray(attrs.preset_modes) ? attrs.preset_modes : []).filter(Boolean);
+      const fanModes = (Array.isArray(attrs.fan_modes) ? attrs.fan_modes : []).filter(Boolean);
+      const minT = typeof attrs.min_temp === "number" ? attrs.min_temp : th_min;
+      const maxT = typeof attrs.max_temp === "number" ? attrs.max_temp : th_max;
+      const stepT = typeof attrs.target_temp_step === "number" ? attrs.target_temp_step : (th_step <= 0 ? 1 : th_step);
+
       const rootId = uid("card_th");
+      const lblTitle = uid("lbl_th_title");
       const lblCur = uid("lbl_th_cur");
       const lblSet = uid("lbl_th_set");
-      const lblMode = uid("lbl_th_mode");
       const sldSet = uid("sld_th_set");
+      const ddHvac = uid("dd_th_hvac");
+      const ddPreset = uid("dd_th_preset");
+      const ddFan = uid("dd_th_fan");
 
-      const btnOff = uid("btn_th_off");
-      const btnHeat = uid("btn_th_heat");
-      const btnCool = uid("btn_th_cool");
-      const btnAuto = uid("btn_th_auto");
+      const hvacOpts = hvacModes.join("\\n");
+      const presetOpts = presetModes.length ? presetModes.join("\\n") : "(none)";
+      const fanOpts = fanModes.length ? fanModes.join("\\n") : "(none)";
 
-      return {
-        bindings: entity_id
-          ? [
-              { entity_id, kind: "attribute_number", attribute: "current_temperature" },
-              { entity_id, kind: "attribute_number", attribute: "temperature" },
-              { entity_id, kind: "state" },
-            ]
-          : [],
-        links: entity_id
-          ? [
-              {
-                source: { entity_id, kind: "attribute_number", attribute: "current_temperature" },
-                target: { widget_id: lblCur, action: "label_text", format: "%.1f°C", scale: 1.0 },
-              },
-              {
-                source: { entity_id, kind: "attribute_number", attribute: "temperature" },
-                target: { widget_id: lblSet, action: "label_text", format: "Set %.1f°C", scale: 1.0 },
-              },
-              {
-                source: { entity_id, kind: "attribute_number", attribute: "temperature" },
-                target: { widget_id: sldSet, action: "slider_value", scale: 1.0 },
-              },
-              {
-                source: { entity_id, kind: "state", attribute: "" },
-                target: { widget_id: lblMode, action: "label_text", format: "Mode %s" },
-              },
-            ]
-          : [],
-        widgets: [
-          { id: rootId, type: "container", x, y, w: 320, h: 190, props: {} },
-          { id: uid("lbl_th_title"), type: "label", x: x + 12, y: y + 10, w: 296, h: 22, props: { text: label } },
+      const rowH = 46;
+      let row = 0;
+      const wx = x + 12;
+      const ww = 296;
+      const totalRows = 3 + (presetModes.length ? 1 : 0) + (fanModes.length ? 1 : 0);
+      const containerH = 32 + totalRows * rowH;
 
-          { id: lblCur, type: "label", x: x + 12, y: y + 40, w: 150, h: 26, props: { text: "--.-°C" } },
-          { id: lblMode, type: "label", x: x + 170, y: y + 40, w: 138, h: 26, props: { text: "Mode --" } },
-
-          { id: sldSet, type: "slider", x: x + 12, y: y + 72, w: 240, h: 40, props: { min: th_min, max: th_max } ,
-            events: entity_id ? {
-              on_release:
-`- homeassistant.service:
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: 320, h: containerH, props: {} },
+        { id: lblTitle, type: "label", x: wx, y: y + 10, w: ww, h: 22, props: { text: label } },
+      ];
+      row++;
+      widgets.push(
+        { id: lblCur, type: "label", x: wx, y: y + 10 + row * rowH, w: 140, h: 28, props: { text: "— °C" } },
+        { id: lblSet, type: "label", x: wx + 156, y: y + 10 + row * rowH, w: 140, h: 28, props: { text: "Set —" } },
+      );
+      row++;
+      widgets.push({
+        id: sldSet,
+        type: "slider",
+        x: wx,
+        y: y + 10 + row * rowH,
+        w: ww,
+        h: 36,
+        props: { min: minT, max: maxT },
+        events: entity_id
+          ? {
+              on_release: `- homeassistant.service:
     service: climate.set_temperature
     data:
       entity_id: ${ent}
-      temperature: !lambda 'float s = (float)${th_step}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
-`
-            } : {}
-          },
-          { id: lblSet, type: "label", x: x + 258, y: y + 78, w: 54, h: 28, props: { text: "Set --" } },
+      temperature: !lambda 'float s = (float)${stepT}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
+`,
+            }
+          : {},
+      });
+      row++;
+      widgets.push({
+        id: ddHvac,
+        type: "dropdown",
+        x: wx,
+        y: y + 10 + row * rowH,
+        w: ww,
+        h: 40,
+        props: { options: hvacOpts },
+        events: entity_id
+          ? {
+              on_value: `then:
+  - homeassistant.action:
+      action: climate.set_hvac_mode
+      data:
+        entity_id: ${ent}
+        hvac_mode: !lambda return std::string(text).c_str();`,
+            }
+          : {},
+      });
+      row++;
+      if (presetModes.length) {
+        widgets.push({
+          id: ddPreset,
+          type: "dropdown",
+          x: wx,
+          y: y + 10 + row * rowH,
+          w: ww,
+          h: 40,
+          props: { options: presetOpts },
+          events: entity_id
+            ? {
+                on_value: `then:
+  - homeassistant.action:
+      action: climate.set_preset_mode
+      data:
+        entity_id: ${ent}
+        preset_mode: !lambda return std::string(text).c_str();`,
+              }
+            : {},
+        });
+        row++;
+      }
+      if (fanModes.length) {
+        widgets.push({
+          id: ddFan,
+          type: "dropdown",
+          x: wx,
+          y: y + 10 + row * rowH,
+          w: ww,
+          h: 40,
+          props: { options: fanOpts },
+          events: entity_id
+            ? {
+                on_value: `then:
+  - homeassistant.action:
+      action: climate.set_fan_mode
+      data:
+        entity_id: ${ent}
+        fan_mode: !lambda return std::string(text).c_str();`,
+              }
+            : {},
+        });
+      }
 
-          // Mode shortcuts
-          { id: btnOff, type: "button", x: x + 12, y: y + 124, w: 70, h: 48, props: { text: "Off" },
-            events: entity_id ? { on_click:
-`- homeassistant.service:
-    service: climate.set_hvac_mode
-    data:
-      entity_id: ${ent}
-      hvac_mode: "off"
-` } : {}
-          },
-          { id: btnHeat, type: "button", x: x + 90, y: y + 124, w: 70, h: 48, props: { text: "Heat" },
-            events: entity_id ? { on_click:
-`- homeassistant.service:
-    service: climate.set_hvac_mode
-    data:
-      entity_id: ${ent}
-      hvac_mode: "heat"
-` } : {}
-          },
-          { id: btnCool, type: "button", x: x + 168, y: y + 124, w: 70, h: 48, props: { text: "Cool" },
-            events: entity_id ? { on_click:
-`- homeassistant.service:
-    service: climate.set_hvac_mode
-    data:
-      entity_id: ${ent}
-      hvac_mode: "cool"
-` } : {}
-          },
-          { id: btnAuto, type: "button", x: x + 246, y: y + 124, w: 66, h: 48, props: { text: "Auto" },
-            events: entity_id ? { on_click:
-`- homeassistant.service:
-    service: climate.set_hvac_mode
-    data:
-      entity_id: ${ent}
-      hvac_mode: "auto"
-` } : {}
-          },
-        ],
-      };
+      const bindings = entity_id
+        ? [
+            { entity_id, kind: "attribute_number", attribute: "current_temperature" },
+            { entity_id, kind: "attribute_number", attribute: "temperature" },
+            { entity_id, kind: "state" },
+          ]
+        : [];
+      const links = entity_id
+        ? [
+            {
+              source: { entity_id, kind: "attribute_number", attribute: "current_temperature" },
+              target: { widget_id: lblCur, action: "label_text", format: "%.1f °C", scale: 1.0 },
+            },
+            {
+              source: { entity_id, kind: "attribute_number", attribute: "temperature" },
+              target: { widget_id: lblSet, action: "label_text", format: "Set %.1f", scale: 1.0 },
+            },
+            {
+              source: { entity_id, kind: "attribute_number", attribute: "temperature" },
+              target: { widget_id: sldSet, action: "slider_value", scale: 1.0 },
+            },
+          ]
+        : [];
+
+      return { widgets, bindings, links };
     },
   },
 
