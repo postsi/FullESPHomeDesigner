@@ -2,6 +2,8 @@ export type ControlTemplate = {
   id: string;
   title: string;
   description: string;
+  /** When set, wizard entity picker shows only entities of this domain (e.g. "climate" for Thermostat). */
+  entityDomain?: string;
   build: (args: any) => { widgets: any[]; bindings?: any[]; links?: any[] };
 };
 
@@ -1922,6 +1924,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
     id: "thermostat_card",
     title: "Card Library • Thermostat Card",
     description: "One Thermostat card: layout from entity capabilities (HVAC modes, optional preset/fan). Binds to climate.*",
+    entityDomain: "climate",
     build: ({ entity_id, x = 20, y = 20, label = "Thermostat", th_min = 5, th_max = 35, th_step = 1, caps = null }) => {
       const ent = entity_id || "climate.example";
       const attrs = caps?.attributes || {};

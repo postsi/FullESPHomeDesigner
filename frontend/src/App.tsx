@@ -175,6 +175,8 @@ export default function App() {
 
   // v0.24: Design-time entity list snapshot for template wizard + linting.
   const [entities, setEntities] = useState<any[]>([]);
+  // Entity combobox: show dropdown when open; filter list by domain (from template) + typed search.
+  const [tmplEntityDropdownOpen, setTmplEntityDropdownOpen] = useState(false);
 
   // Binding Builder: entity picker search + bind target fields.
   const [entityQuery, setEntityQuery] = useState<string>("");
@@ -502,7 +504,12 @@ useEffect(() => {
   }
 
   function applyTemplateWizard() {
-    if (!project || !tmplWizard) return;
+    if (!project || !tmplWizard) {
+      if (!project) setToast({ type: "error", msg: "No project loaded. Select a device and open a project first." });
+      return;
+    }
+    const entity_id = tmplEntity.trim();
+    try {
     const p2 = clone(project);
     const allTemplates = [...CONTROL_TEMPLATES, ...pluginControls];
     let baseId = tmplWizard.template_id;
@@ -532,7 +539,7 @@ if (baseId.startsWith("glance_card")) {
     if (isCardLibrary(baseId)) {
       resolvedId = baseId;
     } else if (baseId === "ha_auto") {
-      const dom = (entity_id || "").split(".")[0]?.toLowerCase() || "";
+      const dom = entity_id.split(".")[0]?.toLowerCase() || "";
       const caps = tmplCaps;
       if (dom === "light") resolvedId = pickCapabilityVariant("ha_light_full", caps, tmplVariant);
       else if (dom === "cover") resolvedId = pickCapabilityVariant("ha_cover_basic", caps, tmplVariant);
@@ -564,7 +571,6 @@ if (baseId.startsWith("glance_card")) {
       return;
     }
 
-    const entity_id = tmplEntity.trim();
     const label = tmplLabel.trim() || undefined;
     const built = tmpl.build({
       entity_id,
@@ -679,6 +685,11 @@ if (baseId.startsWith("glance_card")) {
     }
     setTmplWizard(null);
     setToast({ type: "ok", msg: `Added ${ws.length} widget(s) to canvas` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast({ type: "error", msg: `Insert failed: ${msg}` });
+      console.error("applyTemplateWizard", err);
+    }
   }
 
   async function saveEditedDevice() {
@@ -1468,32 +1479,92 @@ function deleteSelected() {
             </div>
 
             <div className="field">
-              <div className="fieldLabel">{wizardIsMultiEntity ? "entities" : "entity_id"}</div>
+              <div className="fieldLabel">{wizardIsMultiEntity ? "entities" : "Home Assistant Entity"}</div>
               {!wizardIsMultiEntity ? (
                 <>
-                  {/* v0.24: datalist is domain-filtered (best-effort) */}
-                  <input
-                    list="ha_entities"
-                    placeholder={`e.g. ${(templateDomain(tmplWizard.template_id) || 'light')}.kitchen`}
-                    value={tmplEntity}
-                    onChange={(e) => setTmplEntity(e.target.value)}
-                  />
-                  <datalist id="ha_entities">
-                    {entities
-                      .filter((e) => {
-                        const dom = templateDomain(tmplWizard.template_id);
-                        if (!dom) return true;
-                        return String(e?.entity_id || "").startsWith(dom + ".");
-                      })
-                      .slice(0, 500)
-                      .map((e) => (
-                        <option key={e.entity_id} value={e.entity_id}>
-                          {(e.friendly_name || e.entity_id) as any}
-                        </option>
-                      ))}
-                  </datalist>
+                  {/* Filterable dropdown: list comes from template entityDomain (or ha_<domain>_), filter by typing */}
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="text"
+                      placeholder={`Select or type… (${(wizardTemplate as any)?.entityDomain || templateDomain(tmplWizard.template_id) || "any"})`}
+                      value={tmplEntity}
+                      onChange={(e) => {
+                        setTmplEntity(e.target.value);
+                        setTmplEntityDropdownOpen(true);
+                      }}
+                      onFocus={() => setTmplEntityDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setTmplEntityDropdownOpen(false), 150)}
+                      autoComplete="off"
+                      style={{ width: "100%", boxSizing: "border-box" }}
+                    />
+                    {tmplEntityDropdownOpen && (() => {
+                      const dom = (wizardTemplate as any)?.entityDomain || templateDomain(tmplWizard.template_id);
+                      const search = (tmplEntity || "").trim().toLowerCase();
+                      const list = entities
+                        .filter((e) => {
+                          if (!e?.entity_id) return false;
+                          if (dom && !String(e.entity_id).startsWith(dom + ".")) return false;
+                          if (!search) return true;
+                          const eid = String(e.entity_id).toLowerCase();
+                          const name = String(e?.friendly_name || "").toLowerCase();
+                          return eid.includes(search) || name.includes(search);
+                        })
+                        .slice(0, 300);
+                      return (
+                        <div
+                          className="dropdownList"
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            top: "100%",
+                            marginTop: 2,
+                            maxHeight: 260,
+                            overflow: "auto",
+                            background: "var(--panel-bg, #1e1e1e)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 8,
+                            zIndex: 1000,
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                          }}
+                        >
+                          {list.length === 0 ? (
+                            <div style={{ padding: "10px 12px", color: "var(--muted, #888)" }}>
+                              {entities.length === 0 ? "Loading entities…" : "No matching entities."}
+                            </div>
+                          ) : (
+                            list.map((e) => (
+                              <div
+                                key={e.entity_id}
+                                role="option"
+                                onMouseDown={(ev) => {
+                                  ev.preventDefault();
+                                  setTmplEntity(e.entity_id);
+                                  setTmplEntityDropdownOpen(false);
+                                }}
+                                style={{
+                                  padding: "8px 12px",
+                                  cursor: "pointer",
+                                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                                className="dropdownOption"
+                              >
+                                <span style={{ fontWeight: 500 }}>{e.entity_id}</span>
+                                {e.friendly_name ? (
+                                  <span style={{ color: "var(--muted, #888)", marginLeft: 8 }}>— {e.friendly_name}</span>
+                                ) : null}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div className="muted" style={{ marginTop: 6 }}>
-                    Tip: start typing to pick from Home Assistant entities (domain-filtered by template).
+                    List shows only entities for this card type. Type to filter or pick from the list.
                   </div>
                 </>
               ) : (

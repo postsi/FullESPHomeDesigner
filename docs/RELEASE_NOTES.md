@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.56
+
+- **Home Assistant Entity selector**: Replaced input + datalist with a filterable dropdown (combobox). The list is populated only with entities relevant to the card type using the template’s `entityDomain` (e.g. climate for Thermostat). Typing filters the list by entity_id and friendly_name. Label is “Home Assistant Entity”.
+- **Insert button**: Fixed use-before-define of `entity_id` in the wizard; added try/catch and toasts so failures are visible (e.g. “No project loaded” when no device/project is selected).
+- Templates can declare optional `entityDomain` for domain-filtered entity picker.
+
 ## v0.70.55
 
 - Card Library (testing): only **Thermostat Card** is shown; other Card Library cards are temporarily disabled (titles prefixed with "Card Library disabled •") so the capability-driven Thermostat flow can be tested in isolation.
