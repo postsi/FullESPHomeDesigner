@@ -119,6 +119,7 @@ export default function App() {
   const projectHist = useHistory<ProjectModel | null>(null);
   const project = projectHist.present;
   const setProject = projectHist.set;
+  const [projectDirty, setProjectDirty] = useState(false);
 
   const [schemaIndex, setSchemaIndex] = useState<WidgetSchemaIndexItem[]>([]);
   const [newWidgetType, setNewWidgetType] = useState("label");
@@ -670,6 +671,7 @@ if (baseId.startsWith("glance_card")) {
     (p2 as any).links.push(...links);
 
     setProject(p2, true);
+    setProjectDirty(true);
     if (ws[0]?.id) {
       setSelectedWidgetIds([ws[0].id]);
       setInspectorTab("properties");
@@ -787,6 +789,7 @@ if (baseId.startsWith("glance_card")) {
       if (!res.ok) return setToast({ type: "error", msg: res.error });
       setSelectedDevice(id);
       setProject(res.project);
+      setProjectDirty(false);
       setSelectedWidgetIds([]);
       setSelectedSchema(null);
       setCurrentPageIndex(0);
@@ -883,6 +886,7 @@ if (baseId.startsWith("glance_card")) {
     }
 
     setProject(p2, true);
+    setProjectDirty(true);
     setSelectedWidgetIds([containerId]);
   }
 
@@ -920,6 +924,7 @@ if (baseId.startsWith("glance_card")) {
     const idx = list.findIndex((x) => x.id === container.id);
     if (idx >= 0) list.splice(idx, 1);
     setProject(p2, true);
+    setProjectDirty(true);
     setSelectedWidgetIds(kids.map((k) => k.id));
   }
 
@@ -956,6 +961,7 @@ if (baseId.startsWith("glance_card")) {
       list.splice(first - 1, 0, ...block);
     }
     setProject(p2, true);
+    setProjectDirty(true);
   }
 
   // v0.19: Copy/Paste selected widgets (within the active page).
@@ -1005,6 +1011,7 @@ if (baseId.startsWith("glance_card")) {
 
     list.push(...pasted);
     setProject(p2, true);
+    setProjectDirty(true);
     setSelectedWidgetIds(pasted.map((w) => w.id));
   }
 
@@ -1036,6 +1043,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     }
 
     setProject(p2, true);
+    setProjectDirty(true);
   }
 
   function alignSelected(mode: "left"|"center"|"right"|"top"|"middle"|"bottom") {
@@ -1078,6 +1086,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     }
 
     setProject(p2, true);
+    setProjectDirty(true);
   }
 
   function distributeSelected(axis: "h"|"v") {
@@ -1127,6 +1136,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     }
 
     setProject(p2, true);
+    setProjectDirty(true);
   }
 
 function deleteSelected() {
@@ -1151,6 +1161,7 @@ function deleteSelected() {
     const kept = list.filter((w) => !toDelete.has(w.id));
     page.widgets = kept;
     setProject(p2, true);
+    setProjectDirty(true);
     setSelectedWidgetIds([]);
   }
   const selectedWidget = selectedWidgetId ? widgets.find((w: any) => w.id === selectedWidgetId) : null;
@@ -1162,6 +1173,7 @@ function deleteSelected() {
     p2.pages = p2.pages || [];
     p2.pages.push({ page_id: pid, name: `Page ${p2.pages.length + 1}`, widgets: [] } as any);
     setProject(p2);
+    setProjectDirty(true);
     setCurrentPageIndex(p2.pages.length - 1);
     setSelectedWidgetIds([]);
   }
@@ -1197,6 +1209,7 @@ function deleteSelected() {
     if (!page?.widgets) return setToast({ type: "error", msg: "No page to add widget to" });
     page.widgets.push(w);
     setProject(p2);
+    setProjectDirty(true);
     setSelectedWidgetIds([w.id]);
     setSelectedSchema(s);
   }
@@ -1245,6 +1258,11 @@ function deleteSelected() {
         pasteClipboard();
         return;
       }
+      if (ctrl && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveProject();
+        return;
+      }
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         deleteSelected();
@@ -1257,9 +1275,6 @@ function deleteSelected() {
         return;
       }
       // v0.62: Nudge selected widgets with arrow keys.
-      // - Arrow: move by grid size
-      // - Shift+Arrow: move by 1px
-      // - Alt+Arrow: move by 5px
       if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
         if (!selectedWidgetIds.length) return;
         e.preventDefault();
@@ -1269,15 +1284,12 @@ function deleteSelected() {
         nudgeSelected(dx, dy, step);
         return;
       }
-
-      // v0.62: Quick align shortcuts (Ctrl+Alt+Arrows)
       if (ctrl && e.altKey) {
         if (e.key === "ArrowLeft") { e.preventDefault(); alignSelected("left"); return; }
         if (e.key === "ArrowRight") { e.preventDefault(); alignSelected("right"); return; }
         if (e.key === "ArrowUp") { e.preventDefault(); alignSelected("top"); return; }
         if (e.key === "ArrowDown") { e.preventDefault(); alignSelected("bottom"); return; }
       }
-
       if (ctrl && e.key === "]") {
         e.preventDefault();
         moveZ("front");
@@ -1289,11 +1301,17 @@ function deleteSelected() {
         return;
       }
     };
-
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (projectDirty) e.preventDefault();
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWidgetIds, clipboard, project]);
+  }, [selectedWidgetIds, clipboard, project, projectDirty]);
 
   // v0.57.2: Live compile preview — debounced when compile modal is open.
   useEffect(() => {
@@ -1396,6 +1414,7 @@ function deleteSelected() {
       w[section][key] = value;
     }
     setProject(p2);
+    setProjectDirty(true);
   }
 
   async function saveProject() {
@@ -1404,6 +1423,7 @@ function deleteSelected() {
     try {
       const res = await putProject(entryId, selectedDevice, project);
       if (!res.ok) return setToast({ type: "error", msg: res.error });
+      setProjectDirty(false);
       setToast({ type: "ok", msg: "Project saved" });
     } finally { setBusy(false); }
   }
@@ -2158,7 +2178,9 @@ function deleteSelected() {
           value={selectedDevice}
           onChange={(e) => {
             const id = e.target.value;
-            if (id) loadDevice(id);
+            if (!id) return;
+            if (projectDirty && !window.confirm("You have unsaved changes. Load another device anyway? Changes will be lost.")) return;
+            loadDevice(id);
           }}
           title="Select device"
           style={{ minWidth: 180, padding: "6px 10px" }}
@@ -2173,6 +2195,7 @@ function deleteSelected() {
         <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
         <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
+        <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
       </nav>
 
@@ -2342,6 +2365,7 @@ function deleteSelected() {
                     if (!pg?.widgets) return;
                     pg.widgets.push(w as any);
                     setProject(p2, true);
+                    setProjectDirty(true);
                     setSelectedWidgetIds([id]);
                     setInspectorTab("properties");
                     getWidgetSchema(type).then((sr) => { if (sr.ok) setSelectedSchema(sr.schema); });
@@ -2357,6 +2381,7 @@ function deleteSelected() {
                       Object.assign(w, patch);
                     }
                     setProject(p2, commit ?? true);
+                    setProjectDirty(true);
                   }}
                 />
                   </div>
@@ -2478,6 +2503,7 @@ function deleteSelected() {
                     (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
                     (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id, action: bindAction, format: bindFormat, scale: bindScale } });
                     setProject(p2, true);
+                    setProjectDirty(true);
                   }}>Bind selected widget</button>
                 </div>
               </div>

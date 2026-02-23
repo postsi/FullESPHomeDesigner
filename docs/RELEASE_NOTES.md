@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.53
+
+- Save project: prominent **Save** button in the top nav (next to Compile); label shows **Save (unsaved)** when there are changes. **Ctrl+S** / **Cmd+S** saves. Unsaved state is tracked; switching device or closing the tab prompts to avoid losing changes.
+
 ## v0.70.52
 
 - Canvas previews now react to property changes: Arc knob (radius, width, height, bg_color), Slider knob (radius, width, height, bg_color), and Switch thumb (radius, width, height, bg_color) update live when edited in the Properties inspector.
