@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.49
+
+- Properties: auto-select Properties tab and widget/schema when dragging a widget onto canvas or applying a template.
+- Arc widget: full LVGL properties (rotation, bg_start_angle, bg_end_angle, knob_offset, mode) and grouped inspector.
+- Inspector: collapsible group sections when schema has `groups`; expand/collapse per group.
+
 ## v0.70.48
 
 - Designer layout: center column width includes panel padding (12+36+width+12) so the canvas is never covered by the right panel.

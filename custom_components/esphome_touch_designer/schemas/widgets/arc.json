@@ -15,7 +15,12 @@
       "min": "min_value",
       "max": "max_value",
       "value": "value",
-      "adjustable": "adjustable"
+      "adjustable": "adjustable",
+      "rotation": "rotation",
+      "bg_start_angle": "bg_start_angle",
+      "bg_end_angle": "bg_end_angle",
+      "knob_offset": "knob_offset",
+      "mode": "mode"
     },
     "style": {
       "bg_color": "bg_color",
@@ -149,6 +154,14 @@
   },
   "events": {},
   "groups": {
+    "Arc": {
+      "section": "props",
+      "keys": ["rotation", "bg_start_angle", "bg_end_angle", "knob_offset", "mode"]
+    },
+    "Value & range": {
+      "section": "props",
+      "keys": ["min", "max", "value", "adjustable"]
+    },
     "Common": {
       "section": "props",
       "keys": [

@@ -670,7 +670,11 @@ if (baseId.startsWith("glance_card")) {
     (p2 as any).links.push(...links);
 
     setProject(p2, true);
-    if (ws[0]?.id) setSelectedWidgetIds([ws[0].id]);
+    if (ws[0]?.id) {
+      setSelectedWidgetIds([ws[0].id]);
+      setInspectorTab("properties");
+      getWidgetSchema(ws[0].type).then((sr) => { if (sr.ok) setSelectedSchema(sr.schema); });
+    }
     setTmplWizard(null);
     setToast({ type: "ok", msg: `Added ${ws.length} widget(s) to canvas` });
   }
@@ -2339,6 +2343,8 @@ function deleteSelected() {
                     pg.widgets.push(w as any);
                     setProject(p2, true);
                     setSelectedWidgetIds([id]);
+                    setInspectorTab("properties");
+                    getWidgetSchema(type).then((sr) => { if (sr.ok) setSelectedSchema(sr.schema); });
                   }}
                   onChangeMany={(patches, commit) => {
                     if (!project) return;
@@ -2491,7 +2497,9 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
   const [fieldFilter, setFieldFilter] = useState<string>("");
   const [modifiedOnly, setModifiedOnly] = useState<boolean>(false);
   const [recentColors, setRecentColors] = useState<string[]>([]);
-
+  const groups = (schema as any).groups as Record<string, { section: string; keys: string[] }> | undefined;
+  const groupNames = groups ? Object.keys(groups) : [];
+  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({});
 
   const renderSection = (title: string, section: "props"|"style"|"events", fields?: Record<string, any>) => {
     const entriesAll = Object.entries(fields ?? {});
@@ -2737,9 +2745,54 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
           reset filters
         </button>
       </div>
-      {renderSection("Props", "props", schema.props)}
-      {renderSection("Style", "style", schema.style)}
-      {renderSection("Events", "events", schema.events)}
+      {groups && groupNames.length > 0
+        ? groupNames.map((groupName) => {
+            const gr = groups[groupName];
+            const section = (gr?.section || "props") as "props" | "style" | "events";
+            const keys = Array.isArray(gr?.keys) ? gr.keys : [];
+            const fields = (schema as any)[section] || {};
+            const entriesAll = keys.map((k) => [k, fields[k]]).filter(([, def]) => def);
+            const entries = entriesAll.filter(([k, def]: any) => {
+              const title = String(def?.title ?? k).toLowerCase();
+              const keyLc = String(k).toLowerCase();
+              const q = fieldFilter.trim().toLowerCase();
+              const matches = !q || title.includes(q) || keyLc.includes(q);
+              const hasValue = Object.prototype.hasOwnProperty.call((widget[section] || {}), k);
+              const modOk = !modifiedOnly || hasValue;
+              return matches && modOk;
+            });
+            if (!entries.length) return null;
+            const expanded = groupExpanded[groupName] !== false;
+            return (
+              <div key={groupName} className="section" style={{ marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="sectionTitle"
+                  style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", background: "rgba(255,255,255,.04)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", marginBottom: expanded ? 8 : 0, fontWeight: 600 }}
+                  onClick={() => setGroupExpanded((prev) => ({ ...prev, [groupName]: !expanded }))}
+                >
+                  <span>{groupName}</span>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>{expanded ? "▼" : "▶"}</span>
+                </button>
+                {expanded && (
+                  <div style={{ paddingLeft: 4 }}>
+                    {entries.map(([k, def]: [string, any]) => (
+                      <div key={k} className="field" style={{ marginBottom: 10 }}>
+                        <div className="fieldLabel" title={def.description || def.desc || ""}>{def.title ?? k}</div>
+                        {renderField(section, k, def)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        : <>
+            {renderSection("Props", "props", schema.props)}
+            {renderSection("Style", "style", schema.style)}
+            {renderSection("Events", "events", schema.events)}
+          </>
+      }
     </div>
   );
 }
