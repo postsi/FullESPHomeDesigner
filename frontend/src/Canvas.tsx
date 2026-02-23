@@ -362,8 +362,10 @@ const stageRef = useRef<any>(null);
       if (mode === "RANGE" && normStart > norm) [normStart, norm] = [norm, normStart];
       const trackFill = String(s.bg_color ?? "#1f2937");
       const indFill = String((w.indicator || {}).bg_color ?? "#10b981");
-      const knobFill = String((w.knob || {}).bg_color ?? s.bg_color ?? "#e5e7eb");
-      const knobR = Math.max(6, Math.min(thick * 1.2, (isVert ? w.w : w.h) / 4));
+      const sliderKnob = w.knob || {};
+      const sliderKnobR = Number(sliderKnob.radius ?? 0) > 0 ? Number(sliderKnob.radius) : (Number(sliderKnob.width ?? 0) > 0 || Number(sliderKnob.height ?? 0) > 0 ? Math.max(Number(sliderKnob.width ?? 0), Number(sliderKnob.height ?? 0)) / 2 : 0);
+      const knobR = Math.max(6, sliderKnobR > 0 ? Math.min(sliderKnobR, (isVert ? w.w : w.h) / 2 - 4) : Math.min(thick * 1.2, (isVert ? w.w : w.h) / 4));
+      const knobFill = String(sliderKnob.bg_color ?? s.bg_color ?? "#e5e7eb");
       if (isVert) {
         const tx = ax + w.w / 2;
         const ty = ay + pad;
@@ -418,12 +420,17 @@ const stageRef = useRef<any>(null);
       }
       const knobOffset = Number(p.knob_offset ?? 0);
       const endDeg = indStart + indSweep + knobOffset;
-      const knobR = Math.min(r * 0.2, Number((w.knob || {}).radius ?? (w.style || {}).radius ?? 8));
+      const knobDef = w.knob || {};
+      const knobRadiusFromProp = Number(knobDef.radius ?? 0);
+      const knobW = Number(knobDef.width ?? 0);
+      const knobH = Number(knobDef.height ?? 0);
+      const knobR = Math.min(r, knobRadiusFromProp > 0 ? knobRadiusFromProp : (knobW > 0 || knobH > 0 ? Math.max(knobW, knobH) / 2 : 8));
+      const knobSize = Math.max(4, knobR);
       const knobX = cx + r * Math.cos((endDeg * Math.PI) / 180);
       const knobY = cy + r * Math.sin((endDeg * Math.PI) / 180);
       const bgStroke = String(s.bg_color ?? "#1f2937");
       const indStroke = String((w.indicator || {}).bg_color ?? s.bg_color ?? "#10b981");
-      const knobFill = String((w.knob || {}).bg_color ?? s.bg_color ?? "#e5e7eb");
+      const knobFill = String(knobDef.bg_color ?? s.bg_color ?? "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
       return (
@@ -433,7 +440,7 @@ const stageRef = useRef<any>(null);
           {indSweep !== 0 && (
             <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg - knobOffset)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
           )}
-          <Circle x={knobX} y={knobY} radius={Math.max(4, knobR)} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
           <Text text={String(val)} x={ax} y={cy - 8} width={w.w} align="center" fontSize={Math.max(10, fontSize - 2)} fill={textColor} listening={false} />
         </Group>
       );
@@ -441,12 +448,18 @@ const stageRef = useRef<any>(null);
 
     if (type === "switch") {
       const checked = !!(p.checked ?? p.state);
-      const knobX = checked ? ax + w.w - 20 : ax + 4;
+      const trackH = Math.max(14, w.h - 8);
+      const switchKnob = w.knob || {};
+      const thumbR = Math.max(4, Number(switchKnob.radius ?? 0) > 0 ? Number(switchKnob.radius) : (Number(switchKnob.width ?? 0) > 0 || Number(switchKnob.height ?? 0) > 0 ? Math.max(Number(switchKnob.width ?? 0), Number(switchKnob.height ?? 0)) / 2 : 8));
+      const trackW = Math.max(40, w.w - 8);
+      const knobX = checked ? ax + 4 + trackW - thumbR - 4 : ax + 4 + thumbR + 4;
+      const trackFill = checked ? String((w.indicator || {}).bg_color ?? s.bg_color ?? "#10b981") : String(s.bg_color ?? "#1f2937");
+      const knobFill = String(switchKnob.bg_color ?? s.text_color ?? "#e5e7eb");
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 4} y={ay + 4} width={w.w - 8} height={w.h - 8} fill={checked ? String(s.fill_color ?? "#10b981") : "#1f2937"} cornerRadius={(w.h - 8) / 2} listening={false} />
-          <Circle x={knobX + 8} y={ay + w.h / 2} radius={8} fill="#e5e7eb" listening={false} />
+          <Rect x={ax + 4} y={ay + (w.h - trackH) / 2} width={trackW} height={trackH} fill={trackFill} cornerRadius={trackH / 2} listening={false} />
+          <Circle x={knobX} y={ay + w.h / 2} radius={thumbR} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
         </Group>
       );
     }
