@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.48
+
+- Designer layout: center column width includes panel padding (12+36+width+12) so the canvas is never covered by the right panel.
+
 ## v0.70.47
 
 - Designer layout: 20px gap between canvas and right panel so the right-hand border of the canvas is visible.
