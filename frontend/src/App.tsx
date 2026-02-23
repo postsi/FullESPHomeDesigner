@@ -2176,7 +2176,7 @@ function deleteSelected() {
         className="designerLayout"
         style={
           selectedDevice && project
-            ? { gridTemplateColumns: `200px ${36 + screenSize.width}px 260px` }
+            ? { gridTemplateColumns: `200px ${36 + screenSize.width}px 260px`, gap: 20 }
             : undefined
         }
       >

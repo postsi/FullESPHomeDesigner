@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.47
+
+- Designer layout: 20px gap between canvas and right panel so the right-hand border of the canvas is visible.
+
 ## v0.70.46
 
 - Designer layout: right panel (Properties) aligned to canvas edge; center column width = canvas + Y-axis so canvas is never hidden under the panel on wide screens.
