@@ -314,7 +314,11 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
         setRecipeValidateRes(r);
       } catch (e: any) {
         if (cancelled) return;
-        setRecipeValidateErr(String(e?.message || e));
+        const raw = String(e?.message || e);
+        const is404 = raw.includes("404") || raw.includes("Not Found");
+        setRecipeValidateErr(is404
+          ? "Recipe validation unavailable (update integration to v0.70.61+ and restart HA)."
+          : raw);
         setRecipeValidateRes(null);
       } finally {
         if (!cancelled) setRecipeValidateBusy(false);
@@ -2575,12 +2579,73 @@ function deleteSelected() {
                   }}>Add recommended</button>
                 </div>
                 <div className="muted" style={{ marginTop: 8 }}>Bindings: {(project as any)?.bindings?.length || 0} • Links: {(project as any)?.links?.length || 0}</div>
+                {((project as any)?.links?.length) > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <div className="sectionTitle" style={{ fontSize: 13 }}>Links (what each widget is bound to)</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.5 }}>
+                      {((project as any).links || []).map((ln: any, idx: number) => {
+                        const src = ln?.source || {};
+                        const tgt = ln?.target || {};
+                        const wid = String(tgt?.widget_id || "").trim();
+                        const ent = String(src?.entity_id || "").trim();
+                        const attr = String(src?.attribute || "").trim();
+                        const action = String(tgt?.action || "").trim();
+                        const isSelected = selectedWidgetIds.includes(wid);
+                        return (
+                          <li key={idx} style={isSelected ? { fontWeight: 600, listStyle: "disc" } : { listStyle: "disc" }}>
+                            <code>{wid || "(no widget)"}</code>
+                            {" → "}
+                            {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"}
+                            {action ? ` · ${action}` : ""}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {selectedWidgetIds.length > 0 && (
+                      <div className="muted" style={{ marginTop: 6, fontSize: 11 }}>
+                        Selected widget(s) highlighted above.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {inspectorTab === "builder" && (
               <div className="section">
                 <div className="sectionTitle">Binding Builder</div>
                 <div className="muted">Bind selected widget to HA entity.</div>
+                {selectedWidgetIds.length !== 1 ? (
+                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Select a single widget on the canvas to see its bindings and add new ones.</div>
+                ) : (() => {
+                  const widgetId = selectedWidgetIds[0];
+                  const linksForWidget = ((project as any)?.links || []).filter(
+                    (ln: any) => String(ln?.target?.widget_id || "").trim() === widgetId
+                  );
+                  return (
+                    <div style={{ marginTop: 10, marginBottom: 10, padding: 8, background: "var(--ha-card-background, #eee)", borderRadius: 6 }}>
+                      <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
+                      {linksForWidget.length === 0 ? (
+                        <div className="muted" style={{ fontSize: 12 }}>No bindings. Use the form below to add one.</div>
+                      ) : (
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
+                          {linksForWidget.map((ln: any, idx: number) => {
+                            const src = ln?.source || {};
+                            const tgt = ln?.target || {};
+                            const ent = String(src?.entity_id || "").trim();
+                            const attr = String(src?.attribute || "").trim();
+                            const action = String(tgt?.action || "").trim();
+                            return (
+                              <li key={idx}>
+                                <code>{ent}{attr ? ` [${attr}]` : ""}</code>
+                                {action ? ` → ${action}` : ""}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                   <input placeholder="search entities..." value={entityQuery} onChange={(e)=>setEntityQuery(e.target.value)} />
                   <select value={bindEntity} onChange={(e)=>{ setBindEntity(e.target.value); setBindAttr(''); }}>

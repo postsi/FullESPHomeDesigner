@@ -1937,6 +1937,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
       const rootId = uid("card_th");
       const lblTitle = uid("lbl_th_title");
+      const arcSet = uid("arc_th_set");
       const lblCur = uid("lbl_th_cur");
       const lblSet = uid("lbl_th_set");
       const sldSet = uid("sld_th_set");
@@ -1952,6 +1953,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       let row = 0;
       const wx = x + 12;
       const ww = 296;
+      const arcSize = 56;
       const totalRows = 3 + (presetModes.length ? 1 : 0) + (fanModes.length ? 1 : 0);
       const containerH = 32 + totalRows * rowH;
 
@@ -1960,9 +1962,38 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: lblTitle, type: "label", x: wx, y: y + 10, w: ww, h: 22, props: { text: label } },
       ];
       row++;
+      // Lovelace-style: arc (setpoint) + current/set labels to the right
       widgets.push(
-        { id: lblCur, type: "label", x: wx, y: y + 10 + row * rowH, w: 140, h: 28, props: { text: "— °C" } },
-        { id: lblSet, type: "label", x: wx + 156, y: y + 10 + row * rowH, w: 140, h: 28, props: { text: "Set —" } },
+        {
+          id: arcSet,
+          type: "arc",
+          x: wx,
+          y: y + 10 + row * rowH,
+          w: arcSize,
+          h: arcSize,
+          props: {
+            min: minT,
+            max: maxT,
+            value: minT,
+            bg_start_angle: 135,
+            bg_end_angle: 45,
+            rotation: 0,
+            adjustable: true,
+          },
+          events: entity_id
+            ? {
+                on_value: `then:
+  - homeassistant.service:
+      service: climate.set_temperature
+      data:
+        entity_id: ${ent}
+      temperature: !lambda 'float s = (float)${stepT}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
+`,
+              }
+            : {},
+        },
+        { id: lblCur, type: "label", x: wx + arcSize + 10, y: y + 10 + row * rowH, w: 140, h: 24, props: { text: "— °C" } },
+        { id: lblSet, type: "label", x: wx + arcSize + 10, y: y + 10 + row * rowH + 26, w: 140, h: 24, props: { text: "Set —" } },
       );
       row++;
       widgets.push({
@@ -2065,6 +2096,10 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             {
               source: { entity_id, kind: "attribute_number", attribute: "temperature" },
               target: { widget_id: lblSet, action: "label_text", format: "Set %.1f", scale: 1.0 },
+            },
+            {
+              source: { entity_id, kind: "attribute_number", attribute: "temperature" },
+              target: { widget_id: arcSet, action: "arc_value", scale: 1.0 },
             },
             {
               source: { entity_id, kind: "attribute_number", attribute: "temperature" },

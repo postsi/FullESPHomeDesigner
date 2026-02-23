@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.62
+
+- **Thermostat card**: Lovelace-style arc for setpoint display (min–max range, 135°–45°). Arc is bound for two-way sync (HA → arc via `arc_value` link; arc drag → `climate.set_temperature`). Current/set labels sit beside the arc.
+- **HA Bindings tab**: New “Links (what each widget is bound to)” list: each link shown as `widget_id → entity_id [attribute] · action`. Selected widget’s links are highlighted in the list.
+- **Binding Builder tab**: When one widget is selected, “Current bindings for this widget” shows its links (entity [attribute] → action) or “No bindings”. When no widget or multiple widgets are selected, a short hint explains to select a single widget.
+- **Recipe validate 404**: Frontend shows a friendly message when the validate endpoint returns 404 (“Recipe validation unavailable (update integration…)”) so device select and canvas still work.
+
 ## v0.70.61
 
 - **Recipes validate 404**: RecipeValidateView now uses `f"/api/{DOMAIN}/recipes/validate"` so the route matches the integration’s DOMAIN and is registered correctly.
