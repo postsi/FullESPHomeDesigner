@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.55
+
+- Card Library (testing): only **Thermostat Card** is shown; other Card Library cards are temporarily disabled (titles prefixed with "Card Library disabled •") so the capability-driven Thermostat flow can be tested in isolation.
+
 ## v0.70.54
 
 - **Card Library • Thermostat**: Single capability-driven Thermostat card. Layout is built from the bound entity’s capabilities: HVAC modes dropdown (only modes the entity supports), optional preset dropdown (if `preset_modes` present), optional fan dropdown (if `fan_modes` present). Temperature range and step use entity `min_temp` / `max_temp` / `target_temp_step` when available.

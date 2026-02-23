@@ -2230,7 +2230,7 @@ function deleteSelected() {
               <>
                 <div className="sectionTitle">Card Library</div>
                 <div className="palette">
-                  {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && String((t as any).title ?? "").startsWith("Card Library")).map((t: any) => (
+                  {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && String((t as any).title ?? "").startsWith("Card Library • ") && !String((t as any).title ?? "").startsWith("Card Library disabled • ")).map((t: any) => (
                     <div
                       key={t.id}
                       className="paletteItem"

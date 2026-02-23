@@ -1841,7 +1841,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   // --- v0.57.0 : Card Library v1 (container macros) ---
   {
     id: "conditional_card",
-    title: "Card Library • Conditional",
+    title: "Card Library disabled • Conditional",
     description: "Shows/hides its contents based on a condition over an entity value. Product-mode helper.",
     build: ({ entity_id, condition = 'x == "on"', x = 20, y = 20, label = "Conditional" }: any) => {
       const rootId = uid("cond");
@@ -1867,7 +1867,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   },
   {
     id: "entity_card",
-    title: "Card Library • Entity Card",
+    title: "Card Library disabled • Entity Card",
     description: "Lovelace-style entity card (icon, name, state) with configurable tap action.",
     build: ({ entity_id, x = 20, y = 20, label = "Entity", tap_action = "more-info", service, service_data }) => {
       const ent = entity_id || "sensor.example";
@@ -1894,7 +1894,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   },
   {
     id: "tile_card",
-    title: "Card Library • Tile Card",
+    title: "Card Library disabled • Tile Card",
     description: "Lovelace-style tile card (big icon, label) with configurable tap action.",
     build: ({ entity_id, x = 20, y = 20, label = "Tile", tap_action = "toggle", service, service_data }) => {
       const ent = entity_id || "switch.example";
@@ -2076,7 +2076,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "media_control_card",
-    title: "Card Library • Media Control Card",
+    title: "Card Library disabled • Media Control Card",
     description:
       "Media control card: title, media title, transport controls, volume controls, and optional source row. Binds to media_player.*",
     build: ({
@@ -2274,7 +2274,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "cover_card",
-    title: "Card Library • Cover Card",
+    title: "Card Library disabled • Cover Card",
     description:
       "Cover card: open/stop/close + position slider, with optional tilt controls when supported. Binds to cover.* entities.",
     build: ({ entity_id, x = 20, y = 20, label = "Cover", cover_show_tilt = true, caps = null }) => {
@@ -2391,7 +2391,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "glance_card",
-    title: "Card Library • Glance Card",
+    title: "Card Library disabled • Glance Card",
     description: "Glance card: up to 4 entity rows (name + state). Provide entities: string[] to pre-bind.",
     build: ({ entities = [], x = 20, y = 20, label = "Glance", max_rows = 4 }) => buildGlanceCard({ entities, x, y, label, max_rows }),
   },
@@ -2399,19 +2399,19 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   // v0.61: Glance card presets (row count variants)
   {
     id: "glance_card_2",
-    title: "Card Library • Glance Card (2 rows)",
+    title: "Card Library disabled • Glance Card (2 rows)",
     description: "Glance card preset with 2 rows.",
     build: ({ entities = [], x = 20, y = 20, label = "Glance (2)" }) => buildGlanceCard({ entities, x, y, label, max_rows: 2 }),
   },
   {
     id: "glance_card_3",
-    title: "Card Library • Glance Card (3 rows)",
+    title: "Card Library disabled • Glance Card (3 rows)",
     description: "Glance card preset with 3 rows.",
     build: ({ entities = [], x = 20, y = 20, label = "Glance (3)" }) => buildGlanceCard({ entities, x, y, label, max_rows: 3 }),
   },
   {
     id: "glance_card_6",
-    title: "Card Library • Glance Card (6 rows)",
+    title: "Card Library disabled • Glance Card (6 rows)",
     description: "Glance card preset with 6 rows.",
     build: ({ entities = [], x = 20, y = 20, label = "Glance (6)" }) => buildGlanceCard({ entities, x, y, label, max_rows: 6 }),
   },
@@ -2419,7 +2419,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
     {
     id: "grid_card_2x2",
-    title: "Card Library • Grid Card (2×2)",
+    title: "Card Library disabled • Grid Card (2×2)",
     description: "2×2 grid of tiles. Provide entities: string[] (up to 4) to pre-bind; configurable tap action per tile.",
     build: ({ entities = [], x = 20, y = 20, label = "Grid (2×2)", tap_action = "toggle", service, service_data }) => buildGridCard({ entities, x, y, label, cols: 2, rows: 2, tap_action, service, service_data }),
   },
@@ -2427,14 +2427,14 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   // v0.61: Grid card size variants
   {
     id: "grid_card_3x2",
-    title: "Card Library • Grid Card (3×2)",
+    title: "Card Library disabled • Grid Card (3×2)",
     description: "3×2 grid of tiles (6). Provide entities: string[] (up to 6).",
     build: ({ entities = [], x = 20, y = 20, label = "Grid (3×2)", tap_action = "toggle", service, service_data }) =>
       buildGridCard({ entities, x, y, label, cols: 3, rows: 2, tap_action, service, service_data }),
   },
   {
     id: "grid_card_3x3",
-    title: "Card Library • Grid Card (3×3)",
+    title: "Card Library disabled • Grid Card (3×3)",
     description: "3×3 grid of tiles (9). Provide entities: string[] (up to 9).",
     build: ({ entities = [], x = 20, y = 20, label = "Grid (3×3)", tap_action = "toggle", service, service_data }) =>
       buildGridCard({ entities, x, y, label, cols: 3, rows: 3, tap_action, service, service_data }),
@@ -2443,7 +2443,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "layout_stack_vertical",
-    title: "Card Library • Layout Helper (Vertical Stack)",
+    title: "Card Library disabled • Layout Helper (Vertical Stack)",
     description: "Drops three stacked containers as a layout scaffold (no bindings).",
     build: ({ x = 20, y = 20, w = 320, h = 420, gap = 12 }) => {
       const widgets: any[] = [];
@@ -2461,7 +2461,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   // --- Card Library Phase 3 (v0.70.0) ---
   {
     id: "gauge_card",
-    title: "Card Library • Gauge",
+    title: "Card Library disabled • Gauge",
     description: "A simple gauge for numeric sensors (arc + value label).",
     build: ({ entity_id, x = 20, y = 20, label = "Gauge", min = 0, max = 100, unit = "" }: any) => {
       const rootId = uid('card_gauge');
@@ -2486,7 +2486,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "scene_card",
-    title: "Card Library • Scene",
+    title: "Card Library disabled • Scene",
     description: "Run a Home Assistant scene.",
     build: ({ entity_id, x = 20, y = 20, label = "Scene" }: any) => {
       const btnId = uid('btn_scene');
@@ -2509,7 +2509,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "script_card",
-    title: "Card Library • Script",
+    title: "Card Library disabled • Script",
     description: "Run a Home Assistant script.",
     build: ({ entity_id, x = 20, y = 20, label = "Script" }: any) => {
       const btnId = uid('btn_script');
@@ -2532,7 +2532,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
   {
     id: "chips_card",
-    title: "Card Library • Chips",
+    title: "Card Library disabled • Chips",
     description: "Compact status chips for up to 6 entities.",
     build: ({ entities = [], x = 20, y = 20, label = "Status", max_items = 6 }: any) => {
       const rootId = uid('card_chips');
