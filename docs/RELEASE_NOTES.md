@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.46
+
+- Designer layout: right panel (Properties) aligned to canvas edge; center column width = canvas + Y-axis so canvas is never hidden under the panel on wide screens.
+
 ## v0.70.45
 
 - Physical screen dimensions: prominent box above canvas (W×H px + source); visible outline around canvas.

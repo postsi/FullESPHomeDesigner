@@ -2172,7 +2172,14 @@ function deleteSelected() {
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
       </nav>
 
-      <main className="designerLayout">
+      <main
+        className="designerLayout"
+        style={
+          selectedDevice && project
+            ? { gridTemplateColumns: `200px ${36 + screenSize.width}px 260px` }
+            : undefined
+        }
+      >
         <aside className="designerPanel designerPanelLeft" style={{ minWidth: 200, maxWidth: 220 }}>
           <div className="panelTabs">
             <button type="button" className={`panelTab ${paletteTab === "std" ? "active" : ""}`} onClick={() => setPaletteTab("std")}>Std LVGL</button>
