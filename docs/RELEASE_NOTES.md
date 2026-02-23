@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.60
+
+- **Insert fix (root cause)**: The "ge.id" / "me.id" error was from `allTemplates.find((t) => t.id === resolvedId)` at line 572 when `allTemplates` contained an undefined entry (e.g. from `pluginControls`). Guard the callback with `t &&` and filter `allTemplates` to valid template objects so `.find()` never receives undefined.
+
 ## v0.70.59
 
 - **Insert**: Build `ws` in a loop so only widgets with valid `id` are pushed; sanitize current page.widgets (remove null/undefined) before appending so the next render never sees invalid entries. Console warnings when invalid widgets are skipped or stripped. Richer catch logging (template_id, built.widgets summary) to help identify the source of “Insert failed: me.id” errors.

@@ -515,7 +515,7 @@ useEffect(() => {
     let built: { widgets?: any[]; bindings?: any[]; links?: any[] } | undefined;
     try {
     const p2 = clone(project);
-    const allTemplates = [...CONTROL_TEMPLATES, ...pluginControls];
+    const allTemplates = [...CONTROL_TEMPLATES, ...(pluginControls || [])].filter((t) => t != null && typeof t === "object");
     let baseId = tmplWizard.template_id;
 
 // v0.61: grid size selector allows choosing a variant at insert time.
@@ -569,7 +569,7 @@ if (baseId.startsWith("glance_card")) {
     } else {
       resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     }
-    const tmpl = allTemplates.find((t) => t.id === resolvedId);
+    const tmpl = allTemplates.find((t) => t && t.id === resolvedId);
     if (!tmpl) {
       setToast({ type: "error", msg: `Template not found: ${resolvedId}` });
       return;
