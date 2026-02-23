@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Release Workflow
 
-When you have made any changes to this project, complete these steps **every time**:
+When you have made any changes to this project, complete these steps **every time** — including after each fix. Do the full release workflow automatically; do not wait to be asked.
 
 1. **Bump version** in both:
    - `custom_components/esphome_touch_designer/manifest.json`
