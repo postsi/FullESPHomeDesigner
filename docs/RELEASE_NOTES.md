@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.51
+
+- Canvas: LVGL-accurate previews for all widgets. Arc shows background arc, indicator arc, and knob (with rotation, angles, mode, knob_offset). Bar: track + indicator only; Slider: track + indicator + knob; both support vertical layout and range/symmetrical modes. Switch, LED (color + brightness), spinner (arc segment), line (points, width, color, rounded), roller (options + selected), dropdown, QR code (light/dark colors), chart (line/bar), tabview, tileview, buttonmatrix, keyboard, list, table, calendar, colorwheel, canvas, msgboxes all render to match LVGL structure.
+
 ## v0.70.50
 
 - All LVGL widgets: every schema uses object-form `groups` so all properties are visible in the Properties inspector with collapsible sections (Arc, Bar, Slider: Knob/Indicator; Line, LED, QR code, Canvas, Textarea, Keyboard, etc.).

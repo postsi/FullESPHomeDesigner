@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from "react";
-import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle } from "react-konva";
+import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc } from "react-konva";
 
 type Widget = {
   id: string;
@@ -311,67 +311,130 @@ const stageRef = useRef<any>(null);
       );
     }
 
-    if (type.includes("slider") || type.includes("bar")) {
-      const barMin = Number(p.min_value ?? p.min ?? 0);
-      const barMax = Number(p.max_value ?? p.max ?? 100);
+    if (type === "bar") {
+      const barMin = Number(p.min ?? 0);
+      const barMax = Number(p.max ?? 100);
       const val = Number(p.value ?? (barMin + barMax) / 2);
-      const norm = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
+      const startVal = Number(p.start_value ?? barMin);
+      const mode = String(p.mode ?? "NORMAL").toUpperCase();
+      const isVert = w.h > w.w;
+      const pad = 8;
+      const trackLen = isVert ? w.h - pad * 2 : w.w - pad * 2;
+      const thick = Math.min(isVert ? w.w - pad * 2 : w.h - pad * 2, 20);
+      let normStart = barMax > barMin ? (startVal - barMin) / (barMax - barMin) : 0;
+      let normEnd = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
+      if (mode === "RANGE" && normStart > normEnd) [normStart, normEnd] = [normEnd, normStart];
+      if (mode === "SYMMETRICAL") normStart = 0.5;
+      const trackFill = String(s.bg_color ?? "#1f2937");
+      const indFill = String((w.indicator || {}).bg_color ?? "#10b981");
+      if (isVert) {
+        const tx = ax + (w.w - thick) / 2;
+        const ty = ay + pad;
+        return (
+          <Group key={w.id}>
+            {base}
+            <Rect x={tx} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={thick / 2} listening={false} />
+            <Rect x={tx} y={ty + trackLen * (1 - normEnd)} width={thick} height={trackLen * (normEnd - normStart)} fill={indFill} cornerRadius={thick / 2} listening={false} />
+          </Group>
+        );
+      }
       return (
         <Group key={w.id}>
           {base}
-          <Rect
-            x={ax + 10}
-            y={ay + w.h / 2 - 6}
-            width={w.w - 20}
-            height={12}
-            fill={String(s.track_color ?? "#0b1220")}
-            stroke={String(s.track_border_color ?? "#1f2937")}
-            strokeWidth={Number(s.track_border_width ?? 2)}
-            cornerRadius={6}
-            listening={false}
-          />
-          <Rect
-            x={ax + 10}
-            y={ay + w.h / 2 - 6}
-            width={(w.w - 20) * norm}
-            height={12}
-            fill={String(s.fill_color ?? "#10b981")}
-            cornerRadius={6}
-            listening={false}
-          />
-          <Circle
-            x={ax + 10 + (w.w - 20) * norm}
-            y={ay + w.h / 2}
-            radius={10}
-            fill={String(s.knob_color ?? "#111827")}
-            stroke={String(s.knob_border_color ?? "#10b981")}
-            strokeWidth={Number(s.knob_border_width ?? 2)}
-            listening={false}
-          />
+          <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={thick / 2} listening={false} />
+          <Rect x={ax + pad + trackLen * normStart} y={ay + (w.h - thick) / 2} width={trackLen * (normEnd - normStart)} height={thick} fill={indFill} cornerRadius={thick / 2} listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "slider") {
+      const barMin = Number(p.min ?? 0);
+      const barMax = Number(p.max ?? 100);
+      const val = Number(p.value ?? (barMin + barMax) / 2);
+      const startVal = Number(p.start_value ?? barMin);
+      const mode = String(p.mode ?? "NORMAL").toUpperCase();
+      const isVert = w.h > w.w;
+      const pad = 10;
+      const trackLen = isVert ? w.h - pad * 2 : w.w - pad * 2;
+      const thick = Math.min(isVert ? w.w - pad * 2 : w.h - pad * 2, 12);
+      let norm = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
+      let normStart = barMax > barMin ? (startVal - barMin) / (barMax - barMin) : 0;
+      if (mode === "RANGE" && normStart > norm) [normStart, norm] = [norm, normStart];
+      const trackFill = String(s.bg_color ?? "#1f2937");
+      const indFill = String((w.indicator || {}).bg_color ?? "#10b981");
+      const knobFill = String((w.knob || {}).bg_color ?? s.bg_color ?? "#e5e7eb");
+      const knobR = Math.max(6, Math.min(thick * 1.2, (isVert ? w.w : w.h) / 4));
+      if (isVert) {
+        const tx = ax + w.w / 2;
+        const ty = ay + pad;
+        const knobY = ty + trackLen * (1 - norm);
+        return (
+          <Group key={w.id}>
+            {base}
+            <Rect x={tx - thick / 2} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={thick / 2} listening={false} />
+            <Rect x={tx - thick / 2} y={knobY} width={thick} height={trackLen * norm} fill={indFill} cornerRadius={thick / 2} listening={false} />
+            <Circle x={tx} y={knobY} radius={knobR} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          </Group>
+        );
+      }
+      const knobX = ax + pad + trackLen * norm;
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={thick / 2} listening={false} />
+          <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen * norm} height={thick} fill={indFill} cornerRadius={thick / 2} listening={false} />
+          <Circle x={knobX} y={ay + w.h / 2} radius={knobR} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
         </Group>
       );
     }
 
     if (type.includes("arc") || type.includes("gauge") || type === "meter") {
-      const r = Math.max(12, Math.min(w.w, w.h) / 2 - 10);
       const cx = ax + w.w / 2;
       const cy = ay + w.h / 2;
-      const arcVal = String(p.value ?? p.start_value ?? "");
+      const trackW = Math.max(4, Math.min(16, Math.min(w.w, w.h) / 8));
+      const r = Math.max(14, Math.min(w.w, w.h) / 2 - trackW - 4);
+      const rot = Number(p.rotation ?? 0);
+      const bgStart = Number(p.bg_start_angle ?? 0);
+      const bgEnd = Number(p.bg_end_angle ?? 270);
+      const sweep = (bgEnd - bgStart + 360) % 360 || 360;
+      const min = Number(p.min ?? 0);
+      const max = Number(p.max ?? 100);
+      const val = Number(p.value ?? (min + max) / 2);
+      const mode = String(p.mode ?? "NORMAL").toUpperCase();
+      let indStart = bgStart;
+      let indSweep = 0;
+      if (max > min) {
+        const t = (val - min) / (max - min);
+        if (mode === "SYMMETRICAL") {
+          const mid = (bgStart + bgEnd) / 2;
+          indStart = mid;
+          indSweep = (val - min) / (max - min) * (bgEnd - bgStart) / 2;
+        } else if (mode === "REVERSE") {
+          indStart = bgEnd;
+          indSweep = -t * (bgEnd - bgStart);
+        } else {
+          indSweep = t * (bgEnd - bgStart);
+        }
+      }
+      const knobOffset = Number(p.knob_offset ?? 0);
+      const endDeg = indStart + indSweep + knobOffset;
+      const knobR = Math.min(r * 0.2, Number((w.knob || {}).radius ?? (w.style || {}).radius ?? 8));
+      const knobX = cx + r * Math.cos((endDeg * Math.PI) / 180);
+      const knobY = cy + r * Math.sin((endDeg * Math.PI) / 180);
+      const bgStroke = String(s.bg_color ?? "#1f2937");
+      const indStroke = String((w.indicator || {}).bg_color ?? s.bg_color ?? "#10b981");
+      const knobFill = String((w.knob || {}).bg_color ?? s.bg_color ?? "#e5e7eb");
+      const innerR = r - trackW / 2;
+      const outerR = r + trackW / 2;
       return (
         <Group key={w.id}>
           {base}
-          <Circle x={cx} y={cy} radius={r} stroke={String(s.track_color ?? "#1f2937")} strokeWidth={Number(s.track_width ?? s.arc_width ?? 12)} listening={false} />
-          <Circle x={cx} y={cy} radius={r} stroke={String(s.fill_color ?? "#10b981")} strokeWidth={Number(s.track_width ?? s.arc_width ?? 12)} listening={false} opacity={Number(s.fill_opacity ?? 0.35)} />
-          <Text
-            text={arcVal}
-            x={ax}
-            y={cy - 10}
-            width={w.w}
-            align="center"
-            fontSize={fontSize}
-            fill={textColor}
-            listening={false}
-          />
+          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={sweep} rotation={rot + bgStart} fill={bgStroke} clockwise listening={false} />
+          {indSweep !== 0 && (
+            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg - knobOffset)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
+          )}
+          <Circle x={knobX} y={knobY} radius={Math.max(4, knobR)} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          <Text text={String(val)} x={ax} y={cy - 8} width={w.w} align="center" fontSize={Math.max(10, fontSize - 2)} fill={textColor} listening={false} />
         </Group>
       );
     }
@@ -405,11 +468,13 @@ const stageRef = useRef<any>(null);
 
     if (type === "dropdown") {
       const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2"];
+      const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
+      const displayText = String(opts[selIdx] ?? opts[0] ?? "Select…");
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={String(opts[0] ?? "Select…")} x={ax + 14} y={ay + (w.h - 16) / 2} width={w.w - 36} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
+          <Text text={displayText} x={ax + 14} y={ay + (w.h - 16) / 2} width={w.w - 36} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
           <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={textColor} listening={false} />
         </Group>
       );
@@ -445,21 +510,32 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "roller") {
+      const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2", "Option 3"];
+      const selected = Math.min(Math.max(0, Number(p.selected ?? 0)), opts.length - 1);
+      const rowH = Math.min(24, (w.h - 16) / 3);
+      const visible = Math.max(1, Math.floor((w.h - 16) / rowH));
+      const start = Math.max(0, selected - Math.floor(visible / 2));
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
-          <Text text="▸ ▸ ▸" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill={textColor} listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          {opts.slice(start, start + visible).map((opt: string, i: number) => (
+            <Text key={i} text={String(opt).slice(0, 20)} x={ax + 12} y={ay + 8 + i * rowH} width={w.w - 24} fontSize={Math.min(12, rowH - 4)} fill={i + start === selected ? textColor : "#6b7280"} ellipsis listening={false} />
+          ))}
         </Group>
       );
     }
 
     if (type === "spinner") {
+      const cx = ax + w.w / 2;
+      const cy = ay + w.h / 2;
+      const r = Math.min(w.w, w.h) / 4 - 4;
+      const arcW = Math.max(3, r / 4);
+      const indColor = String((w.indicator || {}).bg_color ?? "#10b981");
       return (
         <Group key={w.id}>
           {base}
-          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 4} stroke="#10b981" strokeWidth={3} listening={false} />
-          <Text text="◌" x={ax} y={ay + (w.h - 16) / 2} width={w.w} align="center" fontSize={14} fill="#10b981" listening={false} />
+          <Arc x={cx} y={cy} innerRadius={r - arcW / 2} outerRadius={r + arcW / 2} angle={90} rotation={0} stroke={indColor} strokeWidth={arcW} fillEnabled={false} clockwise listening={false} />
         </Group>
       );
     }
@@ -477,109 +553,202 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "qrcode") {
+      const light = String(p.light_color ?? "#ffffff");
+      const dark = String(p.dark_color ?? "#000000");
+      const sz = Math.min(w.w, w.h) * 0.6;
+      const tx = ax + (w.w - sz) / 2;
+      const ty = ay + (w.h - sz) / 2;
+      const cell = Math.max(3, sz / 12);
+      const cols = Math.floor(sz / cell);
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + (w.w - Math.min(w.w, w.h) * 0.6) / 2} y={ay + (w.h - Math.min(w.w, w.h) * 0.6) / 2} width={Math.min(w.w, w.h) * 0.6} height={Math.min(w.w, w.h) * 0.6} fill="#fff" stroke="#374151" listening={false} />
-          <Text text="QR" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill="#111827" listening={false} />
+          <Rect x={tx} y={ty} width={sz} height={sz} fill={light} stroke="#374151" listening={false} />
+          {Array.from({ length: cols * cols }, (_, i) => {
+            const c = i % cols;
+            const r = Math.floor(i / cols);
+            if ((c + r) % 3 === 0 || (c % 2 === 0 && r % 2 === 0)) return null;
+            return <Rect key={i} x={tx + c * cell + 1} y={ty + r * cell + 1} width={cell - 1} height={cell - 1} fill={dark} listening={false} />;
+          })}
         </Group>
       );
     }
 
     if (type === "led") {
-      const on = !!(p.state ?? p.value);
+      const brightness = Math.min(100, Math.max(0, Number(p.brightness ?? 100)));
+      const ledColor = String(p.color ?? s.bg_color ?? "#00ff00");
+      const dim = brightness / 100;
+      const r = Math.min(w.w, w.h) / 4 - 2;
+      const fill = dim >= 0.01 ? ledColor : "#1f2937";
+      const opacity = dim >= 0.01 ? 0.3 + 0.7 * dim : 0.4;
       return (
         <Group key={w.id}>
           {base}
-          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 2} fill={on ? String(s.bg_color ?? "#00ff00") : "#1f2937"} stroke={on ? "#34d399" : "#374151"} strokeWidth={2} listening={false} />
+          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={r} fill={fill} opacity={opacity} stroke={dim >= 0.01 ? "#34d399" : "#374151"} strokeWidth={2} listening={false} />
         </Group>
       );
     }
 
     if (type === "chart") {
+      const chartType = String(p.type ?? "line").toLowerCase();
+      const pad = 12;
+      const graphW = w.w - pad * 2;
+      const graphH = w.h - pad * 2 - 14;
+      const pts = [ax + pad, ay + w.h - pad - 10, ax + pad + graphW * 0.25, ay + pad + graphH * 0.6, ax + pad + graphW * 0.5, ay + pad + graphH * 0.25, ax + pad + graphW * 0.85, ay + pad + graphH * 0.5];
       return (
         <Group key={w.id}>
           {base}
-          <Line points={[ax + 10, ay + w.h - 20, ax + w.w / 4, ay + w.h / 2, ax + w.w / 2, ay + 30, ax + w.w - 10, ay + 50]} stroke="#10b981" strokeWidth={2} listening={false} />
-          <Text text="Chart" x={ax} y={ay + 6} fontSize={12} fill="#9ca3af" listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          {chartType === "bar" ? (
+            [0.3, 0.5, 0.7, 0.9].map((v, i) => (
+              <Rect key={i} x={ax + pad + (graphW / 5) * (i + 0.5)} y={ay + pad + graphH * (1 - v)} width={graphW / 6} height={graphH * v} fill="#10b981" cornerRadius={2} listening={false} />
+            ))
+          ) : (
+            <Line points={pts} stroke="#10b981" strokeWidth={2} lineCap="round" lineJoin="round" listening={false} />
+          )}
+          <Text text="Chart" x={ax} y={ay + 4} width={w.w} align="center" fontSize={11} fill="#9ca3af" listening={false} />
         </Group>
       );
     }
 
     if (type === "line") {
+      const pts = Array.isArray(p.points) && p.points.length >= 2
+        ? p.points.flatMap((pt: string) => {
+            const [a, b] = String(pt).split(",").map(Number);
+            return [ax + (Number.isFinite(a) ? a : 0), ay + (Number.isFinite(b) ? b : 0)];
+          })
+        : [ax, ay, ax + w.w, ay + w.h];
+      const lineColor = String(p.line_color ?? s.border_color ?? "#10b981");
+      const lineW = Math.max(1, Number(p.line_width ?? 2));
+      const rounded = !!p.line_rounded;
       return (
         <Group key={w.id}>
           {base}
-          <Line points={[ax, ay, ax + w.w, ay + w.h]} stroke={String(s.line_color ?? "#10b981")} strokeWidth={Number(s.line_width ?? 2)} listening={false} />
+          <Line points={pts} stroke={lineColor} strokeWidth={lineW} lineCap={rounded ? "round" : "butt"} lineJoin={rounded ? "round" : "miter"} listening={false} />
         </Group>
       );
     }
 
-    if (type === "tabview" || type === "tileview") {
+    if (type === "tabview") {
+      const tabH = 24;
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 8} y={ay + 8} width={60} height={20} fill="#374151" cornerRadius={4} listening={false} />
-          <Text text={type} x={ax + 8} y={ay + 36} fontSize={12} fill="#9ca3af" listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={56} height={tabH} fill={String((w.tab_style || {}).bg_color ?? "#374151")} cornerRadius={4} listening={false} />
+          <Rect x={ax + 6} y={ay + 6 + tabH} width={w.w - 12} height={w.h - 12 - tabH} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={0} listening={false} />
+          <Text text="Tab1" x={ax + 12} y={ay + 10} fontSize={11} fill={textColor} listening={false} />
+        </Group>
+      );
+    }
+    if (type === "tileview") {
+      return (
+        <Group key={w.id}>
+          {base}
+          {[0, 1].map((i) => (
+            <Rect key={i} x={ax + 8 + i * (w.w / 2 - 4)} y={ay + 8} width={w.w / 2 - 12} height={w.h / 2 - 12} fill="#374151" cornerRadius={4} listening={false} />
+          ))}
+          <Text text="Tile" x={ax} y={ay + (w.h - 12) / 2} width={w.w} align="center" fontSize={11} fill="#9ca3af" listening={false} />
         </Group>
       );
     }
 
     if (type === "buttonmatrix") {
+      const pad = 6;
+      const cols = 3;
+      const rows = 2;
+      const bw = (w.w - pad * (cols + 1)) / cols;
+      const bh = Math.min(28, (w.h - pad * (rows + 1)) / rows);
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 8} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
-          <Rect x={ax + 16 + (w.w - 24) / 3} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
-          <Rect x={ax + 24 + 2 * (w.w - 24) / 3} y={ay + 8} width={(w.w - 24) / 3} height={24} fill="#374151" cornerRadius={4} listening={false} />
-        </Group>
-      );
-    }
-
-    if (type === "keyboard") {
-      return (
-        <Group key={w.id}>
-          {base}
-          <Text text="⌨" x={ax} y={ay + (w.h - 24) / 2} width={w.w} align="center" fontSize={18} fill="#9ca3af" listening={false} />
-        </Group>
-      );
-    }
-
-    if (type === "list" || type === "table") {
-      return (
-        <Group key={w.id}>
-          {base}
-          {[0, 1, 2].map((i) => (
-            <Rect key={i} x={ax + 8} y={ay + 12 + i * 18} width={w.w - 16} height={14} fill="#1f2937" cornerRadius={2} listening={false} />
+          {Array.from({ length: rows * cols }, (_, i) => (
+            <Rect key={i} x={ax + pad + (i % cols) * (bw + pad)} y={ay + pad + Math.floor(i / cols) * (bh + pad)} width={bw} height={bh} fill="#374151" cornerRadius={4} listening={false} />
           ))}
         </Group>
       );
     }
 
-    if (type === "calendar") {
+    if (type === "keyboard") {
+      const pad = 4;
+      const keyW = (w.w - pad * 11) / 10;
+      const keyH = Math.min(24, (w.h - pad * 5) / 4);
       return (
         <Group key={w.id}>
           {base}
-          <Text text="📅" x={ax} y={ay + (w.h - 24) / 2} width={w.w} align="center" fontSize={18} fill="#9ca3af" listening={false} />
+          {Array.from({ length: 4 * 10 }, (_, i) => (
+            <Rect key={i} x={ax + pad + (i % 10) * (keyW + pad)} y={ay + pad + Math.floor(i / 10) * (keyH + pad)} width={keyW} height={keyH} fill="#374151" cornerRadius={2} listening={false} />
+          ))}
+          <Text text="⌨" x={ax} y={ay + w.h - 20} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+        </Group>
+      );
+    }
+
+    if (type === "list") {
+      const rowH = 28;
+      const count = Math.max(1, Math.floor((w.h - 12) / rowH));
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={4} listening={false} />
+          {Array.from({ length: count }, (_, i) => (
+            <Rect key={i} x={ax + 10} y={ay + 10 + i * rowH} width={w.w - 20} height={rowH - 4} fill="#1f2937" cornerRadius={2} listening={false} />
+          ))}
+        </Group>
+      );
+    }
+    if (type === "table") {
+      const rowH = 22;
+      const colW = (w.w - 16) / 3;
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          {[0, 1, 2].map((r) =>
+            [0, 1, 2].map((c) => (
+              <Rect key={`${r}-${c}`} x={ax + 8 + c * colW} y={ay + 8 + r * rowH} width={colW - 2} height={rowH - 2} fill={r === 0 ? "#374151" : "#1f2937"} cornerRadius={1} listening={false} />
+            ))
+          )}
+        </Group>
+      );
+    }
+
+    if (type === "calendar") {
+      const cellW = (w.w - 16) / 7;
+      const cellH = Math.min(20, (w.h - 24) / 6);
+      return (
+        <Group key={w.id}>
+          {base}
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#111827")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          <Text text="S M T W T F S" x={ax + 8} y={ay + 8} width={w.w - 16} fontSize={10} fill="#9ca3af" listening={false} />
+          {Array.from({ length: 35 }, (_, i) => (
+            <Rect key={i} x={ax + 8 + (i % 7) * cellW} y={ay + 22 + Math.floor(i / 7) * cellH} width={cellW - 1} height={cellH - 1} fill={i === 15 ? "#374151" : "#1f2937"} cornerRadius={2} listening={false} />
+          ))}
         </Group>
       );
     }
 
     if (type === "colorwheel") {
+      const cx = ax + w.w / 2;
+      const cy = ay + w.h / 2;
+      const r = Math.min(w.w, w.h) / 4 - 4;
       return (
         <Group key={w.id}>
           {base}
-          <Circle x={ax + w.w / 2} y={ay + w.h / 2} radius={Math.min(w.w, w.h) / 4 - 4} stroke="#e879f9" strokeWidth={4} listening={false} />
-          <Text text="🎨" x={ax} y={ay + 6} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+          <Circle x={cx} y={cy} radius={r} stroke="#6b7280" strokeWidth={2} listening={false} />
+          {[0, 120, 240].map((rot, i) => (
+            <Arc key={i} x={cx} y={cy} innerRadius={r * 0.4} outerRadius={r} angle={100} rotation={rot} fill={i === 0 ? "#e11d48" : i === 1 ? "#22c55e" : "#3b82f6"} listening={false} />
+          ))}
+          <Circle x={cx} y={cy} radius={r * 0.35} fill="#1f2937" stroke="#9ca3af" strokeWidth={1} listening={false} />
         </Group>
       );
     }
 
     if (type === "canvas") {
+      const transparent = !!p.transparent;
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#0b1220" stroke="#374151" strokeWidth={1} listening={false} />
+          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill={transparent ? "rgba(15,23,42,0.5)" : "#0b1220"} stroke="#374151" strokeWidth={1} listening={false} />
           <Text text="canvas" x={ax} y={ay + (w.h - 12) / 2} width={w.w} align="center" fontSize={11} fill="#6b7280" fontStyle="italic" listening={false} />
         </Group>
       );
@@ -589,7 +758,10 @@ const stageRef = useRef<any>(null);
       return (
         <Group key={w.id}>
           {base}
-          <Text text="msgbox" x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={28} fill="#374151" cornerRadius={4} listening={false} />
+          <Rect x={ax + 6} y={ay + 34} width={w.w - 12} height={w.h - 40} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={4} listening={false} />
+          <Text text="Title" x={ax + 12} y={ay + 10} fontSize={12} fill={textColor} listening={false} />
+          <Text text="Message…" x={ax + 12} y={ay + 42} width={w.w - 24} fontSize={11} fill="#9ca3af" listening={false} />
         </Group>
       );
     }
@@ -598,14 +770,7 @@ const stageRef = useRef<any>(null);
     return (
       <Group key={w.id}>
         {base}
-        <Text
-          text={w.type}
-          x={w.x + 6}
-          y={w.y + 6}
-          fontSize={14}
-          fill="#e5e7eb"
-          listening={false}
-        />
+        <Text text={w.type} x={ax + 6} y={ay + 6} fontSize={14} fill="#e5e7eb" listening={false} />
       </Group>
     );
   };
