@@ -2002,7 +2002,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           },
           style: { radius: 10 },
           indicator: { bg_color: accentColor, radius: 10 },
-          knob: { bg_color: 0xffffff, radius: 0x7FFF, padding: 5 },
+          knob: { bg_color: 0xffffff, radius: 12, padding: 5 },
           events: entity_id
             ? {
                 on_release: `then:

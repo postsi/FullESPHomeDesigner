@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.65
+
+- **Thermostat HA data**: fetchStateBatch only uses response when res.ok; liveOverrides fallback to state when attribute_number is missing; label_number action supported for live text.
+- **Thermostat arc**: Visible knob (template knob.radius 0x7FFF → 12; canvas caps large knob radius); numeric colors (0xrrggbb) converted to #rrggbb via toFillColor so arc track, indicator, and knob render correctly.
+
 ## v0.70.64
 
 - **Properties panel**: Removed the widget list; panel shows only properties of the selected widget. With multiple widgets selected, shows “N widgets selected” and common layout (X, Y, Width, Height) that apply to all.

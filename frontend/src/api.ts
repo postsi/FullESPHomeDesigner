@@ -151,13 +151,20 @@ export async function validateRecipe(recipe_id: string) {
 
 /** Batch fetch HA entity states for live design-time preview. */
 export async function fetchStateBatch(entity_ids: string[]): Promise<Record<string, { state: string; attributes: Record<string, any> }>> {
+  if (!entity_ids?.length) return {};
   const res = await fetch(`${API_BASE}/state/batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ entity_ids }),
     credentials: "include",
   });
-  const data = await res.json();
+  if (!res.ok) return {};
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    return {};
+  }
   return (data?.states && typeof data.states === "object") ? data.states : {};
 }
 

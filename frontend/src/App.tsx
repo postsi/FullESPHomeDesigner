@@ -1008,6 +1008,7 @@ if (baseId.startsWith("glance_card")) {
       if (kind === "attribute_number" && attr) {
         const v = data.attributes?.[attr];
         raw = typeof v === "number" ? v : (typeof v === "string" ? parseFloat(v) : NaN);
+        if (Number.isNaN(raw) && typeof data.state === "string") raw = parseFloat(data.state);
       } else if (kind === "attribute_text" && attr) {
         raw = data.attributes?.[attr] ?? "";
       } else if (kind === "binary") {
@@ -1020,6 +1021,11 @@ if (baseId.startsWith("glance_card")) {
           overrides[widgetId] = { ...overrides[widgetId], text: s };
         } else {
           overrides[widgetId] = { ...overrides[widgetId], text: String(raw ?? "") };
+        }
+      } else if (action === "label_number") {
+        if (typeof raw === "number" && !Number.isNaN(raw)) {
+          const n = raw * scale;
+          overrides[widgetId] = { ...overrides[widgetId], text: String(Math.round(n)) };
         }
       } else if (action === "arc_value" || action === "slider_value") {
         const num = typeof raw === "number" ? raw : parseFloat(String(raw));
@@ -1674,7 +1680,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.64 — Properties panel, card group selection, live HA polling</div>
+          <div className="muted">v0.70.65 — Thermostat HA data + arc knob/colors</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>

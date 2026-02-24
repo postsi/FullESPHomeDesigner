@@ -33,6 +33,15 @@ function snap(n: number, grid: number) {
   return Math.round(n / grid) * grid;
 }
 
+/** Normalize color to CSS fill (templates use numeric 0xrrggbb). */
+function toFillColor(val: any, fallback: string): string {
+  if (typeof val === "number" && val >= 0 && val <= 0xffffff) {
+    return "#" + val.toString(16).padStart(6, "0");
+  }
+  if (typeof val === "string" && /^#?[0-9a-fA-F]{6}$/.test(val)) return val.startsWith("#") ? val : "#" + val;
+  return fallback;
+}
+
 
 // Ensure only valid widgets (avoids "undefined is not an object (evaluating '*.id')" when array has holes)
 function safeWidgets(list: Widget[]): Widget[] {
@@ -453,16 +462,20 @@ const stageRef = useRef<any>(null);
       const knobOffset = Number(p.knob_offset ?? 0);
       const endDeg = indStart + indSweep + knobOffset;
       const knobDef = w.knob || {};
-      const knobRadiusFromProp = Number(knobDef.radius ?? 0);
+      let knobRadiusFromProp = Number(knobDef.radius ?? 0);
+      // LVGL uses 0x7FFF as "default" knob size; treat any very large value as default for a visible knob
+      if (knobRadiusFromProp > 24 || knobRadiusFromProp === 0x7FFF) knobRadiusFromProp = 0;
       const knobW = Number(knobDef.width ?? 0);
       const knobH = Number(knobDef.height ?? 0);
-      const knobR = Math.min(r, knobRadiusFromProp > 0 ? knobRadiusFromProp : (knobW > 0 || knobH > 0 ? Math.max(knobW, knobH) / 2 : 8));
-      const knobSize = Math.max(4, knobR);
+      const knobR = knobRadiusFromProp > 0
+        ? Math.min(r - 2, knobRadiusFromProp)
+        : (knobW > 0 || knobH > 0 ? Math.min(r - 2, Math.max(knobW, knobH) / 2) : Math.min(r - 2, 12));
+      const knobSize = Math.max(6, knobR);
       const knobX = cx + r * Math.cos((endDeg * Math.PI) / 180);
       const knobY = cy + r * Math.sin((endDeg * Math.PI) / 180);
-      const bgStroke = String(s.bg_color ?? "#1f2937");
-      const indStroke = String((w.indicator || {}).bg_color ?? s.bg_color ?? "#10b981");
-      const knobFill = String(knobDef.bg_color ?? s.bg_color ?? "#e5e7eb");
+      const bgStroke = toFillColor(s.bg_color ?? p.bg_color, "#1f2937");
+      const indStroke = toFillColor((w.indicator || {}).bg_color ?? s.bg_color, "#10b981");
+      const knobFill = toFillColor(knobDef.bg_color ?? s.bg_color, "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
       return (
