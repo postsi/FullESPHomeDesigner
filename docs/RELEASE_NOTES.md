@@ -1,5 +1,22 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.70
+
+- **Binding and action binding overhaul**
+  - **Delete widget cleans references**: Deleting a widget now removes all `project.links` and `project.action_bindings` that reference it (no orphan bindings).
+  - **HA Bindings list**: Scrollable (max height) and grouped by widget type (Labels, Arcs, Sliders, Buttons, etc.). Groups are expandable/collapsible (default collapsed). Shows both display links and action bindings; ✎ indicates custom YAML override.
+  - **Binding Builder**:
+    - **Display | Action** tabs: add display bindings (HA → widget) or action bindings (widget event → HA service call).
+    - Entity picker is a type-to-search dropdown (same behaviour as other entity comboboxes).
+    - Attribute list is driven by the selected entity; target action list is filtered by selected widget type (e.g. only “Show as text” for labels).
+    - Format and Scale have labels and short descriptions (printf-style format; numeric scale).
+  - **Action bindings (model and UI)**:
+    - `project.action_bindings[]`: `{ widget_id, event, call: { domain, service, entity_id?, data? }, yaml_override? }`. Compiler uses `yaml_override` when set, otherwise generates from `call`.
+    - Event and service dropdowns are filtered by widget type and entity domain (only relevant options).
+    - Thermostat card (and template insert) now outputs `action_bindings` in the same shape; compiler uses them so card-generated and manual bindings stay consistent.
+  - **Manual YAML override**: Display links and action bindings support optional `yaml_override`. When set, the compiler uses it instead of generating from the structured fields. Binding Builder shows “Edit YAML” per binding; list and builder show ✎ when an override is set.
+  - **Rename widget**: `renameWidgetInProject` now updates `action_bindings[].widget_id` as well as links and parent_id.
+
 ## v0.70.69
 
 - **Friendly widget IDs**: Auto- and manually bound widgets get readable names from their binding (e.g. `living_room_temperature`, `living_room_hvac_mode`). Template insert uses entity_id + attribute to build ids; Binding Builder renames the widget when you add a link. **Widget ID (YAML)** is an editable field at the top of the Properties panel (commit on blur/Enter); rename updates the widget and all links/parent_id references.

@@ -2162,7 +2162,38 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             ]
           : [];
 
-      return { widgets, bindings, links, scripts };
+      // Action bindings (same model as Binding Builder): compiler uses these when present.
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({
+          widget_id: arcSet,
+          event: "on_release",
+          call: { domain: "climate", service: "set_temperature", entity_id: ent },
+        });
+        if (hvacModes.length) {
+          action_bindings.push({
+            widget_id: ddHvac,
+            event: "on_change",
+            call: { domain: "climate", service: "set_hvac_mode", entity_id: ent },
+          });
+        }
+        if (presetModes.length) {
+          action_bindings.push({
+            widget_id: ddPreset,
+            event: "on_change",
+            call: { domain: "climate", service: "set_preset_mode", entity_id: ent },
+          });
+        }
+        if (fanModes.length) {
+          action_bindings.push({
+            widget_id: ddFan,
+            event: "on_change",
+            call: { domain: "climate", service: "set_fan_mode", entity_id: ent },
+          });
+        }
+      }
+
+      return { widgets, bindings, links, scripts, action_bindings };
     },
   },
 

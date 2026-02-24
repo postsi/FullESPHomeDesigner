@@ -21,6 +21,14 @@ export type WidgetSchema = {
   events?: Record<string, any>;
 };
 
+/** One action binding: when widget fires event, call HA service. Optional yaml_override: if set, compiler uses this instead of generating from call. */
+export type ActionBinding = {
+  widget_id: string;
+  event: string; // e.g. on_click, on_release, on_value
+  call: { domain: string; service: string; entity_id?: string; data?: Record<string, unknown> };
+  yaml_override?: string; // when set, compiler uses this; editor shows "custom" indicator
+};
+
 export type ProjectModel = {
   model_version: number;
   pages: Array<{ page_id: string; name: string; widgets: any[] }>;
@@ -28,6 +36,8 @@ export type ProjectModel = {
   // These are consumed by the backend compiler.
   bindings?: any[];
   links?: any[];
+  /** Action bindings: widget event -> HA service call. Compiler uses yaml_override when set, else generates from call. */
+  action_bindings?: ActionBinding[];
   palette?: Record<string, string>;
   // Optional runtime/device metadata used by the designer UI.
   // The backend stores this as part of the project model.

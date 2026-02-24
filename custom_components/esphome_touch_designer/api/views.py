@@ -200,6 +200,13 @@ def _compile_ha_bindings(project: dict) -> str:
             )
             outs.append("                then:\n")
 
+            # v0.70: per-link yaml_override: use custom YAML when set (manual edit in editor).
+            yaml_override = tgt.get("yaml_override")
+            if isinstance(yaml_override, str) and yaml_override.strip():
+                for line in yaml_override.strip().splitlines():
+                    outs.append("                  " + line + "\n")
+                continue
+
             if action == "widget_checked":
                 outs.append("                  - lvgl.widget.update:\n")
                 outs.append(f"                      id: {wid}\n")
@@ -717,7 +724,33 @@ def _emit_kv(indent: str, key: str, value) -> str:
     return f"{indent}{key}: {_yaml_quote(value)}\n"
 
 
-def _emit_widget_from_schema(widget: dict, schema: dict) -> str:
+def _action_binding_call_to_yaml(call: dict) -> str:
+    """Generate ESPHome YAML for homeassistant.action from action_binding call (domain, service, entity_id, data)."""
+    if not isinstance(call, dict):
+        return ""
+    domain = str(call.get("domain") or "").strip()
+    service = str(call.get("service") or "").strip()
+    if not domain or not service:
+        return ""
+    entity_id = call.get("entity_id")
+    data = call.get("data") or {}
+    lines = [
+        "then:",
+        "  - homeassistant.action:",
+        f"      action: {domain}.{service}",
+        "      data:",
+    ]
+    if entity_id:
+        lines.append(f"        entity_id: {json.dumps(str(entity_id))}")
+    for k, v in data.items():
+        if v is not None:
+            lines.append(f"        {k}: {json.dumps(v)}")
+    if not entity_id and not data:
+        lines.append("        {}")
+    return "\n".join(lines)
+
+
+def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_widget: list | None = None) -> str:
     wtype = widget.get("type") or schema.get("type")
     esphome = schema.get("esphome", {})
     root_key = esphome.get("root_key") or wtype  # e.g. "label", "button"
@@ -731,6 +764,12 @@ def _emit_widget_from_schema(widget: dict, schema: dict) -> str:
     for geom_key, yaml_key in [("x","x"),("y","y"),("w","width"),("h","height")]:
         if geom_key in widget:
             out.append(f"        {yaml_key}: {int(widget.get(geom_key, 0))}\n")
+
+    action_by_event = {}
+    if action_bindings_for_widget:
+        for ab in action_bindings_for_widget:
+            if isinstance(ab, dict) and ab.get("event"):
+                action_by_event[str(ab["event"])] = ab
 
     def _maybe_harden_event(yaml_key: str, v):
         # v0.37: best-effort runtime hardening for high-frequency controls.
@@ -777,14 +816,32 @@ def _emit_widget_from_schema(widget: dict, schema: dict) -> str:
     for section in ("props", "style", "events"):
         mapping = (esphome.get(section) or {})
         fields = schema.get(section) or {}
-        values = widget.get(section) or {}
+        values = dict(widget.get(section) or {})
+        # For events: prefer action_binding for this widget (yaml_override or generated from call).
+        if section == "events" and action_by_event:
+            for event_key, ab in action_by_event.items():
+                if ab.get("yaml_override"):
+                    values[event_key] = ab.get("yaml_override")
+                elif ab.get("call"):
+                    values[event_key] = _action_binding_call_to_yaml(ab["call"])
+                # else keep widget.events[event_key] if present
         for k, field_def in fields.items():
             yaml_key = mapping.get(k, k)
-            if k in values:
+            if k in values and values[k] not in (None, ""):
                 out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, values[k])))
             else:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
                     out.append(_emit_kv("        ", yaml_key, field_def.get("default")))
+        # Emit action_binding events that are not in schema (e.g. arc on_release when schema has events: {}).
+        if section == "events" and action_by_event:
+            for event_key, ab in action_by_event.items():
+                if event_key in fields:
+                    continue  # already emitted above
+                yaml_key = (esphome.get("events") or {}).get(event_key) or event_key
+                if ab.get("yaml_override"):
+                    out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, ab["yaml_override"])))
+                elif ab.get("call"):
+                    out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(ab["call"]))))
 
     # Style parts and nested blocks: any schema section that is a dict of field defs (not props/style/events)
     _skip = {"props", "style", "events", "type", "title", "esphome", "groups"}
@@ -822,6 +879,16 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
     if not isinstance(pages, list) or not pages:
         pages = [{"page_id": "main", "name": "Main", "widgets": []}]
 
+    action_bindings_raw = project.get("action_bindings") or []
+    action_bindings_by_widget: dict[str, list[dict]] = {}
+    for ab in action_bindings_raw:
+        if not isinstance(ab, dict):
+            continue
+        wid = str(ab.get("widget_id") or "").strip()
+        if not wid:
+            continue
+        action_bindings_by_widget.setdefault(wid, []).append(ab)
+
     def children_map(all_widgets: list[dict]) -> dict[str, list[dict]]:
         m: dict[str, list[dict]] = {}
         for w in all_widgets:
@@ -833,10 +900,12 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
 
     def emit_widget(w: dict, indent: str, kids: dict[str, list[dict]]) -> str:
         wtype = w.get("type")
+        wid = str(w.get("id") or "")
+        ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
             # _emit_widget_from_schema uses fixed indentation (8 spaces). We re-indent by post-processing.
-            raw = _emit_widget_from_schema(w, schema)
+            raw = _emit_widget_from_schema(w, schema, ab_list)
             lines = raw.splitlines(True)
             # Replace the leading 8 spaces with requested indent.
             out_lines = []

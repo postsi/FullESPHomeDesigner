@@ -4,6 +4,14 @@ import {listRecipes, compileYaml, listEntities, importRecipe, updateRecipeLabel,
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { DOMAIN_PRESETS } from "./bindings/domains";
 import {
+  getDisplayActionsForType,
+  getEventsForType,
+  getServicesForDomain,
+  domainFromEntityId,
+  DISPLAY_ACTION_LABELS,
+  EVENT_LABELS,
+} from "./bindings/bindingConfig";
+import {
   deleteDevice,
   deploy,
   exportDeviceYamlPreview,
@@ -81,6 +89,12 @@ function renameWidgetInProject(
   if (Array.isArray(links)) {
     for (const l of links) {
       if (l?.target?.widget_id === oldId) l.target = { ...l.target, widget_id: sanitized };
+    }
+  }
+  const actionBindings = (p2 as any).action_bindings;
+  if (Array.isArray(actionBindings)) {
+    for (const ab of actionBindings) {
+      if (ab?.widget_id === oldId) ab.widget_id = sanitized;
     }
   }
   for (const widget of page.widgets) {
@@ -231,6 +245,16 @@ export default function App() {
   const [bindAction, setBindAction] = useState<string>("label_text");
   const [bindFormat, setBindFormat] = useState<string>("");
   const [bindScale, setBindScale] = useState<number>(1);
+  const [builderMode, setBuilderMode] = useState<"display" | "action">("display");
+  const [bindingsListExpanded, setBindingsListExpanded] = useState<Record<string, boolean>>({});
+  const [builderEntityDropdownOpen, setBuilderEntityDropdownOpen] = useState(false);
+  // Action binding form
+  const [actionEvent, setActionEvent] = useState<string>("on_click");
+  const [actionService, setActionService] = useState<string>("");
+  const [actionEntity, setActionEntity] = useState<string>("");
+  const [editingLinkOverride, setEditingLinkOverride] = useState<{ widgetId: string; entityId: string; attribute: string; action: string } | null>(null);
+  const [editingActionOverride, setEditingActionOverride] = useState<{ widgetId: string; event: string } | null>(null);
+  const [editingOverrideYaml, setEditingOverrideYaml] = useState<string>("");
 
   // v0.35: Plugin controls (loaded from API)
   const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
@@ -894,6 +918,18 @@ if (baseId.startsWith("glance_card")) {
         }
       }
     }
+    if (Array.isArray((built as any).action_bindings) && (built as any).action_bindings.length > 0) {
+      (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
+      for (const ab of (built as any).action_bindings) {
+        if (ab && typeof ab === "object" && ab.widget_id) {
+          const newWid = idMap.get(ab.widget_id);
+          (p2 as any).action_bindings.push({
+            ...ab,
+            widget_id: newWid != null ? newWid : ab.widget_id,
+          });
+        }
+      }
+    }
 
     setProject(p2, true);
     setProjectDirty(true);
@@ -1457,6 +1493,15 @@ function deleteSelected() {
     }
     const kept = list.filter((w) => w && w.id && !toDelete.has(w.id));
     page.widgets = kept;
+    // Remove any links and action_bindings that reference deleted widget ids.
+    const links = (p2 as any).links;
+    if (Array.isArray(links)) {
+      (p2 as any).links = links.filter((l: any) => !toDelete.has(String(l?.target?.widget_id || "")));
+    }
+    const actionBindings = (p2 as any).action_bindings;
+    if (Array.isArray(actionBindings)) {
+      (p2 as any).action_bindings = actionBindings.filter((ab: any) => !toDelete.has(String(ab?.widget_id || "")));
+    }
     setProject(p2, true);
     setProjectDirty(true);
     setSelectedWidgetIds([]);
@@ -2903,122 +2948,344 @@ function deleteSelected() {
                     setProject(p2);
                   }}>Add recommended</button>
                 </div>
-                <div className="muted" style={{ marginTop: 8 }}>Bindings: {(project as any)?.bindings?.length || 0} • Links: {(project as any)?.links?.length || 0}</div>
-                {((project as any)?.links?.length) > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <div className="sectionTitle" style={{ fontSize: 13 }}>Links (what each widget is bound to)</div>
-                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.5 }}>
-                      {((project as any).links || []).map((ln: any, idx: number) => {
-                        const src = ln?.source || {};
-                        const tgt = ln?.target || {};
-                        const wid = String(tgt?.widget_id || "").trim();
-                        const ent = String(src?.entity_id || "").trim();
-                        const attr = String(src?.attribute || "").trim();
-                        const action = String(tgt?.action || "").trim();
-                        const isSelected = selectedWidgetIds.includes(wid);
+                <div className="muted" style={{ marginTop: 8 }}>Bindings: {(project as any)?.bindings?.length || 0} • Links: {(project as any)?.links?.length || 0} • Actions: {(project as any)?.action_bindings?.length || 0}</div>
+                {(() => {
+                  const links = (project as any)?.links || [];
+                  const actionBindings = (project as any)?.action_bindings || [];
+                  const widgetType = (wid: string) => widgets.find((w: any) => w?.id === wid)?.type || "container";
+                  const byType: Record<string, { links: { index: number; ln: any }[]; actions: { index: number; ab: any }[] }> = {};
+                  links.forEach((ln: any, idx: number) => {
+                    const wid = String(ln?.target?.widget_id || "").trim();
+                    const type = widgetType(wid) || "other";
+                    if (!byType[type]) byType[type] = { links: [], actions: [] };
+                    byType[type].links.push({ index: idx, ln });
+                  });
+                  actionBindings.forEach((ab: any, idx: number) => {
+                    const type = widgetType(String(ab?.widget_id || "")) || "other";
+                    if (!byType[type]) byType[type] = { links: [], actions: [] };
+                    byType[type].actions.push({ index: idx, ab });
+                  });
+                  const typeOrder = ["label", "button", "arc", "slider", "dropdown", "switch", "checkbox", "container", "image_button", "other"];
+                  const sortedTypes = Object.keys(byType).sort((a, b) => {
+                    const ia = typeOrder.indexOf(a);
+                    const ib = typeOrder.indexOf(b);
+                    if (ia >= 0 && ib >= 0) return ia - ib;
+                    if (ia >= 0) return -1;
+                    if (ib >= 0) return 1;
+                    return a.localeCompare(b);
+                  });
+                  if (sortedTypes.length === 0) return <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>No links or action bindings yet.</div>;
+                  return (
+                    <div style={{ marginTop: 12, maxHeight: 360, overflowY: "auto", overflowX: "hidden" }}>
+                      <div className="sectionTitle" style={{ fontSize: 13 }}>By widget type</div>
+                      {sortedTypes.map((type) => {
+                        const group = byType[type];
+                        const count = (group.links.length + group.actions.length);
+                        const expanded = bindingsListExpanded[type] ?? false;
                         return (
-                          <li key={idx} style={isSelected ? { fontWeight: 600, listStyle: "disc" } : { listStyle: "disc" }}>
-                            <code>{wid || "(no widget)"}</code>
-                            {" → "}
-                            {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"}
-                            {action ? ` · ${action}` : ""}
-                          </li>
+                          <div key={type} style={{ marginBottom: 6, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))", borderRadius: 6, overflow: "hidden" }}>
+                            <button
+                              type="button"
+                              onClick={() => setBindingsListExpanded((prev) => ({ ...prev, [type]: !prev[type] }))}
+                              style={{ width: "100%", padding: "8px 10px", textAlign: "left", background: "rgba(255,255,255,.04)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                            >
+                              <span>{type}</span>
+                              <span className="muted" style={{ fontSize: 11 }}>{count} binding{count !== 1 ? "s" : ""}</span>
+                              <span style={{ transform: expanded ? "rotate(180deg)" : "none" }}>▼</span>
+                            </button>
+                            {expanded && (
+                              <ul style={{ margin: 0, padding: "6px 10px 10px 22px", fontSize: 12, lineHeight: 1.6, listStyle: "disc" }}>
+                                {group.links.map(({ index, ln }) => {
+                                  const src = ln?.source || {};
+                                  const tgt = ln?.target || {};
+                                  const wid = String(tgt?.widget_id || "").trim();
+                                  const ent = String(src?.entity_id || "").trim();
+                                  const attr = String(src?.attribute || "").trim();
+                                  const action = String(tgt?.action || "").trim();
+                                  const isSelected = selectedWidgetIds.includes(wid);
+                                  const hasOverride = !!tgt?.yaml_override;
+                                  return (
+                                    <li key={`l-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
+                                      {hasOverride && <span title="Custom YAML">✎ </span>}
+                                      <code>{wid || "(no widget)"}</code>
+                                      {" → "}
+                                      {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"}
+                                      {action ? ` · ${action}` : ""}
+                                    </li>
+                                  );
+                                })}
+                                {group.actions.map(({ index, ab }) => {
+                                  const wid = String(ab?.widget_id || "").trim();
+                                  const call = ab?.call || {};
+                                  const isSelected = selectedWidgetIds.includes(wid);
+                                  const hasOverride = !!ab?.yaml_override;
+                                  return (
+                                    <li key={`a-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
+                                      {hasOverride && <span title="Custom YAML">✎ </span>}
+                                      <code>{wid}</code>
+                                      {" · "}
+                                      <span className="muted">{ab?.event || "?"}</span>
+                                      {" → "}
+                                      <code>{call?.domain || "?"}.{call?.service || "?"}</code>
+                                      {call?.entity_id ? ` (${call.entity_id})` : ""}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
                         );
                       })}
-                    </ul>
-                    {selectedWidgetIds.length > 0 && (
-                      <div className="muted" style={{ marginTop: 6, fontSize: 11 }}>
-                        Selected widget(s) highlighted above.
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {selectedWidgetIds.length > 0 && (
+                        <div className="muted" style={{ marginTop: 6, fontSize: 11 }}>Selected widget(s) highlighted. ✎ = custom YAML.</div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {inspectorTab === "builder" && (
               <div className="section">
                 <div className="sectionTitle">Binding Builder</div>
-                <div className="muted">Bind selected widget to HA entity.</div>
+                <div className="muted">Bind selected widget to HA entity (display or action).</div>
                 {selectedWidgetIds.length !== 1 ? (
                   <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Select a single widget on the canvas to see its bindings and add new ones.</div>
                 ) : (() => {
                   const widgetId = selectedWidgetIds[0];
+                  const selWidget = widgets.find((w: any) => w?.id === widgetId);
+                  const widgetType = selWidget?.type || "container";
                   const linksForWidget = ((project as any)?.links || []).filter(
                     (ln: any) => String(ln?.target?.widget_id || "").trim() === widgetId
                   );
+                  const actionsForWidget = ((project as any)?.action_bindings || []).filter(
+                    (ab: any) => String(ab?.widget_id || "").trim() === widgetId
+                  );
+                  const displayActions = getDisplayActionsForType(widgetType);
+                  const eventOptions = getEventsForType(widgetType);
+                  const bindDomain = domainFromEntityId(bindEntity || actionEntity || "");
+                  const serviceOptions = getServicesForDomain(bindDomain);
+                  const filteredEntities = entities.filter(
+                    (e) => !entityQuery || String(e.entity_id).toLowerCase().includes(entityQuery.toLowerCase()) || String(e.friendly_name || "").toLowerCase().includes(entityQuery.toLowerCase())
+                  ).slice(0, 200);
+                  const selectedEntityAttrs = bindEntity ? (entities.find((x) => x && x.entity_id === bindEntity)?.attributes ? Object.keys(entities.find((x) => x && x.entity_id === bindEntity)!.attributes!).sort() : []) : [];
                   return (
-                    <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
-                      <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
-                      {linksForWidget.length === 0 ? (
-                        <div className="muted" style={{ fontSize: 12 }}>No bindings. Use the form below to add one.</div>
-                      ) : (
-                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
-                          {linksForWidget.map((ln: any, idx: number) => {
-                            const src = ln?.source || {};
-                            const tgt = ln?.target || {};
-                            const ent = String(src?.entity_id || "").trim();
-                            const attr = String(src?.attribute || "").trim();
-                            const action = String(tgt?.action || "").trim();
-                            return (
-                              <li key={idx}>
-                                <code>{ent}{attr ? ` [${attr}]` : ""}</code>
-                                {action ? ` → ${action}` : ""}
-                              </li>
-                            );
-                          })}
-                        </ul>
+                    <>
+                      <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
+                        <button type="button" className={builderMode === "display" ? "active" : ""} style={{ flex: 1, padding: "6px 8px", fontSize: 12 }} onClick={() => setBuilderMode("display")}>Display</button>
+                        <button type="button" className={builderMode === "action" ? "active" : ""} style={{ flex: 1, padding: "6px 8px", fontSize: 12 }} onClick={() => setBuilderMode("action")}>Action</button>
+                      </div>
+                      <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
+                        <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
+                        {linksForWidget.length === 0 && actionsForWidget.length === 0 ? (
+                          <div className="muted" style={{ fontSize: 12 }}>No bindings. Use the form below to add one.</div>
+                        ) : (
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
+                            {linksForWidget.map((ln: any, idx: number) => {
+                              const src = ln?.source || {};
+                              const tgt = ln?.target || {};
+                              const ent = String(src?.entity_id || "").trim();
+                              const attr = String(src?.attribute || "").trim();
+                              const action = String(tgt?.action || "").trim();
+                              const hasOverride = !!tgt?.yaml_override;
+                              const isEditing = editingLinkOverride?.widgetId === widgetId && editingLinkOverride?.entityId === ent && editingLinkOverride?.attribute === attr && editingLinkOverride?.action === action;
+                              return (
+                                <li key={idx}>
+                                  {hasOverride && <span title="Custom YAML">✎ </span>}
+                                  <code>{ent}{attr ? ` [${attr}]` : ""}</code>{action ? ` → ${action}` : ""}
+                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingLinkOverride({ widgetId, entityId: ent, attribute: attr, action }); setEditingActionOverride(null); setEditingOverrideYaml(tgt?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
+                                </li>
+                              );
+                            })}
+                            {actionsForWidget.map((ab: any, idx: number) => {
+                              const call = ab?.call || {};
+                              const hasOverride = !!ab?.yaml_override;
+                              const ev = String(ab?.event || "");
+                              const isEditing = editingActionOverride?.widgetId === widgetId && editingActionOverride?.event === ev;
+                              return (
+                                <li key={`a-${idx}`}>
+                                  {hasOverride && <span title="Custom YAML">✎ </span>}
+                                  <span className="muted">{ab?.event}</span> → <code>{call?.domain}.{call?.service}</code>
+                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingActionOverride({ widgetId, event: ev }); setEditingLinkOverride(null); setEditingOverrideYaml(ab?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {(editingLinkOverride?.widgetId === widgetId || editingActionOverride?.widgetId === widgetId) && (
+                          <div style={{ marginTop: 8, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 4 }}>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Custom YAML (used by compiler instead of generated). Leave empty to use generated.</div>
+                            <textarea value={editingOverrideYaml} onChange={(e) => setEditingOverrideYaml(e.target.value)} rows={4} style={{ width: "100%", fontFamily: "monospace", fontSize: 11, boxSizing: "border-box" }} placeholder="e.g. - lvgl.label.update:&#10;    id: my_id&#10;    text: !lambda return x;" />
+                            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                              <button type="button" onClick={() => {
+                                if (!project) return;
+                                const p2 = clone(project);
+                                if (editingLinkOverride?.widgetId === widgetId) {
+                                  const links = (p2 as any).links || [];
+                                  const ln = links.find((l: any) => l?.target?.widget_id === editingLinkOverride.widgetId && l?.source?.entity_id === editingLinkOverride.entityId && String(l?.source?.attribute || "") === editingLinkOverride.attribute && l?.target?.action === editingLinkOverride.action);
+                                  if (ln?.target) { ln.target = { ...ln.target, yaml_override: editingOverrideYaml.trim() || undefined }; setProject(p2, true); setProjectDirty(true); }
+                                }
+                                if (editingActionOverride?.widgetId === widgetId) {
+                                  const abs = (p2 as any).action_bindings || [];
+                                  const ab = abs.find((a: any) => a?.widget_id === editingActionOverride.widgetId && a?.event === editingActionOverride.event);
+                                  if (ab) { ab.yaml_override = editingOverrideYaml.trim() || undefined; setProject(p2, true); setProjectDirty(true); }
+                                }
+                                setEditingLinkOverride(null); setEditingActionOverride(null); setEditingOverrideYaml("");
+                              }}>Save</button>
+                              <button type="button" className="secondary" onClick={() => { setEditingLinkOverride(null); setEditingActionOverride(null); setEditingOverrideYaml(""); }}>Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {builderMode === "display" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                          <div>
+                            <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Entity</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Type to search; pick from list.</div>
+                            <input
+                              placeholder="Search entities..."
+                              value={entityQuery}
+                              onChange={(e) => { setEntityQuery(e.target.value); setBuilderEntityDropdownOpen(true); }}
+                              onFocus={() => setBuilderEntityDropdownOpen(true)}
+                              onBlur={() => setTimeout(() => setBuilderEntityDropdownOpen(false), 180)}
+                              style={{ width: "100%", boxSizing: "border-box" }}
+                            />
+                            {builderEntityDropdownOpen && (
+                              <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid var(--divider-color)", borderRadius: 4, marginTop: 2, background: "var(--panel-bg, #1e293b)" }}>
+                                {filteredEntities.map((e) => (
+                                  <div
+                                    key={e.entity_id}
+                                    onClick={() => { setBindEntity(e.entity_id); setEntityQuery(""); setBindAttr(""); setBuilderEntityDropdownOpen(false); }}
+                                    style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)" }}
+                                  >
+                                    {e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}
+                                  </div>
+                                ))}
+                                {filteredEntities.length === 0 && <div className="muted" style={{ padding: 8, fontSize: 12 }}>No matching entities.</div>}
+                              </div>
+                            )}
+                            {bindEntity && <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>Selected: {bindEntity}</div>}
+                          </div>
+                          <div>
+                            <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Attribute</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>HA state or entity attribute to show.</div>
+                            <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)} style={{ width: "100%" }}>
+                              <option value="">(state)</option>
+                              {selectedEntityAttrs.map((k)=> <option key={k} value={k}>{k}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Update widget</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Which property of this {widgetType} gets the value.</div>
+                            <select value={displayActions.includes(bindAction as any) ? bindAction : (displayActions[0] || "label_text")} onChange={(e)=>setBindAction(e.target.value)} style={{ width: "100%" }}>
+                              {displayActions.map((act) => (
+                                <option key={act} value={act}>{DISPLAY_ACTION_LABELS[act]}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {(bindAction === "label_text" || bindAction === "arc_value" || bindAction === "slider_value") && (
+                            <>
+                              <div>
+                                <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Format</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Printf-style for displayed text (e.g. %.1f or %.1f°).</div>
+                                <input value={bindFormat} onChange={(e)=>setBindFormat(e.target.value)} placeholder="%.1f" style={{ width: "100%", boxSizing: "border-box" }} />
+                              </div>
+                              <div>
+                                <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Scale</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Multiply numeric value (e.g. 100 for 0–1 → 0–100).</div>
+                                <input type="number" value={bindScale} onChange={(e)=>setBindScale(Number(e.target.value || 1))} step="0.1" style={{ width: "100%", boxSizing: "border-box" }} />
+                              </div>
+                            </>
+                          )}
+                          <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
+                            if (!project) return;
+                            const wid = selectedWidgetIds[0];
+                            const ent = bindEntity; const attr = bindAttr;
+                            const act = displayActions.includes(bindAction as any) ? bindAction : (displayActions[0] || "label_text");
+                            const p2 = clone(project);
+                            (p2 as any).bindings = (p2 as any).bindings || [];
+                            (p2 as any).links = (p2 as any).links || [];
+                            let kind: any = "state";
+                            if (act === "widget_checked") kind = "binary";
+                            else if (attr) kind = "attribute_number";
+                            const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[attr];
+                            if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
+                            if (!attr && act === "label_text") kind = "state";
+                            (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
+                            (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id: wid, action: act, format: bindFormat, scale: bindScale } });
+                            const pageWidgets = (p2 as any).pages?.[safePageIndex]?.widgets || [];
+                            const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
+                            const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);
+                            const renameResult = renameWidgetInProject(p2, safePageIndex, wid, friendlyId);
+                            if (renameResult.ok && renameResult.newId) {
+                              setProject(renameResult.project, true);
+                              setSelectedWidgetIds([renameResult.newId]);
+                            } else {
+                              setProject(p2, true);
+                            }
+                            setProjectDirty(true);
+                          }}>Add display binding</button>
+                        </div>
                       )}
-                    </div>
+                      {builderMode === "action" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+                          {eventOptions.length === 0 ? (
+                            <div className="muted" style={{ fontSize: 12 }}>This widget type ({widgetType}) has no events for action bindings.</div>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Event</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>When the user does this on the device.</div>
+                                <select value={eventOptions.includes(actionEvent) ? actionEvent : eventOptions[0]} onChange={(e)=>setActionEvent(e.target.value)} style={{ width: "100%" }}>
+                                  {eventOptions.map((ev) => (
+                                    <option key={ev} value={ev}>{EVENT_LABELS[ev] || ev}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Entity</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>HA entity to call the service on.</div>
+                                <input
+                                  placeholder="e.g. switch.living_room"
+                                  value={actionEntity}
+                                  onChange={(e) => setActionEntity(e.target.value)}
+                                  style={{ width: "100%", boxSizing: "border-box" }}
+                                />
+                                {linksForWidget.length > 0 && (
+                                  <button type="button" className="secondary" style={{ marginTop: 4, fontSize: 11 }} onClick={() => setActionEntity(linksForWidget[0]?.source?.entity_id || "")}>Use same as display binding</button>
+                                )}
+                              </div>
+                              <div>
+                                <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Service</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Only services relevant to the entity domain are shown.</div>
+                                <select value={actionService} onChange={(e)=>setActionService(e.target.value)} style={{ width: "100%" }}>
+                                  <option value="">(select service)</option>
+                                  {serviceOptions.map((opt) => (
+                                    <option key={opt.service} value={opt.service}>{opt.label} ({opt.service})</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <button disabled={!project || !selectedWidgetIds.length || !actionService || !actionEntity} onClick={() => {
+                                if (!project) return;
+                                const wid = selectedWidgetIds[0];
+                                const [domain, service] = actionService.split(".");
+                                if (!domain || !service) return;
+                                const p2 = clone(project);
+                                (p2 as any).action_bindings = (p2 as any).action_bindings || [];
+                                (p2 as any).action_bindings.push({
+                                  widget_id: wid,
+                                  event: eventOptions.includes(actionEvent) ? actionEvent : eventOptions[0],
+                                  call: { domain, service, entity_id: actionEntity },
+                                });
+                                setProject(p2, true);
+                                setProjectDirty(true);
+                              }}>Add action binding</button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <input placeholder="search entities..." value={entityQuery} onChange={(e)=>setEntityQuery(e.target.value)} />
-                  <select value={bindEntity} onChange={(e)=>{ setBindEntity(e.target.value); setBindAttr(''); }}>
-                    <option value="">(select entity)</option>
-                    {entities.filter((e)=> !entityQuery || String(e.entity_id).includes(entityQuery) || String(e.friendly_name||'').toLowerCase().includes(entityQuery.toLowerCase())).slice(0, 250).map((e)=> (
-                      <option key={e.entity_id} value={e.entity_id}>{e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}</option>
-                    ))}
-                  </select>
-                  <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)}>
-                    <option value="">(state)</option>
-                    {((e)=>e?.attributes ? Object.keys(e.attributes) : [])(entities.find((x)=> x && x.entity_id===bindEntity)).sort().slice(0, 200).map((k)=> <option key={k} value={k}>{k}</option>)}
-                  </select>
-                  <select value={bindAction} onChange={(e)=>setBindAction(e.target.value)}>
-                    <option value="label_text">label: text</option>
-                    <option value="slider_value">slider: value</option>
-                    <option value="arc_value">arc: value</option>
-                    <option value="widget_checked">widget: checked</option>
-                  </select>
-                  <input placeholder="format" value={bindFormat} onChange={(e)=>setBindFormat(e.target.value)} />
-                  <input type="number" value={bindScale} onChange={(e)=>setBindScale(Number(e.target.value || 1))} step="0.1" />
-                  <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
-                    if (!project) return;
-                    const widget_id = selectedWidgetIds[0];
-                    const ent = bindEntity; const attr = bindAttr;
-                    const p2 = clone(project);
-                    (p2 as any).bindings = (p2 as any).bindings || [];
-                    (p2 as any).links = (p2 as any).links || [];
-                    let kind: any = "state";
-                    if (bindAction === "widget_checked") kind = "binary";
-                    else if (attr) kind = "attribute_number";
-                    const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[attr];
-                    if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
-                    if (!attr && bindAction === "label_text") kind = "state";
-                    (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
-                    (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id, action: bindAction, format: bindFormat, scale: bindScale } });
-                    const pageWidgets = (p2 as any).pages?.[safePageIndex]?.widgets || [];
-                    const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
-                    const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);
-                    const renameResult = renameWidgetInProject(p2, safePageIndex, widget_id, friendlyId);
-                    if (renameResult.ok && renameResult.newId) {
-                      setProject(renameResult.project, true);
-                      setSelectedWidgetIds([renameResult.newId]);
-                    } else {
-                      setProject(p2, true);
-                    }
-                    setProjectDirty(true);
-                  }}>Bind selected widget</button>
-                </div>
               </div>
             )}
           </div>
