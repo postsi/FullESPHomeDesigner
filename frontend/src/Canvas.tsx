@@ -526,7 +526,17 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "dropdown") {
-      const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2"];
+      let opts: string[];
+      if (Array.isArray(p.options)) {
+        opts = p.options.map((o: any) => String(o ?? ""));
+      } else if (typeof p.options === "string") {
+        const s = p.options.trim();
+        opts = s.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+        if (opts.length <= 1 && s.includes("\\n")) opts = s.split("\\n").map((x) => x.trim()).filter(Boolean);
+      } else {
+        opts = ["Option 1", "Option 2"];
+      }
+      if (opts.length === 0) opts = ["Select…"];
       const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
       const displayText = override?.text !== undefined ? String(override.text) : String(opts[selIdx] ?? opts[0] ?? "Select…");
       const ddBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");

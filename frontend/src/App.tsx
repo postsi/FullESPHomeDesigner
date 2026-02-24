@@ -44,6 +44,51 @@ function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
 }
 
+/** Derive a friendly widget id from entity_id + attribute (e.g. climate.living_room + friendly_name → living_room_friendly_name). */
+function friendlyWidgetIdFromBinding(entity_id: string, attribute: string, usedIds: Set<string>): string {
+  const parts = String(entity_id || "").trim().split(".");
+  const slug = parts.length > 1 ? (parts[1] || parts[0]) : (parts[0] || "entity");
+  const attr = String(attribute || "state").trim() || "state";
+  const base = friendlyToId(slug) + "_" + friendlyToId(attr);
+  if (!base) return uid("w");
+  let id = base;
+  let n = 1;
+  while (usedIds.has(id)) {
+    id = base + "_" + (++n);
+  }
+  return id;
+}
+
+/** Rename a widget id everywhere in the project (page.widgets, links, parent_id). Returns updated project. */
+function renameWidgetInProject(
+  proj: any,
+  pageIndex: number,
+  oldId: string,
+  newId: string
+): { project: any; ok: boolean; newId?: string; error?: string } {
+  if (!oldId || !newId || oldId === newId) return { project: proj, ok: false };
+  const sanitized = newId.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^_+|_+$/g, "") || null;
+  if (!sanitized) return { project: proj, ok: false, error: "Invalid id" };
+  const p2 = clone(proj);
+  const page = p2?.pages?.[pageIndex];
+  if (!page?.widgets) return { project: proj, ok: false };
+  const existingIds = new Set(page.widgets.map((w: any) => w?.id).filter(Boolean));
+  if (existingIds.has(sanitized) && sanitized !== oldId) return { project: proj, ok: false, error: "Id already in use" };
+  const w = page.widgets.find((x: any) => x?.id === oldId);
+  if (!w) return { project: proj, ok: false };
+  w.id = sanitized;
+  const links = (p2 as any).links;
+  if (Array.isArray(links)) {
+    for (const l of links) {
+      if (l?.target?.widget_id === oldId) l.target = { ...l.target, widget_id: sanitized };
+    }
+  }
+  for (const widget of page.widgets) {
+    if (widget?.parent_id === oldId) widget.parent_id = sanitized;
+  }
+  return { project: p2, ok: true, newId: sanitized };
+}
+
 
 function useHistory<T>(initial: T) {
   const [present, setPresent] = useState<T>(initial);
@@ -215,6 +260,10 @@ async function onUploadAssetFile(file: File) {
 const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "ha">("std");
   const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder">("properties");
+  const [editingWidgetId, setEditingWidgetId] = useState<string>("");
+  useEffect(() => {
+    setEditingWidgetId("");
+  }, [selectedWidgetIds.join(",")]);
   const [compileModalOpen, setCompileModalOpen] = useState(false);
   const [compiledYaml, setCompiledYaml] = useState<string>("");
   const [compileErr, setCompileErr] = useState<string>("");
@@ -730,11 +779,21 @@ if (baseId.startsWith("glance_card")) {
       setToast({ type: "error", msg: "Template returned no widgets." });
       return;
     }
+    const validLinksForInsert = (built.links || []).filter((l: any) => l && typeof l === "object");
+    const usedIds = new Set<string>((p2?.pages?.[safePageIndex]?.widgets || []).map((x: any) => x?.id).filter(Boolean));
     const ws: any[] = [];
     const idMap = new Map<string, string>();
     for (let i = 0; i < rawWidgets.length; i++) {
       const w = rawWidgets[i];
-      const newId = uid(w.type || "w");
+      const linkToThis = validLinksForInsert.find((l: any) => l?.target?.widget_id === w.id);
+      const newId = linkToThis?.source?.entity_id
+        ? friendlyWidgetIdFromBinding(
+            linkToThis.source.entity_id,
+            linkToThis.source.attribute ?? "",
+            usedIds
+          )
+        : uid(w.type || "w");
+      usedIds.add(newId);
       const obj = { ...w, id: newId };
       if (obj.id == null) {
         console.warn("[Insert] Widget at index", i, "had no id after spread:", w);
@@ -1011,6 +1070,7 @@ if (baseId.startsWith("glance_card")) {
         if (Number.isNaN(raw) && typeof data.state === "string") raw = parseFloat(data.state);
       } else if (kind === "attribute_text" && attr) {
         raw = data.attributes?.[attr] ?? "";
+        if (raw === "" && typeof data.state === "string") raw = data.state;
       } else if (kind === "binary") {
         raw = (data.state || "").toLowerCase() === "on";
       }
@@ -1680,7 +1740,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.68 — Dynamic common properties (multi-select)</div>
+          <div className="muted">v0.70.69 — Friendly widget IDs, colour picker, dropdown HA</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
@@ -2723,7 +2783,31 @@ function deleteSelected() {
                   <>
                     <div className="inspectorWidgetId" style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(255,255,255,.06)", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)" }}>
                       <div className="inspectorWidgetIdLabel">Widget ID (YAML)</div>
-                      <code style={{ fontSize: 13, wordBreak: "break-all", color: "var(--text)" }}>{selectedWidget.id}</code>
+                      <input
+                        type="text"
+                        value={editingWidgetId !== "" ? editingWidgetId : selectedWidget.id}
+                        onChange={(e) => setEditingWidgetId(e.target.value)}
+                        onBlur={() => {
+                          const raw = editingWidgetId !== "" ? editingWidgetId : selectedWidget.id;
+                          const next = raw.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^_+|_+$/g, "").trim();
+                          if (next && next !== selectedWidget.id) {
+                            const result = renameWidgetInProject(project, safePageIndex, selectedWidget.id, next);
+                            if (result.ok && result.newId) {
+                              setProject(result.project, true);
+                              setProjectDirty(true);
+                              setSelectedWidgetIds([result.newId]);
+                            } else {
+                              setToast({ type: "error", msg: result.error || "Cannot rename" });
+                            }
+                          }
+                          setEditingWidgetId("");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        }}
+                        placeholder="e.g. living_room_temperature"
+                        style={{ width: "100%", marginTop: 6, fontSize: 13, fontFamily: "ui-monospace, monospace" }}
+                      />
                     </div>
                     <div className="section" style={{ marginBottom: 12 }}>
                       <div className="sectionTitle" style={{ fontSize: 12 }}>Group</div>
@@ -2922,7 +3006,16 @@ function deleteSelected() {
                     if (!attr && bindAction === "label_text") kind = "state";
                     (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
                     (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id, action: bindAction, format: bindFormat, scale: bindScale } });
-                    setProject(p2, true);
+                    const pageWidgets = (p2 as any).pages?.[safePageIndex]?.widgets || [];
+                    const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
+                    const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);
+                    const renameResult = renameWidgetInProject(p2, safePageIndex, widget_id, friendlyId);
+                    if (renameResult.ok && renameResult.newId) {
+                      setProject(renameResult.project, true);
+                      setSelectedWidgetIds([renameResult.newId]);
+                    } else {
+                      setProject(p2, true);
+                    }
                     setProjectDirty(true);
                   }}>Bind selected widget</button>
                 </div>
@@ -3078,10 +3171,25 @@ function MultiSelectProperties(props: {
     const title = def?.title ?? key;
     if (def?.type === "color" || key === "bg_color" || key === "text_color" || key === "border_color") {
       const css = styleValueToCss(val);
+      const hexForPicker = /^#[0-9a-fA-F]{6}$/.test(css) ? css : "#000000";
       return (
         <div key={key} className="field">
           <div className="fieldLabel">{title}</div>
-          <input type="text" placeholder="#rrggbb" value={css} onChange={(e) => patchAllStyle(key, cssToStyleValue(e.target.value))} />
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <input
+              type="color"
+              value={hexForPicker}
+              onChange={(e) => patchAllStyle(key, cssToStyleValue(e.target.value))}
+              style={{ width: 42, height: 28, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+            />
+            <input
+              type="text"
+              placeholder="#rrggbb"
+              value={css}
+              onChange={(e) => patchAllStyle(key, cssToStyleValue(e.target.value))}
+              style={{ marginLeft: 8 }}
+            />
+          </div>
         </div>
       );
     }

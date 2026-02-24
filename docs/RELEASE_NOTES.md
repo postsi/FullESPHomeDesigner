@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.69
+
+- **Friendly widget IDs**: Auto- and manually bound widgets get readable names from their binding (e.g. `living_room_temperature`, `living_room_hvac_mode`). Template insert uses entity_id + attribute to build ids; Binding Builder renames the widget when you add a link. **Widget ID (YAML)** is an editable field at the top of the Properties panel (commit on blur/Enter); rename updates the widget and all links/parent_id references.
+- **Multi-select colour picker**: Colour fields in Common style when multiple widgets are selected now show the same colour picker (input type="color") as the single-widget Inspector.
+- **Dropdown HA value (generic)**: Dropdown options stored as newline or backslash-n string are parsed so the list is correct; live override text from HA (label_text link) is shown as the selected value. attribute_text fallback to state when attribute is missing.
+
 ## v0.70.68
 
 - **Multi-select common properties (dynamic)**: Common style and common props are no longer hardcoded. Schemas for all selected widget types are loaded; the intersection of style keys and of props keys across those schemas is shown. Only properties that exist on every selected type are editable together (layout + common style + common props). Loading state and “No style properties common to all selected widget types” when the intersection is empty.
