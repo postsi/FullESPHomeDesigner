@@ -1,5 +1,16 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.71
+
+- **Card Library cards for all HA domains**: New Card Library entries (same design pattern as Thermostat card) for light, switch, cover, fan, lock, and media_player. Each returns widgets, bindings, links, and action_bindings; wizard uses entityDomain for filtered entity picker.
+- **Light card**: Toggle + brightness; optional **color temperature** slider when the light supports it (supported_color_modes includes color_temp or min/max_mireds in capabilities).
+- **Switch card**: Toggle button + state label.
+- **Cover card**: Position slider + Open/Stop/Close; optional **tilt** slider when current_tilt_position is in capabilities.
+- **Fan card**: Toggle + percentage; optional **oscillate** switch, **direction** dropdown, and **preset** dropdown when supported by capabilities.
+- **Lock card**: Lock / Unlock buttons + state label.
+- **Media player card**: Title, track, transport (prev/play/next), volume slider, **Mute** and **Vol −/Vol +** buttons; optional **source** dropdown when source_list is in capabilities.
+- **Backend**: Action-binding data values that start with `!lambda` are emitted as literal YAML (no quotes) so ESPHome lambdas work.
+
 ## v0.70.70
 
 - **Binding and action binding overhaul**

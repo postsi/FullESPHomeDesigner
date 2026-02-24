@@ -743,7 +743,12 @@ def _action_binding_call_to_yaml(call: dict) -> str:
     if entity_id:
         lines.append(f"        entity_id: {json.dumps(str(entity_id))}")
     for k, v in data.items():
-        if v is not None:
+        if v is None:
+            continue
+        vstr = str(v).strip()
+        if vstr.startswith("!lambda"):
+            lines.append(f"        {k}: {vstr}")
+        else:
             lines.append(f"        {k}: {json.dumps(v)}")
     if not entity_id and not data:
         lines.append("        {}")

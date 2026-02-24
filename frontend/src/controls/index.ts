@@ -4,7 +4,7 @@ export type ControlTemplate = {
   description: string;
   /** When set, wizard entity picker shows only entities of this domain (e.g. "climate" for Thermostat). */
   entityDomain?: string;
-  build: (args: any) => { widgets: any[]; bindings?: any[]; links?: any[] };
+  build: (args: any) => { widgets: any[]; bindings?: any[]; links?: any[]; scripts?: any[]; action_bindings?: any[] };
 };
 
 function uid(prefix: string) {
@@ -2194,6 +2194,427 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       }
 
       return { widgets, bindings, links, scripts, action_bindings };
+    },
+  },
+
+  {
+    id: "light_card",
+    title: "Card Library • Light Card",
+    description: "Light card: toggle + brightness; optional color temp when supported. Binds to light.*",
+    entityDomain: "light",
+    build: ({ entity_id, x = 20, y = 20, label = "Light", caps = null }) => {
+      const ent = entity_id || "light.example";
+      const rootId = uid("card_light");
+      const lblTitle = uid("lbl_light_title");
+      const btnId = uid("btn_light");
+      const sldId = uid("sld_light_bri");
+      const lblBri = uid("lbl_light_bri");
+      const colorModes = (caps?.attributes?.supported_color_modes as string[] | undefined) || [];
+      const hasColorTemp = colorModes.includes("color_temp") || (caps?.attributes?.min_mireds != null && caps?.attributes?.max_mireds != null);
+      const minMireds = typeof caps?.attributes?.min_mireds === "number" ? caps.attributes.min_mireds : 153;
+      const maxMireds = typeof caps?.attributes?.max_mireds === "number" ? caps.attributes.max_mireds : 500;
+      const sldCt = uid("sld_light_ct");
+      const lblCt = uid("lbl_light_ct");
+      const cardW = 320;
+      let cardH = 160;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: btnId, type: "button", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 48, props: { text: label, checkable: true }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: sldId, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 40, props: { min: 0, max: 255 } },
+        { id: lblBri, type: "label", x: x + cardW - pad - 48, y: y + 94, w: 48, h: 40, props: { text: "0" }, style: { text_color: 0x888888 } },
+      ];
+      if (hasColorTemp) {
+        cardH = 208;
+        widgets[0].h = cardH;
+        widgets.push(
+          { id: sldCt, type: "slider", x: x + pad, y: y + 142, w: cardW - 2 * pad - 50, h: 40, props: { min: minMireds, max: maxMireds } },
+          { id: lblCt, type: "label", x: x + cardW - pad - 48, y: y + 142, w: 48, h: 40, props: { text: "—" }, style: { text_color: 0x888888 } }
+        );
+      }
+      const bindings: any[] = entity_id
+        ? [
+            { entity_id, kind: "binary" },
+            { entity_id, kind: "attribute_number", attribute: "brightness" },
+            ...(hasColorTemp ? [{ entity_id, kind: "attribute_number", attribute: "color_temp" }] : []),
+          ]
+        : [];
+      const links: any[] = entity_id
+        ? [
+            { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+            { source: { entity_id, kind: "binary", attribute: "" }, target: { widget_id: btnId, action: "widget_checked" } },
+            { source: { entity_id, kind: "attribute_number", attribute: "brightness" }, target: { widget_id: sldId, action: "slider_value", scale: 1.0 } },
+            { source: { entity_id, kind: "attribute_number", attribute: "brightness" }, target: { widget_id: lblBri, action: "label_text", format: "%.0f", scale: 1.0 } },
+            ...(hasColorTemp
+              ? [
+                  { source: { entity_id, kind: "attribute_number", attribute: "color_temp" }, target: { widget_id: sldCt, action: "slider_value", scale: 1.0 } },
+                  { source: { entity_id, kind: "attribute_number", attribute: "color_temp" }, target: { widget_id: lblCt, action: "label_text", format: "%.0f", scale: 1.0 } },
+                ]
+              : []),
+          ]
+        : [];
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({ widget_id: btnId, event: "on_click", call: { domain: "light", service: "toggle", entity_id: ent } });
+        action_bindings.push({ widget_id: sldId, event: "on_release", call: { domain: "light", service: "turn_on", entity_id: ent, data: { brightness: "!lambda return (int)x;" } } });
+        if (hasColorTemp) {
+          action_bindings.push({ widget_id: sldCt, event: "on_release", call: { domain: "light", service: "turn_on", entity_id: ent, data: { color_temp: "!lambda return (int)x;" } } });
+        }
+      }
+      return { widgets, bindings, links, action_bindings };
+    },
+  },
+
+  {
+    id: "switch_card",
+    title: "Card Library • Switch Card",
+    description: "Switch card: toggle button + state label. Binds to switch.*",
+    entityDomain: "switch",
+    build: ({ entity_id, x = 20, y = 20, label = "Switch" }) => {
+      const ent = entity_id || "switch.example";
+      const rootId = uid("card_sw");
+      const lblTitle = uid("lbl_sw_title");
+      const btnId = uid("btn_sw");
+      const lblState = uid("lbl_sw_state");
+      const cardW = 280;
+      const cardH = 120;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: btnId, type: "button", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 52, props: { text: label, checkable: true }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: lblState, type: "label", x: x + pad, y: y + 96, w: cardW - 2 * pad, h: 20, props: { text: "—" }, style: { text_color: 0x888888 } },
+      ];
+      const bindings = entity_id ? [{ entity_id, kind: "binary" }, { entity_id, kind: "state" }] : [];
+      const links = entity_id
+        ? [
+            { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+            { source: { entity_id, kind: "binary", attribute: "" }, target: { widget_id: btnId, action: "widget_checked" } },
+            { source: { entity_id, kind: "state", attribute: "" }, target: { widget_id: lblState, action: "label_text" } },
+          ]
+        : [];
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({ widget_id: btnId, event: "on_click", call: { domain: "switch", service: "toggle", entity_id: ent } });
+      }
+      return { widgets, bindings, links, action_bindings };
+    },
+  },
+
+  {
+    id: "cover_card",
+    title: "Card Library • Cover Card",
+    description: "Cover card: position slider + open/stop/close. Optional tilt when supported. Binds to cover.*",
+    entityDomain: "cover",
+    build: ({ entity_id, x = 20, y = 20, label = "Cover", caps = null }) => {
+      const ent = entity_id || "cover.example";
+      const rootId = uid("card_cv");
+      const lblTitle = uid("lbl_cv_title");
+      const sldPos = uid("sld_cv_pos");
+      const lblPos = uid("lbl_cv_pos");
+      const btnOpen = uid("btn_cv_open");
+      const btnStop = uid("btn_cv_stop");
+      const btnClose = uid("btn_cv_close");
+      const hasTilt = caps?.attributes?.current_tilt_position !== undefined;
+      const sldTilt = uid("sld_cv_tilt");
+      const lblTilt = uid("lbl_cv_tilt");
+      const cardW = 320;
+      let cardH = 200;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: sldPos, type: "slider", x: x + pad, y: y + 40, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+        { id: lblPos, type: "label", x: x + cardW - pad - 54, y: y + 44, w: 54, h: 28, props: { text: "0%" }, style: { text_color: 0x888888 } },
+        { id: btnOpen, type: "button", x: x + pad, y: y + 84, w: 96, h: 44, props: { text: "Open" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnStop, type: "button", x: x + pad + 102, y: y + 84, w: 96, h: 44, props: { text: "Stop" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnClose, type: "button", x: x + pad + 204, y: y + 84, w: 96, h: 44, props: { text: "Close" }, style: { bg_color: 0x333333, radius: 6 } },
+      ];
+      if (hasTilt) {
+        cardH = 246;
+        widgets[0].h = cardH;
+        widgets.push(
+          { id: sldTilt, type: "slider", x: x + pad, y: y + 136, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+          { id: lblTilt, type: "label", x: x + cardW - pad - 54, y: y + 140, w: 54, h: 28, props: { text: "0%" }, style: { text_color: 0x888888 } }
+        );
+      }
+      const bindings: any[] = entity_id
+        ? [
+            { entity_id, kind: "attribute_number", attribute: "current_position" },
+            ...(hasTilt ? [{ entity_id, kind: "attribute_number", attribute: "current_tilt_position" }] : []),
+          ]
+        : [];
+      const links: any[] = [];
+      if (entity_id) {
+        links.push(
+          { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+          { source: { entity_id, kind: "attribute_number", attribute: "current_position" }, target: { widget_id: sldPos, action: "slider_value", scale: 1.0 } },
+          { source: { entity_id, kind: "attribute_number", attribute: "current_position" }, target: { widget_id: lblPos, action: "label_text", format: "%.0f%%", scale: 1.0 } }
+        );
+        if (hasTilt) {
+          links.push(
+            { source: { entity_id, kind: "attribute_number", attribute: "current_tilt_position" }, target: { widget_id: sldTilt, action: "slider_value", scale: 1.0 } },
+            { source: { entity_id, kind: "attribute_number", attribute: "current_tilt_position" }, target: { widget_id: lblTilt, action: "label_text", format: "%.0f%%", scale: 1.0 } }
+          );
+        }
+      }
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push(
+          { widget_id: sldPos, event: "on_release", call: { domain: "cover", service: "set_cover_position", entity_id: ent, data: { position: "!lambda return (int)x;" } } },
+          { widget_id: btnOpen, event: "on_click", call: { domain: "cover", service: "open_cover", entity_id: ent } },
+          { widget_id: btnStop, event: "on_click", call: { domain: "cover", service: "stop_cover", entity_id: ent } },
+          { widget_id: btnClose, event: "on_click", call: { domain: "cover", service: "close_cover", entity_id: ent } }
+        );
+        if (hasTilt) {
+          action_bindings.push({ widget_id: sldTilt, event: "on_release", call: { domain: "cover", service: "set_cover_tilt_position", entity_id: ent, data: { tilt_position: "!lambda return (int)x;" } } });
+        }
+      }
+      return { widgets, bindings, links, action_bindings };
+    },
+  },
+
+  {
+    id: "fan_card",
+    title: "Card Library • Fan Card",
+    description: "Fan card: toggle + percentage; optional oscillate, direction, preset when supported. Binds to fan.*",
+    entityDomain: "fan",
+    build: ({ entity_id, x = 20, y = 20, label = "Fan", caps = null }) => {
+      const ent = entity_id || "fan.example";
+      const rootId = uid("card_fan");
+      const lblTitle = uid("lbl_fan_title");
+      const btnId = uid("btn_fan");
+      const sldPct = uid("sld_fan_pct");
+      const lblPct = uid("lbl_fan_pct");
+      const presetModes = (caps?.attributes?.preset_modes || caps?.attributes?.preset_mode_list || []).filter(Boolean);
+      const dirModes = (caps?.attributes?.direction_list || caps?.attributes?.directions || []).filter(Boolean);
+      const hasOsc = caps?.attributes?.oscillating !== undefined;
+      const ddPreset = uid("dd_fan_preset");
+      const ddDir = uid("dd_fan_dir");
+      const swOsc = uid("sw_fan_osc");
+      const cardW = 300;
+      let cardH = 180;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: btnId, type: "button", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 48, props: { text: "Toggle", checkable: true }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: sldPct, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 36, props: { min: 0, max: 100 } },
+        { id: lblPct, type: "label", x: x + cardW - pad - 48, y: y + 94, w: 48, h: 36, props: { text: "0" }, style: { text_color: 0x888888 } },
+      ];
+      let rowY = y + 138;
+      if (hasOsc) {
+        cardH += 48;
+        widgets.push({
+          id: swOsc,
+          type: "switch",
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 40,
+          props: { text: "Oscillate" },
+          style: { bg_color: 0x333333, radius: 6 },
+        });
+        rowY += 48;
+      }
+      if (dirModes.length) {
+        cardH += 48;
+        widgets.push({
+          id: ddDir,
+          type: "dropdown",
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 40,
+          props: { options: dirModes.join("\\n") },
+          style: { bg_color: 0x333333, radius: 6 },
+        });
+        rowY += 48;
+      }
+      if (presetModes.length) {
+        cardH += 48;
+        widgets.push({
+          id: ddPreset,
+          type: "dropdown",
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 40,
+          props: { options: presetModes.join("\\n") },
+          style: { bg_color: 0x333333, radius: 6 },
+        });
+      }
+      widgets[0].h = cardH;
+      const bindings: any[] = entity_id
+        ? [
+            { entity_id, kind: "binary" },
+            { entity_id, kind: "attribute_number", attribute: "percentage" },
+            ...(hasOsc ? [{ entity_id, kind: "attribute_bool", attribute: "oscillating" }] : []),
+            ...(dirModes.length ? [{ entity_id, kind: "attribute_text", attribute: "direction" }] : []),
+            ...(presetModes.length ? [{ entity_id, kind: "attribute_text", attribute: "preset_mode" }] : []),
+          ]
+        : [];
+      const links: any[] = entity_id
+        ? [
+            { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+            { source: { entity_id, kind: "binary", attribute: "" }, target: { widget_id: btnId, action: "widget_checked" } },
+            { source: { entity_id, kind: "attribute_number", attribute: "percentage" }, target: { widget_id: sldPct, action: "slider_value", scale: 1.0 } },
+            { source: { entity_id, kind: "attribute_number", attribute: "percentage" }, target: { widget_id: lblPct, action: "label_text", format: "%.0f", scale: 1.0 } },
+            ...(hasOsc ? [{ source: { entity_id, kind: "attribute_bool", attribute: "oscillating" }, target: { widget_id: swOsc, action: "widget_checked" } }] : []),
+            ...(dirModes.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "direction" }, target: { widget_id: ddDir, action: "label_text" } }] : []),
+            ...(presetModes.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "preset_mode" }, target: { widget_id: ddPreset, action: "label_text" } }] : []),
+          ]
+        : [];
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({ widget_id: btnId, event: "on_click", call: { domain: "fan", service: "toggle", entity_id: ent } });
+        action_bindings.push({ widget_id: sldPct, event: "on_release", call: { domain: "fan", service: "set_percentage", entity_id: ent, data: { percentage: "!lambda return (int)x;" } } });
+        if (hasOsc) {
+          action_bindings.push({ widget_id: swOsc, event: "on_change", call: { domain: "fan", service: "oscillate", entity_id: ent, data: { oscillating: "!lambda return (bool)x;" } } });
+        }
+        if (dirModes.length) {
+          action_bindings.push({
+            widget_id: ddDir,
+            event: "on_change",
+            call: { domain: "fan", service: "set_direction", entity_id: ent, data: { direction: "!lambda return std::string(text).c_str();" } },
+          });
+        }
+        if (presetModes.length) {
+          action_bindings.push({
+            widget_id: ddPreset,
+            event: "on_change",
+            call: { domain: "fan", service: "set_preset_mode", entity_id: ent, data: { preset_mode: "!lambda return std::string(text).c_str();" } },
+          });
+        }
+      }
+      return { widgets, bindings, links, action_bindings };
+    },
+  },
+
+  {
+    id: "lock_card",
+    title: "Card Library • Lock Card",
+    description: "Lock card: Lock / Unlock buttons + state label. Binds to lock.*",
+    entityDomain: "lock",
+    build: ({ entity_id, x = 20, y = 20, label = "Lock" }) => {
+      const ent = entity_id || "lock.example";
+      const rootId = uid("card_lock");
+      const lblTitle = uid("lbl_lock_title");
+      const btnLock = uid("btn_lock");
+      const btnUnlock = uid("btn_unlock");
+      const lblState = uid("lbl_lock_state");
+      const cardW = 260;
+      const cardH = 140;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: btnLock, type: "button", x: x + pad, y: y + 38, w: (cardW - 2 * pad - 12) / 2, h: 48, props: { text: "Lock" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnUnlock, type: "button", x: x + pad + (cardW - 2 * pad - 12) / 2 + 12, y: y + 38, w: (cardW - 2 * pad - 12) / 2, h: 48, props: { text: "Unlock" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: lblState, type: "label", x: x + pad, y: y + 94, w: cardW - 2 * pad, h: 22, props: { text: "—" }, style: { text_color: 0x888888 } },
+      ];
+      const bindings = entity_id ? [{ entity_id, kind: "state" }] : [];
+      const links = entity_id
+        ? [
+            { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+            { source: { entity_id, kind: "state", attribute: "" }, target: { widget_id: lblState, action: "label_text" } },
+          ]
+        : [];
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({ widget_id: btnLock, event: "on_click", call: { domain: "lock", service: "lock", entity_id: ent } });
+        action_bindings.push({ widget_id: btnUnlock, event: "on_click", call: { domain: "lock", service: "unlock", entity_id: ent } });
+      }
+      return { widgets, bindings, links, action_bindings };
+    },
+  },
+
+  {
+    id: "media_player_card",
+    title: "Card Library • Media Player Card",
+    description: "Media player: title, transport, volume slider, mute/vol buttons; optional source when supported. Binds to media_player.*",
+    entityDomain: "media_player",
+    build: ({ entity_id, x = 20, y = 20, label = "Media", caps = null }) => {
+      const ent = entity_id || "media_player.example";
+      const rootId = uid("card_mp");
+      const lblTitle = uid("lbl_mp_title");
+      const lblTrack = uid("lbl_mp_track");
+      const btnPrev = uid("btn_mp_prev");
+      const btnPlay = uid("btn_mp_play");
+      const btnNext = uid("btn_mp_next");
+      const sldVol = uid("sld_mp_vol");
+      const lblVol = uid("lbl_mp_vol");
+      const btnMute = uid("btn_mp_mute");
+      const btnVolDn = uid("btn_mp_voldn");
+      const btnVolUp = uid("btn_mp_volup");
+      const sourceList = (caps?.attributes?.source_list && Array.isArray(caps.attributes.source_list)) ? (caps.attributes.source_list as string[]).filter(Boolean) : [];
+      const ddSource = uid("dd_mp_src");
+      const cardW = 320;
+      let cardH = 268;
+      const pad = 12;
+      const widgets: any[] = [
+        { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
+        { id: lblTrack, type: "label", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 24, props: { text: "—" } },
+        { id: btnPrev, type: "button", x: x + pad, y: y + 70, w: 92, h: 44, props: { text: "⏮" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnPlay, type: "button", x: x + pad + 100, y: y + 70, w: 92, h: 44, props: { text: "⏯" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnNext, type: "button", x: x + pad + 200, y: y + 70, w: 92, h: 44, props: { text: "⏭" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: sldVol, type: "slider", x: x + pad, y: y + 122, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+        { id: lblVol, type: "label", x: x + cardW - pad - 54, y: y + 122, w: 54, h: 36, props: { text: "0%" }, style: { text_color: 0x888888 } },
+        { id: btnVolDn, type: "button", x: x + pad, y: y + 166, w: 92, h: 40, props: { text: "Vol −" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnMute, type: "button", x: x + pad + 100, y: y + 166, w: 92, h: 40, props: { text: "Mute" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnVolUp, type: "button", x: x + pad + 200, y: y + 166, w: 92, h: 40, props: { text: "Vol +" }, style: { bg_color: 0x333333, radius: 6 } },
+      ];
+      if (sourceList.length) {
+        cardH += 48;
+        widgets[0].h = cardH;
+        widgets.push({
+          id: ddSource,
+          type: "dropdown",
+          x: x + pad,
+          y: y + 214,
+          w: cardW - 2 * pad,
+          h: 40,
+          props: { options: sourceList.join("\\n") },
+          style: { bg_color: 0x333333, radius: 6 },
+        });
+      }
+      const bindings: any[] = entity_id
+        ? [
+            { entity_id, kind: "state" },
+            { entity_id, kind: "attribute_text", attribute: "media_title" },
+            { entity_id, kind: "attribute_number", attribute: "volume_level" },
+            ...(sourceList.length ? [{ entity_id, kind: "attribute_text", attribute: "source" }] : []),
+          ]
+        : [];
+      const links: any[] = entity_id
+        ? [
+            { source: { entity_id, kind: "attribute_text", attribute: "friendly_name" }, target: { widget_id: lblTitle, action: "label_text" } },
+            { source: { entity_id, kind: "attribute_text", attribute: "media_title" }, target: { widget_id: lblTrack, action: "label_text" } },
+            { source: { entity_id, kind: "attribute_number", attribute: "volume_level" }, target: { widget_id: sldVol, action: "slider_value", scale: 100.0 } },
+            { source: { entity_id, kind: "attribute_number", attribute: "volume_level" }, target: { widget_id: lblVol, action: "label_text", format: "%.0f%%", scale: 100.0 } },
+            ...(sourceList.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "source" }, target: { widget_id: ddSource, action: "label_text" } }] : []),
+          ]
+        : [];
+      const action_bindings: any[] = [];
+      if (entity_id) {
+        action_bindings.push({ widget_id: btnPrev, event: "on_click", call: { domain: "media_player", service: "media_previous_track", entity_id: ent } });
+        action_bindings.push({ widget_id: btnPlay, event: "on_click", call: { domain: "media_player", service: "media_play_pause", entity_id: ent } });
+        action_bindings.push({ widget_id: btnNext, event: "on_click", call: { domain: "media_player", service: "media_next_track", entity_id: ent } });
+        action_bindings.push({ widget_id: sldVol, event: "on_release", call: { domain: "media_player", service: "volume_set", entity_id: ent, data: { volume_level: "!lambda return (float)x / 100.0;" } } });
+        action_bindings.push({ widget_id: btnVolDn, event: "on_click", call: { domain: "media_player", service: "volume_down", entity_id: ent } });
+        action_bindings.push({ widget_id: btnMute, event: "on_click", call: { domain: "media_player", service: "volume_mute", entity_id: ent, data: { is_volume_muted: true } } });
+        action_bindings.push({ widget_id: btnVolUp, event: "on_click", call: { domain: "media_player", service: "volume_up", entity_id: ent } });
+        if (sourceList.length) {
+          action_bindings.push({
+            widget_id: ddSource,
+            event: "on_change",
+            call: { domain: "media_player", service: "select_source", entity_id: ent, data: { source: "!lambda return std::string(text).c_str();" } },
+          });
+        }
+      }
+      return { widgets, bindings, links, action_bindings };
     },
   },
 
