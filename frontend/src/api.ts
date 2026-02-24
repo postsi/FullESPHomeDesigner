@@ -149,6 +149,18 @@ export async function validateRecipe(recipe_id: string) {
   return apiPost(`${API_BASE}/recipes/validate`, { recipe_id });
 }
 
+/** Batch fetch HA entity states for live design-time preview. */
+export async function fetchStateBatch(entity_ids: string[]): Promise<Record<string, { state: string; attributes: Record<string, any> }>> {
+  const res = await fetch(`${API_BASE}/state/batch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ entity_ids }),
+    credentials: "include",
+  });
+  const data = await res.json();
+  return (data?.states && typeof data.states === "object") ? data.states : {};
+}
+
 export async function exportDeviceYaml(device_id: string) {
   return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, {});
 }

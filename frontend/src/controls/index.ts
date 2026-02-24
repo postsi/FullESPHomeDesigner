@@ -1919,11 +1919,11 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   },
 
   // --- v0.60.0 : Card Library Phase 2 enhancements (Phase 2 cards + layout helpers) ---
-  // v0.70: Single Thermostat card — capability-driven (hvac/preset/fan from entity caps).
+  // v0.70: Thermostat card — snippet-style (arc + current/setpoint + +/-), scripts for inc/dec, optional preset/fan/hvac.
   {
     id: "thermostat_card",
     title: "Card Library • Thermostat Card",
-    description: "One Thermostat card: layout from entity capabilities (HVAC modes, optional preset/fan). Binds to climate.*",
+    description: "Thermostat card: arc setpoint, current temp, +/- buttons (scripts), optional mode/preset/fan. Binds to climate.*",
     entityDomain: "climate",
     build: ({ entity_id, x = 20, y = 20, label = "Thermostat", th_min = 5, th_max = 35, th_step = 1, caps = null }) => {
       const ent = entity_id || "climate.example";
@@ -1937,38 +1937,58 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
       const rootId = uid("card_th");
       const lblTitle = uid("lbl_th_title");
+      const lblSetpointTop = uid("lbl_th_set_top");
       const arcSet = uid("arc_th_set");
       const lblCur = uid("lbl_th_cur");
+      const bottomRowId = uid("obj_th_bottom");
+      const btnMinus = uid("btn_th_minus");
       const lblSet = uid("lbl_th_set");
-      const sldSet = uid("sld_th_set");
+      const btnPlus = uid("btn_th_plus");
       const ddHvac = uid("dd_th_hvac");
       const ddPreset = uid("dd_th_preset");
       const ddFan = uid("dd_th_fan");
+
+      const scriptSuffix = Math.random().toString(36).slice(2, 8);
+      const scriptIdInc = `th_inc_${scriptSuffix}`;
+      const scriptIdDec = `th_dec_${scriptSuffix}`;
 
       const hvacOpts = hvacModes.join("\\n");
       const presetOpts = presetModes.length ? presetModes.join("\\n") : "(none)";
       const fanOpts = fanModes.length ? fanModes.join("\\n") : "(none)";
 
-      const rowH = 46;
-      let row = 0;
-      const wx = x + 12;
-      const ww = 296;
-      const arcSize = 56;
-      const totalRows = 3 + (presetModes.length ? 1 : 0) + (fanModes.length ? 1 : 0);
-      const containerH = 32 + totalRows * rowH;
+      const cardW = 170;
+      const cardH = 270 + (hvacModes.length ? 40 : 0) + (presetModes.length ? 40 : 0) + (fanModes.length ? 40 : 0);
+      const pad = 10;
+      const arcSize = 120;
+      const arcX = x + (cardW - arcSize) / 2;
+      const arcY = y + 58;
+      const bottomRowY = y + 200;
+      const bottomRowH = 36;
+      const btnSize = 36;
+      const accentColor = 0x9c27b0;
+      const trackColor = 0x333333;
+      const bgDark = 0x1e1e1e;
+      const textMuted = 0x888888;
+      const textGray = 0xaaaaaa;
 
       const widgets: any[] = [
-        { id: rootId, type: "container", x, y, w: 320, h: containerH, props: {} },
-        { id: lblTitle, type: "label", x: wx, y: y + 10, w: ww, h: 22, props: { text: label } },
-      ];
-      row++;
-      // Lovelace-style: arc (setpoint) + current/set labels to the right
-      widgets.push(
+        {
+          id: rootId,
+          type: "container",
+          x,
+          y,
+          w: cardW,
+          h: cardH,
+          props: {},
+          style: { bg_color: bgDark, radius: 10 },
+        },
+        { id: lblTitle, type: "label", x: x + pad, y: y + 8, w: 100, h: 22, props: { text: label }, style: { text_color: textGray } },
+        { id: lblSetpointTop, type: "label", x: x + cardW - pad - 50, y: y + 8, w: 50, h: 22, props: { text: "—°" }, style: { text_color: accentColor } },
         {
           id: arcSet,
           type: "arc",
-          x: wx,
-          y: y + 10 + row * rowH,
+          x: arcX,
+          y: arcY,
           w: arcSize,
           h: arcSize,
           props: {
@@ -1980,71 +2000,90 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             rotation: 0,
             adjustable: true,
           },
+          style: { radius: 10 },
+          indicator: { bg_color: accentColor, radius: 10 },
+          knob: { bg_color: 0xffffff, radius: 0x7FFF, padding: 5 },
           events: entity_id
             ? {
-                on_value: `then:
-  - homeassistant.service:
-      service: climate.set_temperature
+                on_release: `then:
+  - homeassistant.action:
+      action: climate.set_temperature
       data:
         entity_id: ${ent}
-      temperature: !lambda 'float s = (float)${stepT}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
+        temperature: !lambda 'float s = (float)${stepT}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
 `,
               }
             : {},
         },
-        { id: lblCur, type: "label", x: wx + arcSize + 10, y: y + 10 + row * rowH, w: 140, h: 24, props: { text: "— °C" } },
-        { id: lblSet, type: "label", x: wx + arcSize + 10, y: y + 10 + row * rowH + 26, w: 140, h: 24, props: { text: "Set —" } },
-      );
-      row++;
-      widgets.push({
-        id: sldSet,
-        type: "slider",
-        x: wx,
-        y: y + 10 + row * rowH,
-        w: ww,
-        h: 36,
-        props: { min: minT, max: maxT },
-        events: entity_id
-          ? {
-              on_release: `- homeassistant.service:
-    service: climate.set_temperature
-    data:
-      entity_id: ${ent}
-      temperature: !lambda 'float s = (float)${stepT}; if (s <= 0.0f) s = 1.0f; return roundf(x / s) * s;'
-`,
-            }
-          : {},
-      });
-      row++;
-      widgets.push({
-        id: ddHvac,
-        type: "dropdown",
-        x: wx,
-        y: y + 10 + row * rowH,
-        w: ww,
-        h: 40,
-        props: { options: hvacOpts },
-        events: entity_id
-          ? {
-              on_value: `then:
+        { id: lblCur, type: "label", x: arcX + 20, y: arcY + arcSize / 2 - 14, w: arcSize - 40, h: 28, props: { text: "—.—°" }, style: { text_color: accentColor } },
+        {
+          id: bottomRowId,
+          type: "container",
+          x: x + (cardW - 150) / 2,
+          y: bottomRowY,
+          w: 150,
+          h: bottomRowH,
+          props: {},
+        },
+        {
+          id: btnMinus,
+          type: "button",
+          x: x + (cardW - 150) / 2,
+          y: bottomRowY,
+          w: btnSize,
+          h: btnSize,
+          props: { text: "−" },
+          style: { bg_color: trackColor, radius: 6 },
+          events: entity_id ? { on_click: `then:\n  - script.execute: ${scriptIdDec}` } : {},
+        },
+        { id: lblSet, type: "label", x: x + (cardW - 150) / 2 + btnSize, y: bottomRowY + 8, w: 150 - 2 * btnSize, h: 22, props: { text: "Set —" }, style: { text_color: textMuted } },
+        {
+          id: btnPlus,
+          type: "button",
+          x: x + (cardW - 150) / 2 + 150 - btnSize,
+          y: bottomRowY,
+          w: btnSize,
+          h: btnSize,
+          props: { text: "+" },
+          style: { bg_color: trackColor, radius: 6 },
+          events: entity_id ? { on_click: `then:\n  - script.execute: ${scriptIdInc}` } : {},
+        },
+      ];
+
+      let rowY = bottomRowY + bottomRowH + 12;
+      if (hvacModes.length) {
+        widgets.push({
+          id: ddHvac,
+          type: "dropdown",
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 36,
+          props: { options: hvacOpts },
+          style: { bg_color: trackColor, radius: 6 },
+          events: entity_id
+            ? {
+                on_value: `then:
   - homeassistant.action:
       action: climate.set_hvac_mode
       data:
         entity_id: ${ent}
         hvac_mode: !lambda return std::string(text).c_str();`,
-            }
-          : {},
-      });
-      row++;
+              }
+            : {},
+        });
+        rowY += 40;
+      }
       if (presetModes.length) {
         widgets.push({
           id: ddPreset,
           type: "dropdown",
-          x: wx,
-          y: y + 10 + row * rowH,
-          w: ww,
-          h: 40,
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 36,
           props: { options: presetOpts },
+          style: { bg_color: trackColor, radius: 6 },
           events: entity_id
             ? {
                 on_value: `then:
@@ -2056,17 +2095,18 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
               }
             : {},
         });
-        row++;
+        rowY += 40;
       }
       if (fanModes.length) {
         widgets.push({
           id: ddFan,
           type: "dropdown",
-          x: wx,
-          y: y + 10 + row * rowH,
-          w: ww,
-          h: 40,
+          x: x + pad,
+          y: rowY,
+          w: cardW - 2 * pad,
+          h: 36,
           props: { options: fanOpts },
+          style: { bg_color: trackColor, radius: 6 },
           events: entity_id
             ? {
                 on_value: `then:
@@ -2091,24 +2131,31 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         ? [
             {
               source: { entity_id, kind: "attribute_number", attribute: "current_temperature" },
-              target: { widget_id: lblCur, action: "label_text", format: "%.1f °C", scale: 1.0 },
+              target: { widget_id: lblCur, action: "label_text", format: "%.1f°", scale: 1.0 },
             },
             {
               source: { entity_id, kind: "attribute_number", attribute: "temperature" },
-              target: { widget_id: lblSet, action: "label_text", format: "Set %.1f", scale: 1.0 },
+              target: { widget_id: lblSetpointTop, action: "label_text", format: "%.1f°", scale: 1.0 },
+            },
+            {
+              source: { entity_id, kind: "attribute_number", attribute: "temperature" },
+              target: { widget_id: lblSet, action: "label_text", format: "%.1f°", scale: 1.0 },
             },
             {
               source: { entity_id, kind: "attribute_number", attribute: "temperature" },
               target: { widget_id: arcSet, action: "arc_value", scale: 1.0 },
             },
-            {
-              source: { entity_id, kind: "attribute_number", attribute: "temperature" },
-              target: { widget_id: sldSet, action: "slider_value", scale: 1.0 },
-            },
           ]
         : [];
+      const scripts =
+        entity_id && stepT > 0
+          ? [
+              { id: scriptIdDec, entity_id: ent, step: stepT, direction: "dec" as const },
+              { id: scriptIdInc, entity_id: ent, step: stepT, direction: "inc" as const },
+            ]
+          : [];
 
-      return { widgets, bindings, links };
+      return { widgets, bindings, links, scripts };
     },
   },
 

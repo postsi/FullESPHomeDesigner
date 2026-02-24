@@ -8,6 +8,7 @@ import {
   deploy,
   exportDeviceYamlPreview,
   exportDeviceYamlWithExpectedHash,
+  fetchStateBatch,
   getContext,
   getProject,
   getWidgetSchema,
@@ -240,6 +241,9 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [recipeImportErr, setRecipeImportErr] = useState<string>("");
   const [recipeImportOk, setRecipeImportOk] = useState<any>(null);
 
+  // Live HA state for design-time preview (bound widgets show current HA values).
+  const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
+
   // v0.69: Recipe Manager (Product Mode)
   const [recipeMgrOpen, setRecipeMgrOpen] = useState<boolean>(false);
   const [recipeMgrEdits, setRecipeMgrEdits] = useState<Record<string, string>>({});
@@ -375,6 +379,59 @@ useEffect(() => {
     }
   })();
 }, [tmplWizard, tmplEntity]);
+
+// Live HA state via WebSocket for design-time preview: subscribe to state_changed for linked entities.
+useEffect(() => {
+  const links = (project as any)?.links;
+  if (!Array.isArray(links) || links.length === 0) {
+    setLiveEntityStates({});
+    return;
+  }
+  const entityIds = Array.from(
+    new Set(
+      links
+        .map((l: any) => l?.source?.entity_id)
+        .filter((e: any) => e && typeof e === "string" && e.includes("."))
+    )
+  ) as string[];
+  if (entityIds.length === 0) return;
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${proto}//${window.location.host}/api/esphome_touch_designer/state/ws`;
+  let cancelled = false;
+  let ws: WebSocket | null = null;
+  const connect = () => {
+    if (cancelled) return;
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        if (cancelled || !ws) return;
+        ws.send(JSON.stringify({ type: "subscribe", entity_ids: entityIds }));
+      };
+      ws.onmessage = (event) => {
+        if (cancelled) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.type === "state" && data?.entity_id) {
+            setLiveEntityStates((prev) => ({
+              ...prev,
+              [data.entity_id]: { state: data.state ?? "", attributes: data.attributes ?? {} },
+            }));
+          }
+        } catch (_) {}
+      };
+      ws.onerror = () => {};
+      ws.onclose = () => {
+        ws = null;
+        if (!cancelled) setTimeout(connect, 2000);
+      };
+    } catch (_) {}
+  };
+  connect();
+  return () => {
+    cancelled = true;
+    if (ws) try { ws.close(); } catch (_) {}
+  };
+}, [project]);
 
 useEffect(() => {
   // v0.61: prefill card options from capabilities when available.
@@ -684,6 +741,42 @@ if (baseId.startsWith("glance_card")) {
       return l;
     });
 
+    const insertX = tmplWizard.x;
+    const insertY = tmplWizard.y;
+    const isCard = /_card$/.test(tmplWizard.template_id);
+
+    if (isCard && ws.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const w of ws) {
+        const x = Number(w.x ?? 0), y = Number(w.y ?? 0), ww = Number(w.w ?? 0), hh = Number(w.h ?? 0);
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + ww); maxY = Math.max(maxY, y + hh);
+      }
+      const gw = Math.max(1, maxX - minX), gh = Math.max(1, maxY - minY);
+      const groupId = uid("group");
+      const groupWidget = {
+        id: groupId,
+        type: "container",
+        x: insertX,
+        y: insertY,
+        w: gw,
+        h: gh,
+        props: {},
+        style: { bg_color: 0x1e1e1e, radius: 10 },
+      };
+      for (const w of ws) {
+        w.parent_id = groupId;
+        w.x = Number(w.x ?? 0) - minX;
+        w.y = Number(w.y ?? 0) - minY;
+      }
+      ws.unshift(groupWidget as any);
+    } else {
+      for (const w of ws) {
+        w.x = Number(w.x ?? 0) + insertX;
+        w.y = Number(w.y ?? 0) + insertY;
+      }
+    }
+
     // Ensure pages structure exists (defensive for edge-case project shapes)
     if (!Array.isArray(p2.pages) || p2.pages.length === 0) {
       p2.pages = [{ page_id: uid("page"), name: "Main", widgets: [] }];
@@ -704,6 +797,16 @@ if (baseId.startsWith("glance_card")) {
       ...(built.bindings || []).filter((b: any) => b && typeof b === "object")
     );
     (p2 as any).links.push(...links.filter((l: any) => l && typeof l === "object"));
+    if (Array.isArray((built as any).scripts) && (built as any).scripts.length > 0) {
+      (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
+      for (const s of (built as any).scripts) {
+        if (s && typeof s === "object" && s.id && s.entity_id) {
+          let scriptEntity = s.entity_id;
+          if (entity_id && (String(scriptEntity || "").endsWith(".example") || !scriptEntity)) scriptEntity = entity_id;
+          (p2 as any).scripts.push({ ...s, entity_id: scriptEntity });
+        }
+      }
+    }
 
     setProject(p2, true);
     setProjectDirty(true);
@@ -855,6 +958,50 @@ if (baseId.startsWith("glance_card")) {
       ),
     [pages, safePageIndex]
   );
+
+  // Live overrides for canvas: from links + liveEntityStates, compute per-widget display values.
+  const liveOverrides = useMemo(() => {
+    const links = (project as any)?.links ?? [];
+    const overrides: Record<string, { text?: string; value?: number; checked?: boolean }> = {};
+    for (const ln of links) {
+      const src = ln?.source;
+      const tgt = ln?.target;
+      const widgetId = tgt?.widget_id;
+      const entityId = src?.entity_id;
+      const kind = src?.kind || "state";
+      const attr = src?.attribute ?? "";
+      const action = tgt?.action || "";
+      const fmt = tgt?.format ?? "%.1f";
+      const scale = typeof tgt?.scale === "number" ? tgt.scale : 1;
+      if (!widgetId || !entityId) continue;
+      const data = liveEntityStates[entityId];
+      if (!data) continue;
+      let raw: any = data.state;
+      if (kind === "attribute_number" && attr) {
+        const v = data.attributes?.[attr];
+        raw = typeof v === "number" ? v : (typeof v === "string" ? parseFloat(v) : NaN);
+      } else if (kind === "attribute_text" && attr) {
+        raw = data.attributes?.[attr] ?? "";
+      } else if (kind === "binary") {
+        raw = (data.state || "").toLowerCase() === "on";
+      }
+      if (action === "label_text") {
+        if (typeof raw === "number" && !Number.isNaN(raw)) {
+          const n = raw * scale;
+          const s = fmt.replace("%.2f", n.toFixed(2)).replace("%.1f", n.toFixed(1)).replace("%.0f", String(Math.round(n)));
+          overrides[widgetId] = { ...overrides[widgetId], text: s };
+        } else {
+          overrides[widgetId] = { ...overrides[widgetId], text: String(raw ?? "") };
+        }
+      } else if (action === "arc_value" || action === "slider_value") {
+        const num = typeof raw === "number" ? raw : parseFloat(String(raw));
+        if (!Number.isNaN(num)) overrides[widgetId] = { ...overrides[widgetId], value: num * scale };
+      } else if (action === "widget_checked") {
+        overrides[widgetId] = { ...overrides[widgetId], checked: !!raw };
+      }
+    }
+    return overrides;
+  }, [project, liveEntityStates]);
 
   // Derive canvas size: device.screen from project, or extract from hardware_recipe_id (e.g. jc1060p470_esp32p4_1024x600)
   const screenSize = useMemo(() => {
@@ -2454,6 +2601,7 @@ function deleteSelected() {
                   height={screenSize.height}
                   gridSize={(project as any)?.ui?.gridSize || 10}
                   showGrid={((project as any)?.ui?.showGrid ?? true) as any}
+                  liveOverrides={liveOverrides}
                   onSelect={(id, additive) => selectWidget(id, additive)}
                   onSelectNone={() => setSelectedWidgetIds([])}
                   onDropCreate={(type, x, y) => {
@@ -2548,6 +2696,60 @@ function deleteSelected() {
                 </div>
                 <div>
                   <div className="muted">Properties</div>
+                  {selectedWidget && (
+                    <div className="section" style={{ marginBottom: 12 }}>
+                      <div className="sectionTitle" style={{ fontSize: 12 }}>Group</div>
+                      {selectedWidget.parent_id ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span className="muted">Parent:</span>
+                          <code>{selectedWidget.parent_id}</code>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => {
+                              if (!project) return;
+                              const p2 = clone(project);
+                              const pg = (p2 as any).pages?.[safePageIndex];
+                              const w = pg?.widgets?.find((x: any) => x?.id === selectedWidget.id);
+                              if (w) { w.parent_id = undefined; delete w.parent_id; }
+                              setProject(p2, true);
+                              setProjectDirty(true);
+                            }}
+                          >
+                            Remove from group
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span className="muted">Parent: None</span>
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const parentId = e.target.value;
+                              if (!parentId || !project) return;
+                              const p2 = clone(project);
+                              const pg = (p2 as any).pages?.[safePageIndex];
+                              const w = pg?.widgets?.find((x: any) => x?.id === selectedWidget.id);
+                              if (w) w.parent_id = parentId;
+                              setProject(p2, true);
+                              setProjectDirty(true);
+                              e.target.value = "";
+                            }}
+                          >
+                            <option value="">Add to group…</option>
+                            {widgets.filter((w: any) => w?.type === "container" && w?.id !== selectedWidget?.id).map((w: any) => (
+                              <option key={w.id} value={w.id}>{w.id}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      {selectedWidget.type === "container" && (
+                        <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                          Children: {widgets.filter((w: any) => w?.parent_id === selectedWidget.id).length}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {!selectedWidget || !selectedSchema ? (
                     <div className="muted">Select a widget.</div>
                   ) : (
@@ -2622,7 +2824,7 @@ function deleteSelected() {
                     (ln: any) => String(ln?.target?.widget_id || "").trim() === widgetId
                   );
                   return (
-                    <div style={{ marginTop: 10, marginBottom: 10, padding: 8, background: "var(--ha-card-background, #eee)", borderRadius: 6 }}>
+                    <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
                       <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
                       {linksForWidget.length === 0 ? (
                         <div className="muted" style={{ fontSize: 12 }}>No bindings. Use the form below to add one.</div>

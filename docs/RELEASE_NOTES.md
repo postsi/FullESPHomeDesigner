@@ -1,5 +1,14 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.63
+
+- **Thermostat card (snippet-style)**: Full redesign: dark container, title + setpoint top-right, arc (120×120, 135°→45°) with current temp over arc, bottom row with − / setpoint / + buttons. +/- call generated scripts (th_inc_ / th_dec_) that read HA temperature sensor and call climate.set_temperature with current ± step. Optional HVAC / preset / fan rows in same style. Slider removed; arc only for setpoint.
+- **Scripts in card recipe**: Thermostat card outputs scripts array; backend _compile_scripts(project) emits ESPHome script: block. Insert flow merges scripts into project.scripts with entity_id.
+- **Live HA at design time (WebSocket)**: Backend GET /api/.../state/ws WebSocket: client sends subscribe with entity_ids, receives state_changed updates and initial state. Frontend uses WebSocket; canvas shows live HA values for bound widgets (labels, arc, slider, button checked).
+- **Groups**: Card insert creates a container group; children have parent_id. Move/delete group moves/deletes children. **Resize group**: when a container with children is resized via Transformer, children positions and sizes scale proportionally.
+- **Group membership in Properties**: Group section: show Parent (or None), Remove from group / Add to group dropdown; for containers, Children: N.
+- **Binding Builder**: Current bindings box uses border-only styling (no solid background) so text is readable in all themes.
+
 ## v0.70.62
 
 - **Thermostat card**: Lovelace-style arc for setpoint display (min–max range, 135°–45°). Arc is bound for two-way sync (HA → arc via `arc_value` link; arc drag → `climate.set_temperature`). Current/set labels sit beside the arc.

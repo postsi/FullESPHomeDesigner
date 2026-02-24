@@ -21,6 +21,7 @@ type Props = {
   height: number;
   gridSize: number;
   showGrid: boolean;
+  liveOverrides?: Record<string, { text?: string; value?: number; checked?: boolean }>;
   onSelect: (id: string, additive: boolean) => void;
   onSelectNone: () => void;
   onDropCreate?: (type: string, x: number, y: number) => void;
@@ -85,6 +86,7 @@ export default function Canvas({
   height,
   gridSize,
   showGrid,
+  liveOverrides = {},
   onSelect,
   onSelectNone,
   onDropCreate,
@@ -143,11 +145,12 @@ const stageRef = useRef<any>(null);
 
   const renderWidget = (w: Widget, isSel: boolean) => {
     const { ax, ay } = absPos(w);
+    const override = liveOverrides[w.id];
     // Simple, intentionally lightweight previews (not pixel-perfect LVGL).
     // The goal is to make layouts usable while we keep the runtime YAML generator authoritative.
     const p = w.props || {};
     const s = w.style || {};
-    const title = (p.text ?? p.label ?? p.name ?? w.type) as string;
+    const title = (override?.text !== undefined ? override.text : (p.text ?? p.label ?? p.name ?? w.type)) as string;
 
     // Style helpers (schema-driven properties land in `style`, but many widgets also keep
     // some legacy/compat props in `props`). We treat style as authoritative when present.
@@ -219,8 +222,10 @@ const stageRef = useRef<any>(null);
           node.scaleX(1);
           node.scaleY(1);
 
-          let ww = Math.max(20, node.width() * scaleX);
-          let hh = Math.max(20, node.height() * scaleY);
+          const oldW = node.width();
+          const oldH = node.height();
+          let ww = Math.max(20, oldW * scaleX);
+          let hh = Math.max(20, oldH * scaleY);
           let xx = node.x();
           let yy = node.y();
 
@@ -231,11 +236,30 @@ const stageRef = useRef<any>(null);
             yy = snap(yy, gridSize);
           }
 
-          const parent = w.parent_id ? widgetById.get(w.parent_id) : undefined;
-          const parentAbs = parent ? absPos(parent) : { ax: 0, ay: 0 };
-          const modelX = xx - parentAbs.ax;
-          const modelY = yy - parentAbs.ay;
-          onChangeMany([{ id: w.id, patch: { x: modelX, y: modelY, w: ww, h: hh } }], true);
+          const children = childrenByParent.get(w.id);
+          if (children && children.length > 0) {
+            const sx = oldW > 0 ? ww / oldW : 1;
+            const sy = oldH > 0 ? hh / oldH : 1;
+            const patches: { id: string; patch: Partial<Widget> }[] = [
+              { id: w.id, patch: { w: ww, h: hh } },
+              ...children.map((c) => ({
+                id: c.id,
+                patch: {
+                  x: c.x * sx,
+                  y: c.y * sy,
+                  w: Math.max(4, c.w * sx),
+                  h: Math.max(4, c.h * sy),
+                },
+              })),
+            ];
+            onChangeMany(patches, true);
+          } else {
+            const parent = w.parent_id ? widgetById.get(w.parent_id) : undefined;
+            const parentAbs = parent ? absPos(parent) : { ax: 0, ay: 0 };
+            const modelX = xx - parentAbs.ax;
+            const modelY = yy - parentAbs.ay;
+            onChangeMany([{ id: w.id, patch: { x: modelX, y: modelY, w: ww, h: hh } }], true);
+          }
         }}
       />
     );
@@ -269,6 +293,7 @@ const stageRef = useRef<any>(null);
     }
 
     if (type.includes("button")) {
+      const checked = override?.checked ?? (p as any).checked ?? false;
       return (
         <Group key={w.id}>
           {base}
@@ -277,7 +302,7 @@ const stageRef = useRef<any>(null);
             y={ay + 6}
             width={w.w - 12}
             height={w.h - 12}
-            fill={String(s.inner_bg_color ?? "#0b1220")}
+            fill={String(checked ? (s.inner_bg_color ?? "#065f46") : (s.inner_bg_color ?? "#0b1220"))}
             stroke={String(s.inner_border_color ?? (isSel ? "#34d399" : "#1f2937"))}
             strokeWidth={Number(s.inner_border_width ?? 2)}
             cornerRadius={Math.min(10, Math.max(0, Number(s.corner_radius ?? p.corner_radius ?? 10)))}
@@ -357,7 +382,7 @@ const stageRef = useRef<any>(null);
     if (type === "slider") {
       const barMin = Number(p.min ?? 0);
       const barMax = Number(p.max ?? 100);
-      const val = Number(p.value ?? (barMin + barMax) / 2);
+      const val = override?.value !== undefined ? override.value : Number(p.value ?? (barMin + barMax) / 2);
       const startVal = Number(p.start_value ?? barMin);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       const isVert = w.h > w.w;
@@ -408,7 +433,7 @@ const stageRef = useRef<any>(null);
       const sweep = (bgEnd - bgStart + 360) % 360 || 360;
       const min = Number(p.min ?? 0);
       const max = Number(p.max ?? 100);
-      const val = Number(p.value ?? (min + max) / 2);
+      const val = override?.value !== undefined ? override.value : Number(p.value ?? (min + max) / 2);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       let indStart = bgStart;
       let indSweep = 0;

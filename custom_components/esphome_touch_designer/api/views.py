@@ -329,6 +329,41 @@ def _compile_ha_bindings(project: dict) -> str:
     return "".join(out).rstrip() + "\n"
 
 
+def _compile_scripts(project: dict) -> str:
+    """Emit ESPHome script: block for project.scripts (e.g. thermostat +/- setpoint inc/dec).
+
+    Each script: { "id": "th_inc_xxx", "entity_id": "climate.xxx", "step": 0.5, "direction": "inc"|"dec" }.
+    Uses the homeassistant sensor id ha_num_<slug>_temperature for current setpoint.
+    """
+    scripts = project.get("scripts") or []
+    if not isinstance(scripts, list) or not scripts:
+        return ""
+    out = ["script:\n"]
+    for s in scripts:
+        if not isinstance(s, dict):
+            continue
+        sid = str(s.get("id") or "").strip()
+        entity_id = str(s.get("entity_id") or "").strip()
+        direction = str(s.get("direction") or "inc").strip().lower()
+        step = float(s.get("step") if s.get("step") is not None else 0.5)
+        if not sid or "." not in entity_id:
+            continue
+        slug = _safe_id(entity_id)
+        sensor_id = f"ha_num_{slug}_temperature"
+        if direction == "inc":
+            expr = f"id({sensor_id}).state + {step}f"
+        else:
+            expr = f"id({sensor_id}).state - {step}f"
+        out.append(f"  - id: {sid}\n")
+        out.append("    then:\n")
+        out.append("      - homeassistant.action:\n")
+        out.append("          action: climate.set_temperature\n")
+        out.append("          data:\n")
+        out.append(f"            entity_id: {json.dumps(entity_id)}\n")
+        out.append(f"            temperature: !lambda 'return {expr};'\n")
+    return "".join(out).rstrip() + "\n" if len(out) > 1 else ""
+
+
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
     adv = project.get("advanced") or {}
     pre = str(adv.get("yaml_pre", "") or "")
@@ -480,6 +515,7 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
 
     assets_yaml = _compile_assets(project)
     ha_bindings_yaml = _compile_ha_bindings(project)
+    scripts_yaml = _compile_scripts(project)
     # v0.38: font extraction (first pass).
     fonts_yaml, font_id_map = _compile_fonts_from_project(project)
     if font_id_map:
@@ -522,6 +558,8 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
 
     if locks_yaml.strip():
         out += locks_yaml.rstrip() + "\n"
+    if scripts_yaml.strip():
+        out += scripts_yaml.rstrip() + "\n\n"
     if fonts_yaml.strip():
         out += fonts_yaml.rstrip() + "\n\n"
     out += merged.strip() + "\n"
@@ -598,6 +636,7 @@ def _rewrite_widget_font_references(project: dict, font_id_map: dict[str, str]) 
                     w["props"] = props
     return p
 
+from aiohttp import web
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.http import HomeAssistantView
@@ -1518,6 +1557,92 @@ class EntityView(HomeAssistantView):
             "unit_of_measurement": attrs.get("unit_of_measurement"),
         })
 
+
+class StateBatchView(HomeAssistantView):
+    """Batch fetch entity states for live design-time preview (links → canvas)."""
+
+    url = f"/api/{DOMAIN}/state/batch"
+    name = f"api:{DOMAIN}:state_batch"
+    requires_auth = False
+
+    async def post(self, request):
+        body = await request.json() if request.can_read_body else {}
+        entity_ids = body.get("entity_ids") if isinstance(body, dict) else []
+        if not isinstance(entity_ids, list):
+            entity_ids = []
+        entity_ids = [str(e).strip() for e in entity_ids if str(e).strip() and "." in str(e)]
+        hass = request.app["hass"]
+        states = {}
+        for eid in entity_ids[:100]:
+            st = hass.states.get(eid)
+            if st:
+                states[eid] = {"state": st.state, "attributes": dict(st.attributes or {})}
+        return self.json({"states": states})
+
+
+class StateWebSocketView(HomeAssistantView):
+    """WebSocket endpoint for live state updates (design-time preview)."""
+
+    url = f"/api/{DOMAIN}/state/ws"
+    name = f"api:{DOMAIN}:state_ws"
+    requires_auth = False
+
+    async def get(self, request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        hass: HomeAssistant = request.app["hass"]
+        entity_ids: set = set()
+        unsub = None
+
+        async def send_state(eid: str) -> None:
+            st = hass.states.get(eid)
+            if st:
+                payload = json.dumps({
+                    "type": "state",
+                    "entity_id": eid,
+                    "state": st.state,
+                    "attributes": dict(st.attributes or {}),
+                })
+                try:
+                    await ws.send_str(payload)
+                except Exception:
+                    pass
+
+        async def state_changed_listener(event):
+            eid = event.data.get("entity_id") if isinstance(event.data, dict) else None
+            if eid and eid in entity_ids:
+                await send_state(eid)
+
+        try:
+            async for msg in ws:
+                if msg.type == web.WSMsgType.TEXT:
+                    try:
+                        data = json.loads(msg.data)
+                        if data.get("type") == "subscribe":
+                            ids = data.get("entity_ids")
+                            if isinstance(ids, list):
+                                entity_ids.clear()
+                                entity_ids.update(str(e).strip() for e in ids if str(e).strip() and "." in str(e))
+                            if unsub is not None:
+                                unsub()
+                            unsub = hass.bus.async_listen("state_changed", state_changed_listener)
+                            for eid in list(entity_ids)[:100]:
+                                await send_state(eid)
+                        elif data.get("type") == "unsubscribe":
+                            if unsub is not None:
+                                unsub()
+                                unsub = None
+                            entity_ids.clear()
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                elif msg.type in (web.WSMsgType.CLOSE, web.WSMsgType.ERROR):
+                    break
+        finally:
+            if unsub is not None:
+                unsub()
+        return ws
+
+
 class CompileView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices/{{device_id}}/compile"
     name = f"api:{DOMAIN}:compile"
@@ -1663,6 +1788,8 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     # Home Assistant entity helpers
     hass.http.register_view(EntitiesView)
     hass.http.register_view(EntityView)
+    hass.http.register_view(StateBatchView)
+    hass.http.register_view(StateWebSocketView)
     hass.http.register_view(EntityCapabilitiesView)
 
     # Plugins
