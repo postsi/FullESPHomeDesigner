@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.67
+
+- **Canvas text/background legibility**: All widget text and backgrounds now use `toFillColor()` so numeric colours (0xrrggbb) from templates render correctly; dropdown, textarea, and roller use consistent background and text colours.
+- **Multi-select common style**: When multiple widgets are selected, the Properties panel shows **Common style** with **Text colour** and **Background colour**; changes apply to all selected widgets (hex #rrggbb or empty to clear).
+- **Thermostat dropdowns show HA value**: HVAC, preset, and fan dropdowns are linked to `hvac_mode`, `preset_mode`, and `fan_mode` (attribute_text → label_text); Canvas uses live override text so the selected option displays the current HA value.
+
 ## v0.70.66
 
 - **Thermostat name label**: Card title label is now bound to the entity’s `friendly_name` (attribute_text) so it shows the HA entity name.

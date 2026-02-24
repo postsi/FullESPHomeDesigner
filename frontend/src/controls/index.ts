@@ -2149,6 +2149,9 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
               source: { entity_id, kind: "attribute_number", attribute: "temperature" },
               target: { widget_id: arcSet, action: "arc_value", scale: 1.0 },
             },
+            ...(hvacModes.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "hvac_mode" }, target: { widget_id: ddHvac, action: "label_text" } }] : []),
+            ...(presetModes.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "preset_mode" }, target: { widget_id: ddPreset, action: "label_text" } }] : []),
+            ...(fanModes.length ? [{ source: { entity_id, kind: "attribute_text", attribute: "fan_mode" }, target: { widget_id: ddFan, action: "label_text" } }] : []),
           ]
         : [];
       const scripts =

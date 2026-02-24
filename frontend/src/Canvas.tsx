@@ -163,12 +163,13 @@ const stageRef = useRef<any>(null);
 
     // Style helpers (schema-driven properties land in `style`, but many widgets also keep
     // some legacy/compat props in `props`). We treat style as authoritative when present.
-    const bg = String(s.bg_color ?? s.background_color ?? p.bg_color ?? "#111827");
-    const border = String(s.border_color ?? p.border_color ?? (isSel ? "#10b981" : "#374151"));
+    // Use toFillColor so numeric 0xrrggbb from templates render legibly.
+    const bg = toFillColor(s.bg_color ?? s.background_color ?? p.bg_color, "#111827");
+    const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacity = Number(s.opacity ?? 1);
     const radius = Math.min(12, Math.max(0, Number(s.corner_radius ?? p.corner_radius ?? 8)));
-    const textColor = String(s.text_color ?? p.text_color ?? "#e5e7eb");
+    const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
     const fontSize = Math.max(10, Math.min(28, Number(s.font_size ?? p.font_size ?? 16)));
 
     // Base background
@@ -527,11 +528,12 @@ const stageRef = useRef<any>(null);
     if (type === "dropdown") {
       const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2"];
       const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
-      const displayText = String(opts[selIdx] ?? opts[0] ?? "Select…");
+      const displayText = override?.text !== undefined ? String(override.text) : String(opts[selIdx] ?? opts[0] ?? "Select…");
+      const ddBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={ddBg} stroke="#334155" strokeWidth={1} cornerRadius={6} listening={false} />
           <Text text={displayText} x={ax + 14} y={ay + (w.h - 16) / 2} width={w.w - 36} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
           <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={textColor} listening={false} />
         </Group>
@@ -558,10 +560,11 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "textarea") {
+      const taBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={taBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
           <Text text={String(p.text ?? "Text…")} x={ax + 12} y={ay + 12} width={w.w - 24} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
         </Group>
       );
@@ -573,12 +576,13 @@ const stageRef = useRef<any>(null);
       const rowH = Math.min(24, (w.h - 16) / 3);
       const visible = Math.max(1, Math.floor((w.h - 16) / rowH));
       const start = Math.max(0, selected - Math.floor(visible / 2));
+      const rollBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={rollBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
           {opts.slice(start, start + visible).map((opt: string, i: number) => (
-            <Text key={i} text={String(opt).slice(0, 20)} x={ax + 12} y={ay + 8 + i * rowH} width={w.w - 24} fontSize={Math.min(12, rowH - 4)} fill={i + start === selected ? textColor : "#6b7280"} ellipsis listening={false} />
+            <Text key={i} text={String(opt).slice(0, 20)} x={ax + 12} y={ay + 8 + i * rowH} width={w.w - 24} fontSize={Math.min(12, rowH - 4)} fill={i + start === selected ? textColor : "#94a3b8"} ellipsis listening={false} />
           ))}
         </Group>
       );

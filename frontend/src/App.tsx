@@ -1680,7 +1680,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.66 — Thermostat friendly_name, widget ID in inspector, legible inputs</div>
+          <div className="muted">v0.70.67 — Canvas legibility, multi-select style, dropdown HA value</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
@@ -2935,6 +2935,19 @@ function deleteSelected() {
   );
 }
 
+function styleValueToCss(v: any): string {
+  if (v == null || v === "") return "";
+  if (typeof v === "number" && v >= 0 && v <= 0xffffff) return "#" + v.toString(16).padStart(6, "0");
+  return String(v);
+}
+function cssToStyleValue(css: string): number | string {
+  const t = css.trim();
+  if (!t) return "";
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(t);
+  if (m) return parseInt(m[1], 16);
+  return t;
+}
+
 function MultiSelectProperties(props: {
   widgetIds: string[];
   widgets: any[];
@@ -2952,6 +2965,9 @@ function MultiSelectProperties(props: {
   const commonY = Number(first.y ?? 0);
   const commonW = Number(first.w ?? 0);
   const commonH = Number(first.h ?? 0);
+  const firstStyle = first.style || {};
+  const commonTextColor = styleValueToCss(firstStyle.text_color ?? first.props?.text_color);
+  const commonBgColor = styleValueToCss(firstStyle.bg_color ?? first.style?.background_color ?? first.props?.bg_color);
 
   const patchAll = (key: string, value: number) => {
     if (!project || Number.isNaN(value)) return;
@@ -2960,6 +2976,24 @@ function MultiSelectProperties(props: {
     if (!page?.widgets) return;
     for (const w of page.widgets) {
       if (w && widgetIds.includes(w.id)) (w as any)[key] = value;
+    }
+    setProject(p2, true);
+    setProjectDirty(true);
+  };
+
+  const patchAllStyle = (key: string, value: number | string) => {
+    if (!project) return;
+    const p2 = clone(project);
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    for (const w of page.widgets) {
+      if (!w || !widgetIds.includes(w.id)) continue;
+      if (w.style == null) w.style = {};
+      if (value === "" || value == null) {
+        delete w.style[key];
+      } else {
+        (w.style as any)[key] = value;
+      }
     }
     setProject(p2, true);
     setProjectDirty(true);
@@ -2984,6 +3018,15 @@ function MultiSelectProperties(props: {
       <div className="field">
         <div className="fieldLabel">Height</div>
         <input type="number" value={commonH} onChange={(e) => patchAll("h", Number(e.target.value))} />
+      </div>
+      <div className="sectionTitle" style={{ fontSize: 12, marginTop: 12 }}>Common style</div>
+      <div className="field">
+        <div className="fieldLabel">Text colour</div>
+        <input type="text" placeholder="#rrggbb or leave empty" value={commonTextColor} onChange={(e) => patchAllStyle("text_color", cssToStyleValue(e.target.value))} />
+      </div>
+      <div className="field">
+        <div className="fieldLabel">Background colour</div>
+        <input type="text" placeholder="#rrggbb or leave empty" value={commonBgColor} onChange={(e) => patchAllStyle("bg_color", cssToStyleValue(e.target.value))} />
       </div>
       <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Other properties vary; select one widget to edit.</div>
     </div>
