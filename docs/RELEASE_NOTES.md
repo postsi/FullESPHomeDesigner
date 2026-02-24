@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.68
+
+- **Multi-select common properties (dynamic)**: Common style and common props are no longer hardcoded. Schemas for all selected widget types are loaded; the intersection of style keys and of props keys across those schemas is shown. Only properties that exist on every selected type are editable together (layout + common style + common props). Loading state and “No style properties common to all selected widget types” when the intersection is empty.
+
 ## v0.70.67
 
 - **Canvas text/background legibility**: All widget text and backgrounds now use `toFillColor()` so numeric colours (0xrrggbb) from templates render correctly; dropdown, textarea, and roller use consistent background and text colours.

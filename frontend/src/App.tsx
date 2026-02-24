@@ -1680,7 +1680,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.67 — Canvas legibility, multi-select style, dropdown HA value</div>
+          <div className="muted">v0.70.68 — Dynamic common properties (multi-select)</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
@@ -2948,6 +2948,16 @@ function cssToStyleValue(css: string): number | string {
   return t;
 }
 
+function intersection<T>(sets: T[][]): T[] {
+  if (sets.length === 0) return [];
+  let result = sets[0] || [];
+  for (let i = 1; i < sets.length; i++) {
+    const s = new Set(sets[i] || []);
+    result = result.filter((x) => s.has(x));
+  }
+  return result;
+}
+
 function MultiSelectProperties(props: {
   widgetIds: string[];
   widgets: any[];
@@ -2959,15 +2969,51 @@ function MultiSelectProperties(props: {
 }) {
   const { widgetIds, widgets, project, setProject, setProjectDirty, safePageIndex, clone } = props;
   const sel = widgets.filter((w: any) => w && widgetIds.includes(w.id));
+  const [schemasByType, setSchemasByType] = useState<Record<string, WidgetSchema>>({});
+  const [schemasLoading, setSchemasLoading] = useState(false);
+
+  const selectedTypesKey = useMemo(() => sel.map((w: any) => w.type).filter(Boolean).sort().join(","), [widgetIds.join(","), widgets.length]);
+  useEffect(() => {
+    if (sel.length === 0) {
+      setSchemasByType({});
+      return;
+    }
+    const types = Array.from(new Set(sel.map((w: any) => w.type).filter(Boolean)));
+    if (types.length === 0) {
+      setSchemasByType({});
+      return;
+    }
+    let cancelled = false;
+    setSchemasLoading(true);
+    Promise.all(types.map((t) => getWidgetSchema(t).then((r) => (r.ok ? r.schema : null))))
+      .then((schemas) => {
+        if (cancelled) return;
+        const byType: Record<string, WidgetSchema> = {};
+        types.forEach((t, i) => {
+          if (schemas[i]) byType[t] = schemas[i] as WidgetSchema;
+        });
+        setSchemasByType(byType);
+      })
+      .finally(() => {
+        if (!cancelled) setSchemasLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedTypesKey]);
+
   if (sel.length === 0) return <div className="muted">No widgets found.</div>;
   const first = sel[0];
   const commonX = Number(first.x ?? 0);
   const commonY = Number(first.y ?? 0);
   const commonW = Number(first.w ?? 0);
   const commonH = Number(first.h ?? 0);
-  const firstStyle = first.style || {};
-  const commonTextColor = styleValueToCss(firstStyle.text_color ?? first.props?.text_color);
-  const commonBgColor = styleValueToCss(firstStyle.bg_color ?? first.style?.background_color ?? first.props?.bg_color);
+
+  const schemaList = Object.values(schemasByType);
+  const commonStyleKeys = schemaList.length > 0
+    ? intersection(schemaList.map((s) => Object.keys((s as any).style || {})))
+    : [];
+  const commonPropsKeys = schemaList.length > 0
+    ? intersection(schemaList.map((s) => Object.keys((s as any).props || {})))
+    : [];
 
   const patchAll = (key: string, value: number) => {
     if (!project || Number.isNaN(value)) return;
@@ -2999,6 +3045,96 @@ function MultiSelectProperties(props: {
     setProjectDirty(true);
   };
 
+  const patchAllProps = (key: string, value: any) => {
+    if (!project) return;
+    const p2 = clone(project);
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    for (const w of page.widgets) {
+      if (!w || !widgetIds.includes(w.id)) continue;
+      if (w.props == null) w.props = {};
+      if (value === "" || value == null || value === undefined) {
+        delete w.props[key];
+      } else {
+        (w.props as any)[key] = value;
+      }
+    }
+    setProject(p2, true);
+    setProjectDirty(true);
+  };
+
+  const getFirstDef = (section: "style" | "props", key: string): any => {
+    for (const s of schemaList) {
+      const sec = (s as any)[section];
+      if (sec && sec[key]) return sec[key];
+    }
+    return null;
+  };
+
+  const renderCommonStyleField = (key: string) => {
+    const def = getFirstDef("style", key);
+    const firstStyle = first.style || {};
+    const val = firstStyle[key] ?? first.props?.[key];
+    const title = def?.title ?? key;
+    if (def?.type === "color" || key === "bg_color" || key === "text_color" || key === "border_color") {
+      const css = styleValueToCss(val);
+      return (
+        <div key={key} className="field">
+          <div className="fieldLabel">{title}</div>
+          <input type="text" placeholder="#rrggbb" value={css} onChange={(e) => patchAllStyle(key, cssToStyleValue(e.target.value))} />
+        </div>
+      );
+    }
+    if (def?.type === "number") {
+      const n = Number(val ?? def?.default ?? 0);
+      return (
+        <div key={key} className="field">
+          <div className="fieldLabel">{title}</div>
+          <input type="number" value={n} min={def?.min} max={def?.max} step={def?.step ?? 1} onChange={(e) => patchAllStyle(key, Number(e.target.value))} />
+        </div>
+      );
+    }
+    return (
+      <div key={key} className="field">
+        <div className="fieldLabel">{title}</div>
+        <input type="text" value={String(val ?? "")} onChange={(e) => patchAllStyle(key, e.target.value || undefined)} />
+      </div>
+    );
+  };
+
+  const renderCommonPropsField = (key: string) => {
+    const def = getFirstDef("props", key);
+    const firstProps = first.props || {};
+    const val = firstProps[key];
+    const title = def?.title ?? key;
+    if (def?.type === "number") {
+      const n = Number(val ?? def?.default ?? 0);
+      return (
+        <div key={key} className="field">
+          <div className="fieldLabel">{title}</div>
+          <input type="number" value={n} min={def?.min} max={def?.max} step={def?.step ?? 1} onChange={(e) => patchAllProps(key, Number(e.target.value))} />
+        </div>
+      );
+    }
+    if (def?.type === "boolean") {
+      return (
+        <div key={key} className="field">
+          <div className="fieldLabel">{title}</div>
+          <select value={String(!!val)} onChange={(e) => patchAllProps(key, e.target.value === "true")}>
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </div>
+      );
+    }
+    return (
+      <div key={key} className="field">
+        <div className="fieldLabel">{title}</div>
+        <input type="text" value={String(val ?? "")} onChange={(e) => patchAllProps(key, e.target.value || undefined)} />
+      </div>
+    );
+  };
+
   return (
     <div className="section">
       <div className="muted" style={{ marginBottom: 8 }}>{widgetIds.length} widgets selected</div>
@@ -3020,14 +3156,19 @@ function MultiSelectProperties(props: {
         <input type="number" value={commonH} onChange={(e) => patchAll("h", Number(e.target.value))} />
       </div>
       <div className="sectionTitle" style={{ fontSize: 12, marginTop: 12 }}>Common style</div>
-      <div className="field">
-        <div className="fieldLabel">Text colour</div>
-        <input type="text" placeholder="#rrggbb or leave empty" value={commonTextColor} onChange={(e) => patchAllStyle("text_color", cssToStyleValue(e.target.value))} />
-      </div>
-      <div className="field">
-        <div className="fieldLabel">Background colour</div>
-        <input type="text" placeholder="#rrggbb or leave empty" value={commonBgColor} onChange={(e) => patchAllStyle("bg_color", cssToStyleValue(e.target.value))} />
-      </div>
+      {schemasLoading ? (
+        <div className="muted" style={{ fontSize: 12 }}>Loading…</div>
+      ) : commonStyleKeys.length === 0 ? (
+        <div className="muted" style={{ fontSize: 12 }}>No style properties common to all selected widget types.</div>
+      ) : (
+        commonStyleKeys.map(renderCommonStyleField)
+      )}
+      {!schemasLoading && commonPropsKeys.length > 0 && (
+        <>
+          <div className="sectionTitle" style={{ fontSize: 12, marginTop: 12 }}>Common props</div>
+          {commonPropsKeys.map(renderCommonPropsField)}
+        </>
+      )}
       <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Other properties vary; select one widget to edit.</div>
     </div>
   );
