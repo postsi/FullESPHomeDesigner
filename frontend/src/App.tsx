@@ -1680,7 +1680,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.65 — Thermostat HA data + arc knob/colors</div>
+          <div className="muted">v0.70.66 — Thermostat friendly_name, widget ID in inspector, legible inputs</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
@@ -2721,6 +2721,10 @@ function deleteSelected() {
                 )}
                 {selectedWidgetIds.length === 1 && selectedWidget && (
                   <>
+                    <div className="inspectorWidgetId" style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(255,255,255,.06)", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)" }}>
+                      <div className="inspectorWidgetIdLabel">Widget ID (YAML)</div>
+                      <code style={{ fontSize: 13, wordBreak: "break-all", color: "var(--text)" }}>{selectedWidget.id}</code>
+                    </div>
                     <div className="section" style={{ marginBottom: 12 }}>
                       <div className="sectionTitle" style={{ fontSize: 12 }}>Group</div>
                       {selectedWidget.parent_id ? (

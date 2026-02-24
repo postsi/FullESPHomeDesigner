@@ -21,6 +21,13 @@ h1{margin:0;font-size:24px} h2{margin:0 0 12px 0;font-size:18px}
 .panelTab:hover{color:var(--text)}
 .panelTab.active{background:var(--card);color:var(--text);border-color:var(--border);border-bottom-color:var(--card);margin-bottom:-1px}
 .panelContent{padding:12px;flex:1;overflow-y:auto}
+/* Inspector legibility: ensure inputs and labels have clear contrast */
+.panelContent .fieldLabel,.panelContent .inspectorWidgetIdLabel{color:#b8bfc9;font-size:13px}
+.panelContent .sectionTitle{color:#e5e7eb}
+.panelContent input,.panelContent select,.panelContent textarea{background:#1e293b;color:#e5e7eb;border-color:#334155}
+.panelContent input::placeholder,.panelContent textarea::placeholder{color:#94a3b8}
+.panelContent .muted{color:#94a3b8}
+.panelContent code{color:#c7d2fe}
 .canvasAxis{display:flex;flex-direction:column;align-items:center;gap:0;padding:8px}
 .canvasAxisY{display:flex;flex-direction:column;align-items:flex-end;font-size:11px;color:var(--muted);padding-right:4px}
 .canvasAxisX{display:flex;gap:4px;font-size:11px;color:var(--muted);padding-top:4px}

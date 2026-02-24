@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.66
+
+- **Thermostat name label**: Card title label is now bound to the entity’s `friendly_name` (attribute_text) so it shows the HA entity name.
+- **Properties inspector**: Widget ID (YAML) is shown at the top of the Properties panel so developers can map the design to the generated YAML.
+- **Inspector legibility**: Panel inputs, labels, and muted text use consistent contrast (background #1e293b, text #e5e7eb / #b8bfc9) so all fields are readable.
+
 ## v0.70.65
 
 - **Thermostat HA data**: fetchStateBatch only uses response when res.ok; liveOverrides fallback to state when attribute_number is missing; label_number action supported for live text.

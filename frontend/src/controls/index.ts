@@ -2130,6 +2130,10 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       const links = entity_id
         ? [
             {
+              source: { entity_id, kind: "attribute_text", attribute: "friendly_name" },
+              target: { widget_id: lblTitle, action: "label_text" },
+            },
+            {
               source: { entity_id, kind: "attribute_number", attribute: "current_temperature" },
               target: { widget_id: lblCur, action: "label_text", format: "%.1f°", scale: 1.0 },
             },
