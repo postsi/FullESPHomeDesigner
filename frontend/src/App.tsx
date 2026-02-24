@@ -380,7 +380,7 @@ useEffect(() => {
   })();
 }, [tmplWizard, tmplEntity]);
 
-// Live HA state via WebSocket for design-time preview: subscribe to state_changed for linked entities.
+// Live HA state for design-time preview: WebSocket + polling fallback (polling ensures updates when WS is unavailable).
 useEffect(() => {
   const links = (project as any)?.links;
   if (!Array.isArray(links) || links.length === 0) {
@@ -395,9 +395,16 @@ useEffect(() => {
     )
   ) as string[];
   if (entityIds.length === 0) return;
+  let cancelled = false;
+
+  const applyBatch = (states: Record<string, { state: string; attributes: Record<string, any> }>) => {
+    if (cancelled) return;
+    setLiveEntityStates((prev) => ({ ...prev, ...states }));
+  };
+
+  // WebSocket for real-time updates when supported
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${proto}//${window.location.host}/api/esphome_touch_designer/state/ws`;
-  let cancelled = false;
   let ws: WebSocket | null = null;
   const connect = () => {
     if (cancelled) return;
@@ -412,10 +419,7 @@ useEffect(() => {
         try {
           const data = JSON.parse(event.data);
           if (data?.type === "state" && data?.entity_id) {
-            setLiveEntityStates((prev) => ({
-              ...prev,
-              [data.entity_id]: { state: data.state ?? "", attributes: data.attributes ?? {} },
-            }));
+            applyBatch({ [data.entity_id]: { state: data.state ?? "", attributes: data.attributes ?? {} } });
           }
         } catch (_) {}
       };
@@ -427,8 +431,19 @@ useEffect(() => {
     } catch (_) {}
   };
   connect();
+
+  // Polling fallback: initial fetch + interval so canvas gets HA state even when WebSocket fails or isn't supported
+  const poll = () => {
+    if (cancelled) return;
+    fetchStateBatch(entityIds).then(applyBatch).catch(() => {});
+  };
+  const t0 = setTimeout(poll, 500);
+  const iv = setInterval(poll, 8000);
+
   return () => {
     cancelled = true;
+    clearTimeout(t0);
+    clearInterval(iv);
     if (ws) try { ws.close(); } catch (_) {}
   };
 }, [project]);
@@ -753,23 +768,36 @@ if (baseId.startsWith("glance_card")) {
         maxX = Math.max(maxX, x + ww); maxY = Math.max(maxY, y + hh);
       }
       const gw = Math.max(1, maxX - minX), gh = Math.max(1, maxY - minY);
-      const groupId = uid("group");
-      const groupWidget = {
-        id: groupId,
-        type: "container",
-        x: insertX,
-        y: insertY,
-        w: gw,
-        h: gh,
-        props: {},
-        style: { bg_color: 0x1e1e1e, radius: 10 },
-      };
-      for (const w of ws) {
-        w.parent_id = groupId;
-        w.x = Number(w.x ?? 0) - minX;
-        w.y = Number(w.y ?? 0) - minY;
+      const firstIsContainer = ws[0].type === "container";
+      if (firstIsContainer) {
+        ws[0].x = insertX;
+        ws[0].y = insertY;
+        ws[0].w = gw;
+        ws[0].h = gh;
+        for (let i = 1; i < ws.length; i++) {
+          ws[i].parent_id = ws[0].id;
+          ws[i].x = Number(ws[i].x ?? 0) - minX;
+          ws[i].y = Number(ws[i].y ?? 0) - minY;
+        }
+      } else {
+        const groupId = uid("group");
+        const groupWidget = {
+          id: groupId,
+          type: "container",
+          x: insertX,
+          y: insertY,
+          w: gw,
+          h: gh,
+          props: {},
+          style: { bg_color: 0x1e1e1e, radius: 10 },
+        };
+        for (const w of ws) {
+          w.parent_id = groupId;
+          w.x = Number(w.x ?? 0) - minX;
+          w.y = Number(w.y ?? 0) - minY;
+        }
+        ws.unshift(groupWidget as any);
       }
-      ws.unshift(groupWidget as any);
     } else {
       for (const w of ws) {
         w.x = Number(w.x ?? 0) + insertX;
@@ -1646,7 +1674,7 @@ function deleteSelected() {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.68.0 — Product Mode: recipe metadata + deployment diff viewer + conditional wizard</div>
+          <div className="muted">v0.70.64 — Properties panel, card group selection, live HA polling</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
@@ -2680,23 +2708,13 @@ function deleteSelected() {
               </div>
             )}
             {inspectorTab === "properties" && (
-              <div className="split" style={{ gridTemplateColumns: "1fr" }}>
-                <div>
-                  <div className="muted">Widgets</div>
-                  <ul className="list compact">
-                    {widgets.map((w: any) => (
-                      <li key={w.id} className={w.id === selectedWidgetId ? "row selected" : "row"}>
-                        <div className="grow clickable" onClick={() => selectWidget(w.id)}>
-                          <div className="title">{w.type}</div>
-                          <div className="muted"><code>{w.id}</code></div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <div className="muted">Properties</div>
-                  {selectedWidget && (
+              <div>
+                <div className="muted">Properties</div>
+                {selectedWidgetIds.length === 0 && (
+                  <div className="muted">Select a widget on the canvas.</div>
+                )}
+                {selectedWidgetIds.length === 1 && selectedWidget && (
+                  <>
                     <div className="section" style={{ marginBottom: 12 }}>
                       <div className="sectionTitle" style={{ fontSize: 12 }}>Group</div>
                       {selectedWidget.parent_id ? (
@@ -2749,13 +2767,24 @@ function deleteSelected() {
                         </div>
                       )}
                     </div>
-                  )}
-                  {!selectedWidget || !selectedSchema ? (
-                    <div className="muted">Select a widget.</div>
-                  ) : (
-                    <Inspector widget={selectedWidget} schema={selectedSchema} onChange={updateField} assets={assets} />
-                  )}
-                </div>
+                    {selectedSchema ? (
+                      <Inspector widget={selectedWidget} schema={selectedSchema} onChange={updateField} assets={assets} />
+                    ) : (
+                      <div className="muted">No schema for this widget type.</div>
+                    )}
+                  </>
+                )}
+                {selectedWidgetIds.length > 1 && (
+                  <MultiSelectProperties
+                    widgetIds={selectedWidgetIds}
+                    widgets={widgets}
+                    project={project}
+                    setProject={setProject}
+                    setProjectDirty={setProjectDirty}
+                    safePageIndex={safePageIndex}
+                    clone={clone}
+                  />
+                )}
               </div>
             )}
             {inspectorTab === "bindings" && (
@@ -2892,6 +2921,61 @@ function deleteSelected() {
           </div>
         </aside>
       </main>
+    </div>
+  );
+}
+
+function MultiSelectProperties(props: {
+  widgetIds: string[];
+  widgets: any[];
+  project: any;
+  setProject: (p: any, fromStorage?: boolean) => void;
+  setProjectDirty: (d: boolean) => void;
+  safePageIndex: number;
+  clone: (x: any) => any;
+}) {
+  const { widgetIds, widgets, project, setProject, setProjectDirty, safePageIndex, clone } = props;
+  const sel = widgets.filter((w: any) => w && widgetIds.includes(w.id));
+  if (sel.length === 0) return <div className="muted">No widgets found.</div>;
+  const first = sel[0];
+  const commonX = Number(first.x ?? 0);
+  const commonY = Number(first.y ?? 0);
+  const commonW = Number(first.w ?? 0);
+  const commonH = Number(first.h ?? 0);
+
+  const patchAll = (key: string, value: number) => {
+    if (!project || Number.isNaN(value)) return;
+    const p2 = clone(project);
+    const page = (p2 as any).pages?.[safePageIndex];
+    if (!page?.widgets) return;
+    for (const w of page.widgets) {
+      if (w && widgetIds.includes(w.id)) (w as any)[key] = value;
+    }
+    setProject(p2, true);
+    setProjectDirty(true);
+  };
+
+  return (
+    <div className="section">
+      <div className="muted" style={{ marginBottom: 8 }}>{widgetIds.length} widgets selected</div>
+      <div className="sectionTitle" style={{ fontSize: 12 }}>Common layout</div>
+      <div className="field">
+        <div className="fieldLabel">X</div>
+        <input type="number" value={commonX} onChange={(e) => patchAll("x", Number(e.target.value))} />
+      </div>
+      <div className="field">
+        <div className="fieldLabel">Y</div>
+        <input type="number" value={commonY} onChange={(e) => patchAll("y", Number(e.target.value))} />
+      </div>
+      <div className="field">
+        <div className="fieldLabel">Width</div>
+        <input type="number" value={commonW} onChange={(e) => patchAll("w", Number(e.target.value))} />
+      </div>
+      <div className="field">
+        <div className="fieldLabel">Height</div>
+        <input type="number" value={commonH} onChange={(e) => patchAll("h", Number(e.target.value))} />
+      </div>
+      <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Other properties vary; select one widget to edit.</div>
     </div>
   );
 }

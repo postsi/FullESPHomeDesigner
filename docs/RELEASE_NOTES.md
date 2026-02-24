@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.64
+
+- **Properties panel**: Removed the widget list; panel shows only properties of the selected widget. With multiple widgets selected, shows “N widgets selected” and common layout (X, Y, Width, Height) that apply to all.
+- **Card insert (thermometer/containers)**: When the template’s first widget is already a container, it is used as the group (no extra wrapper box). Clicking the card background now selects the visible container instead of a second outer box.
+- **Live HA on canvas**: Polling fallback added so canvas widgets get HA state even when WebSocket is unavailable: initial batch fetch after 500 ms and polling every 8 s via `state/batch`.
+
 ## v0.70.63
 
 - **Thermostat card (snippet-style)**: Full redesign: dark container, title + setpoint top-right, arc (120×120, 135°→45°) with current temp over arc, bottom row with − / setpoint / + buttons. +/- call generated scripts (th_inc_ / th_dec_) that read HA temperature sensor and call climate.set_temperature with current ± step. Optional HVAC / preset / fan rows in same style. Slider removed; arc only for setpoint.
