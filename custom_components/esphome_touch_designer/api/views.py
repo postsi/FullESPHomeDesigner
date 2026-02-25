@@ -331,11 +331,10 @@ def _compile_ha_bindings(project: dict) -> str:
         return "".join(out)
 
     out = []
-    out.append("#__HA_BINDINGS__\n")
     out.append(emit_text_sensor(text_sensors))
     out.append(emit_sensor(sensors))
     out.append(emit_binary_sensor(binary_sensors))
-    return "".join(out).rstrip() + "\n"
+    return "".join(out).rstrip() + "\n" if any(out) else ""
 
 
 def _compile_scripts(project: dict) -> str:
@@ -596,6 +595,12 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
     esphome_block, rest = _split_esphome_block(merged)
     if not esphome_block.strip() and "esphome:" not in rest:
         esphome_block = "esphome:\n  name: " + json.dumps(device.slug or "device") + "\n"
+    else:
+        # ESPHome requires top-level name: under esphome. Inject if missing (recipes often have project.name only).
+        if esphome_block.strip() and not re.search(r"^\s+name\s*:", esphome_block, re.MULTILINE):
+            first_line = esphome_block.split("\n")[0]
+            name_line = "  name: " + json.dumps(device.slug or "device") + "\n"
+            esphome_block = first_line + "\n" + name_line + "\n".join(esphome_block.split("\n")[1:])
 
     # Add default wifi/ota if recipe does not already include them (top-level key)
     def has_top_level_key(text: str, key: str) -> bool:

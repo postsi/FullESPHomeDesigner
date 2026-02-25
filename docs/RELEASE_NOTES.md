@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.74
+
+- **Fix**: `#__HA_BINDINGS__` no longer appears in generated YAML. The bindings compiler no longer embeds the marker in its output; the recipe marker is replaced only by the actual bindings content (or empty when none).
+- **Fix**: ESPHome `'name' is a required option` — the compiler injects `name: "<device_slug>"` into the esphome block when the recipe does not define it (e.g. recipes with only `project.name`).
+
 ## v0.70.73
 
 - **Compiled YAML order**: Generated config now starts with the **esphome:** section, then **api:** (encryption), then **wifi:** and **ota:** (defaults added when the recipe does not include them), then the rest of the recipe, then locks/scripts/fonts/assets.
