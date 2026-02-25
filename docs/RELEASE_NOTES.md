@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.72
+
+- **Widgets (Prebuilt) tab**: Replaced the "Home Assistant" palette tab with a **Widgets** tab. Prebuilt widgets are drag-and-drop (or click-to-add) building blocks that insert directly onto the canvas without a wizard.
+- **Prebuilt widgets**: New module `prebuiltWidgets/index.ts` with 22 prebuilts: Battery (bar + %), WiFi strength, IP address, HA connection (LED + label), Clock, Date+time, Colour picker (colorwheel), Section title, Divider, Progress bar, LED indicator, Back button, Page indicator, **Navigation bar** (page −, Home ⌂, page +), Countdown/timer, Status badge, Spacer, Icon, Scrolling text, Numeric keypad, List/menu. Each returns standard LVGL widgets (label, button, bar, container, led, colorwheel, etc.) with unique IDs.
+- **Drop handling**: Canvas and App support `application/x-esphome-prebuilt-widget`; dropping a prebuilt inserts its widgets at the drop position; clicking a prebuilt in the Widgets tab adds it at (80, 80).
+
 ## v0.70.71
 
 - **Card Library cards for all HA domains**: New Card Library entries (same design pattern as Thermostat card) for light, switch, cover, fan, lock, and media_player. Each returns widgets, bindings, links, and action_bindings; wizard uses entityDomain for filtered entity picker.

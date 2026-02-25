@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
+import { PREBUILT_WIDGETS } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
 import {
   getDisplayActionsForType,
@@ -282,7 +283,7 @@ async function onUploadAssetFile(file: File) {
 }
 
 const [lintOpen, setLintOpen] = useState<boolean>(false);
-  const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "ha">("std");
+  const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "widgets">("std");
   const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder">("properties");
   const [editingWidgetId, setEditingWidgetId] = useState<string>("");
   useEffect(() => {
@@ -2613,7 +2614,7 @@ function deleteSelected() {
           <div className="panelTabs">
             <button type="button" className={`panelTab ${paletteTab === "std" ? "active" : ""}`} onClick={() => setPaletteTab("std")}>Std LVGL</button>
             <button type="button" className={`panelTab ${paletteTab === "cards" ? "active" : ""}`} onClick={() => setPaletteTab("cards")}>Card Library</button>
-            <button type="button" className={`panelTab ${paletteTab === "ha" ? "active" : ""}`} onClick={() => setPaletteTab("ha")}>Home Assistant</button>
+            <button type="button" className={`panelTab ${paletteTab === "widgets" ? "active" : ""}`} onClick={() => setPaletteTab("widgets")}>Widgets</button>
           </div>
           <div className="panelContent">
             {paletteTab === "std" && (
@@ -2647,20 +2648,31 @@ function deleteSelected() {
                 </div>
               </>
             )}
-            {paletteTab === "ha" && (
+            {paletteTab === "widgets" && (
               <>
-                <div className="sectionTitle">Home Assistant</div>
+                <div className="sectionTitle">Prebuilt widgets</div>
                 <div className="palette">
-                  {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && ((t as any).id === "ha_auto" || String((t as any).id ?? "").startsWith("ha_"))).map((t: any) => (
+                  {PREBUILT_WIDGETS.map((pw) => (
                     <div
-                      key={t.id}
+                      key={pw.id}
                       className="paletteItem"
                       draggable
-                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }}
-                      onClick={() => { if (project && selectedDevice) openTemplateWizard(t.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add controls" }); }}
-                      title={String((t as any).description ?? "") + " (click or drag onto canvas)"}
+                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-prebuilt-widget", pw.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onClick={() => {
+                        if (!project) return;
+                        const p2 = clone(project);
+                        const pg = p2.pages?.[safePageIndex];
+                        if (!pg?.widgets) return;
+                        const { widgets } = pw.build({ x: 80, y: 80 });
+                        for (const w of widgets) pg.widgets.push(w);
+                        setProject(p2, true);
+                        setProjectDirty(true);
+                        setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
+                        setInspectorTab("properties");
+                      }}
+                      title={pw.description ? `${pw.description} (drag or click to add)` : "Drag or click to add"}
                     >
-                      {t.title ?? t.id}
+                      {pw.title}
                     </div>
                   ))}
                 </div>
@@ -2746,6 +2758,23 @@ function deleteSelected() {
                   onDropCreate={(type, x, y) => {
                     if (!project) return;
                     const p2 = clone(project);
+                    // Prebuilt widgets: insert directly without wizard
+                    if (String(type).startsWith("prebuilt:")) {
+                      const prebuiltId = String(type).slice(9);
+                      const pw = PREBUILT_WIDGETS.find((p) => p.id === prebuiltId);
+                      if (pw) {
+                        const pg = p2.pages?.[safePageIndex];
+                        if (pg?.widgets) {
+                          const { widgets } = pw.build({ x, y });
+                          for (const w of widgets) pg.widgets.push(w);
+                          setProject(p2, true);
+                          setProjectDirty(true);
+                          setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
+                          setInspectorTab("properties");
+                        }
+                      }
+                      return;
+                    }
                     // v0.21: allow dropping either a raw widget type OR a control template (tmpl:<id>)
                     if (String(type).startsWith("tmpl:")) {
                       const tid = String(type).slice(5);

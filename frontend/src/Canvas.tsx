@@ -879,9 +879,10 @@ const stageRef = useRef<any>(null);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    const prebuilt = e.dataTransfer.getData('application/x-esphome-prebuilt-widget');
     const tmpl = e.dataTransfer.getData('application/x-esphome-control-template');
     const type = e.dataTransfer.getData('application/x-esphome-widget-type');
-    const payload = tmpl ? `tmpl:${tmpl}` : type;
+    const payload = prebuilt ? `prebuilt:${prebuilt}` : tmpl ? `tmpl:${tmpl}` : type;
     if (!payload || !onDropCreate) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
