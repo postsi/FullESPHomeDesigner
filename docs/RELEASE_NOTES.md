@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.73
+
+- **Compiled YAML order**: Generated config now starts with the **esphome:** section, then **api:** (encryption), then **wifi:** and **ota:** (defaults added when the recipe does not include them), then the rest of the recipe, then locks/scripts/fonts/assets.
+- **Default wifi/ota**: If the hardware recipe has no top-level `wifi:` or `ota:`, the compiler adds standard snippets (wifi with `!secret wifi_ssid`/`wifi_password` and AP fallback; ota with `platform: esphome`).
+- **Validate with ESPHome**: New **Validate with ESPHome** button in the Compile modal runs `esphome compile` on the compiled YAML (server-side) and shows success or stderr. Requires the `esphome` CLI on the Home Assistant host. New API: `POST /api/esphome_touch_designer/validate_yaml` with `{ "yaml": "..." }`.
+
 ## v0.70.72
 
 - **Widgets (Prebuilt) tab**: Replaced the "Home Assistant" palette tab with a **Widgets** tab. Prebuilt widgets are drag-and-drop (or click-to-add) building blocks that insert directly onto the canvas without a wizard.

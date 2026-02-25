@@ -802,15 +802,32 @@ const stageRef = useRef<any>(null);
     if (type === "colorwheel") {
       const cx = ax + w.w / 2;
       const cy = ay + w.h / 2;
-      const r = Math.min(w.w, w.h) / 4 - 4;
+      const r = Math.min(w.w, w.h) / 2 - 4;
+      const innerR = r * 0.4;
+      const segments = 36;
+      const angleStep = 360 / segments;
       return (
         <Group key={w.id}>
           {base}
           <Circle x={cx} y={cy} radius={r} stroke="#6b7280" strokeWidth={2} listening={false} />
-          {[0, 120, 240].map((rot, i) => (
-            <Arc key={i} x={cx} y={cy} innerRadius={r * 0.4} outerRadius={r} angle={100} rotation={rot} fill={i === 0 ? "#e11d48" : i === 1 ? "#22c55e" : "#3b82f6"} listening={false} />
-          ))}
-          <Circle x={cx} y={cy} radius={r * 0.35} fill="#1f2937" stroke="#9ca3af" strokeWidth={1} listening={false} />
+          {Array.from({ length: segments }, (_, i) => {
+            const hue = i * angleStep;
+            const fill = `hsl(${hue}, 100%, 50%)`;
+            return (
+              <Arc
+                key={i}
+                x={cx}
+                y={cy}
+                innerRadius={innerR}
+                outerRadius={r}
+                angle={angleStep + 1}
+                rotation={-hue}
+                fill={fill}
+                listening={false}
+              />
+            );
+          })}
+          <Circle x={cx} y={cy} radius={innerR * 0.9} fill="#1f2937" stroke="#9ca3af" strokeWidth={1} listening={false} />
         </Group>
       );
     }

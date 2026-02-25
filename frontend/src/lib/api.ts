@@ -18,6 +18,24 @@ export async function compileYaml(deviceId: string, project?: any): Promise<stri
   return data.yaml;
 }
 
+export type ValidateYamlResult = { ok: boolean; stdout?: string; stderr?: string; error?: string; returncode?: number };
+
+export async function validateYaml(yamlText: string): Promise<ValidateYamlResult> {
+  const r = await fetch("/api/esphome_touch_designer/validate_yaml", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ yaml: yamlText }),
+  });
+  const data = await r.json().catch(() => ({}));
+  return {
+    ok: data.ok === true,
+    stdout: data.stdout ?? "",
+    stderr: data.stderr ?? "",
+    error: data.error,
+    returncode: data.returncode,
+  };
+}
+
 
 
 export async function listEntities() {

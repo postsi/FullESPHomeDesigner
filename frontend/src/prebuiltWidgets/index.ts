@@ -1,17 +1,52 @@
 /**
  * Prebuilt widgets: reusable building blocks for the canvas and for cards.
  * Dropped directly onto the canvas (no wizard). Each build() returns { widgets }.
+ * Multi-widget prebuilts are wrapped in a group (root container + parent_id) so they move en masse.
+ * Optional scripts and action_bindings are merged into the project on insert (same mechanism as Card Library).
  */
 
 function uid(prefix: string) {
   return prefix + "_" + Math.random().toString(16).slice(2, 8);
 }
 
+/** Wrap multiple widgets in a root container so they move together. Children get parent_id and relative positions. */
+function wrapInGroup(originX: number, originY: number, widgets: any[]): any[] {
+  if (widgets.length === 0) return [];
+  if (widgets.length === 1) {
+    widgets[0].x = originX;
+    widgets[0].y = originY;
+    return widgets;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const w of widgets) {
+    const x = Number(w.x ?? 0), y = Number(w.y ?? 0), ww = Number(w.w ?? 0), hh = Number(w.h ?? 0);
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + ww); maxY = Math.max(maxY, y + hh);
+  }
+  const gw = Math.max(1, maxX - minX), gh = Math.max(1, maxY - minY);
+  const rootId = uid("prebuilt_group");
+  const root: any = { id: rootId, type: "container", x: originX, y: originY, w: gw, h: gh, props: {}, style: { bg_color: 0x1e1e1e, radius: 8 } };
+  const result: any[] = [root];
+  for (const w of widgets) {
+    result.push({
+      ...w,
+      parent_id: rootId,
+      x: Number(w.x ?? 0) - minX,
+      y: Number(w.y ?? 0) - minY,
+    });
+  }
+  return result;
+}
+
 export type PrebuiltWidget = {
   id: string;
   title: string;
   description?: string;
-  build: (args: { x: number; y: number }) => { widgets: any[] };
+  build: (args: { x: number; y: number }) => {
+    widgets: any[];
+    scripts?: any[];
+    action_bindings?: any[];
+  };
 };
 
 const pad = 8;
@@ -24,35 +59,59 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_battery",
     title: "Battery",
-    description: "Battery level bar (0–100%) with optional label. Bind value via link.",
+    description: "Battery shape with fill level (0–100%). Bind value via link.",
+    yamlSnippet: `# Bind bar value to a sensor (e.g. battery level 0-100)
+# In Bindings: add display link → entity sensor.xxx, attribute "state" or "level"
+# → bar_value action for the battery fill bar widget.
+
+# Optional: update label text with percentage (add link → attribute_text → label_text)`,
     build: ({ x, y }) => {
       const rootId = uid("battery");
-      const barId = uid("battery_bar");
+      const bodyId = uid("battery_body");
+      const tipId = uid("battery_tip");
+      const fillId = uid("battery_fill");
       const lblId = uid("battery_lbl");
-      return {
-        widgets: [
-          { id: rootId, type: "container", x, y, w: 120, h: 44, props: {}, style: { bg_color: bgDark, radius: 6 } },
-          { id: barId, type: "bar", x: x + pad, y: y + pad, w: 80, h: 28, props: { min: 0, max: 100, value: 75 }, style: { bg_color: bgTrack, radius: 4 } },
-          { id: lblId, type: "label", x: x + 92, y: y + 10, w: 24, h: 24, props: { text: "75%" }, style: { text_color: textMuted } },
-        ],
-      };
+      const bodyW = 44;
+      const bodyH = 20;
+      const tipW = 6;
+      const tipH = 8;
+      const fillPad = 4;
+      const raw = [
+        { id: bodyId, type: "container", x: 0, y: 4, w: bodyW, h: bodyH, props: {}, style: { bg_color: bgTrack, radius: 4 } },
+        { id: tipId, type: "container", x: bodyW, y: 8, w: tipW, h: tipH, props: {}, style: { bg_color: bgTrack, radius: 2 } },
+        { id: fillId, type: "bar", x: fillPad, y: 8, w: bodyW - fillPad * 2, h: bodyH - 8, props: { min: 0, max: 100, value: 75 }, style: { bg_color: bgDark, radius: 3 } },
+        { id: lblId, type: "label", x: bodyW + tipW + 6, y: 2, w: 28, h: 24, props: { text: "75%" }, style: { text_color: textMuted } },
+      ];
+      const out = wrapInGroup(x, y, raw);
+      if (out[0]?.style) out[0].style.bg_opa = 0;
+      return { widgets: out };
     },
   },
   {
     id: "prebuilt_wifi",
     title: "WiFi strength",
-    description: "WiFi signal indicator (bar 0–100%). Bind via link.",
+    description: "Classic fan-style WiFi bars (1–4 bars). Bind level 0–100% via link or one link per bar.",
+    yamlSnippet: `# Bind WiFi bars to a sensor (0-100). Use one link to the first bar (bar_value),
+# or bind each bar to a lambda that maps RSSI/level to 0 or 100.
+# Example: sensor providing 0-100 → bar_value on one bar; use scripts for stepped levels.`,
     build: ({ x, y }) => {
-      const rootId = uid("wifi");
-      const barId = uid("wifi_bar");
-      const lblId = uid("wifi_lbl");
-      return {
-        widgets: [
-          { id: rootId, type: "container", x, y, w: 100, h: 40, props: {}, style: { bg_color: bgDark, radius: 6 } },
-          { id: uid("wifi_icon"), type: "label", x: x + pad, y: y + 8, w: 24, h: 24, props: { text: "📶" } },
-          { id: barId, type: "bar", x: x + 36, y: y + 10, w: 56, h: 20, props: { min: 0, max: 100, value: 80 }, style: { bg_color: bgTrack, radius: 4 } },
-        ],
-      };
+      const barH = [8, 14, 20, 26];
+      const barW = 6;
+      const gap = 6;
+      const raw: any[] = [];
+      for (let i = 0; i < 4; i++) {
+        raw.push({
+          id: uid("wifi_bar"),
+          type: "bar",
+          x: i * (barW + gap),
+          y: 26 - barH[i],
+          w: barW,
+          h: barH[i],
+          props: { min: 0, max: 100, value: 100 },
+          style: { bg_color: bgDark, radius: 2 },
+        });
+      }
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {
@@ -72,16 +131,12 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     title: "HA connection",
     description: "Connection status (Connected/Disconnected). Bind state via link.",
     build: ({ x, y }) => {
-      const rootId = uid("ha_conn");
-      const ledId = uid("ha_conn_led");
-      const lblId = uid("ha_conn_lbl");
-      return {
-        widgets: [
-          { id: rootId, type: "container", x, y, w: 140, h: 32, props: {}, style: { bg_color: bgDark, radius: 6 } },
-          { id: ledId, type: "led", x: x + pad, y: y + 8, w: 16, h: 16, props: {} },
-          { id: lblId, type: "label", x: x + 28, y: y + 6, w: 104, h: 20, props: { text: "—" }, style: { text_color: textMuted } },
-        ],
-      };
+      const raw = [
+        { id: uid("ha_conn"), type: "container", x: 0, y: 0, w: 140, h: 32, props: {}, style: { bg_color: bgDark, radius: 6 } },
+        { id: uid("ha_conn_led"), type: "led", x: pad, y: 8, w: 16, h: 16, props: {} },
+        { id: uid("ha_conn_lbl"), type: "label", x: 28, y: 6, w: 104, h: 20, props: { text: "—" }, style: { text_color: textMuted } },
+      ];
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {
@@ -101,12 +156,11 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     title: "Date + time",
     description: "Date and time labels.",
     build: ({ x, y }) => {
-      return {
-        widgets: [
-          { id: uid("date"), type: "label", x, y, w: 140, h: 22, props: { text: "—" }, style: { text_color: textMuted } },
-          { id: uid("time"), type: "label", x, y: y + 24, w: 140, h: 24, props: { text: "12:00" }, style: { text_color: textNormal } },
-        ],
-      };
+      const raw = [
+        { id: uid("date"), type: "label", x: 0, y: 0, w: 140, h: 22, props: { text: "—" }, style: { text_color: textMuted } },
+        { id: uid("time"), type: "label", x: 0, y: 24, w: 140, h: 24, props: { text: "12:00" }, style: { text_color: textNormal } },
+      ];
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {
@@ -114,14 +168,26 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     title: "Colour picker",
     description: "2D hue/saturation picker for lights with HS support.",
     build: ({ x, y }) => {
-      const cwId = uid("colorwheel");
-      const lblId = uid("color_preview");
-      return {
-        widgets: [
-          { id: cwId, type: "colorwheel", x, y, w: 120, h: 120, props: { mode: "hsv" }, style: { bg_color: bgDark, radius: 8 } },
-          { id: lblId, type: "label", x, y: y + 124, w: 120, h: 20, props: { text: "HS" }, style: { text_color: textMuted } },
-        ],
-      };
+      const raw = [
+        { id: uid("colorwheel"), type: "colorwheel", x: 0, y: 0, w: 120, h: 120, props: { mode: "hsv" }, style: { bg_color: bgDark, radius: 8 } },
+        { id: uid("color_preview"), type: "label", x: 0, y: 124, w: 120, h: 20, props: { text: "HS" }, style: { text_color: textMuted } },
+      ];
+      return { widgets: wrapInGroup(x, y, raw) };
+    },
+  },
+  {
+    id: "prebuilt_color_temp",
+    title: "White to warm",
+    description: "Colour temperature slider (cool white ← → warm white). Bind to light color_temp or mireds.",
+    yamlSnippet: `# Bind slider to light color temperature (mireds, typically 153-500).
+# Display: link entity light.xxx attribute color_temp → slider_value.
+# Action: on_value_changed / on_release → light.turn_on, data: color_temp from slider.`,
+    build: ({ x, y }) => {
+      const raw = [
+        { id: uid("ct_label"), type: "label", x: 0, y: 0, w: 180, h: 18, props: { text: "Cool ←  —  → Warm" }, style: { text_color: textMuted } },
+        { id: uid("ct_slider"), type: "slider", x: 0, y: 20, w: 180, h: 24, props: { min: 153, max: 500, value: 250 }, style: { bg_color: bgTrack, radius: 4 } },
+      ];
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {
@@ -153,14 +219,11 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     title: "Progress bar",
     description: "Generic 0–100% bar. Bind value via link.",
     build: ({ x, y }) => {
-      const barId = uid("progress_bar");
-      const lblId = uid("progress_lbl");
-      return {
-        widgets: [
-          { id: barId, type: "bar", x, y, w: 160, h: 24, props: { min: 0, max: 100, value: 50 }, style: { bg_color: bgTrack, radius: 4 } },
-          { id: lblId, type: "label", x: x + 164, y: y, w: 40, h: 24, props: { text: "50%" }, style: { text_color: textMuted } },
-        ],
-      };
+      const raw = [
+        { id: uid("progress_bar"), type: "bar", x: 0, y: 0, w: 160, h: 24, props: { min: 0, max: 100, value: 50 }, style: { bg_color: bgTrack, radius: 4 } },
+        { id: uid("progress_lbl"), type: "label", x: 164, y: 0, w: 40, h: 24, props: { text: "50%" }, style: { text_color: textMuted } },
+      ];
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {
@@ -203,6 +266,9 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     id: "prebuilt_nav_bar",
     title: "Navigation bar",
     description: "Page −, Home, Page +. Bind on_click to page change or actions.",
+    yamlSnippet: `# Action bindings are added automatically (prev/home/next page).
+# Edit in Bindings → Action tab for each button. Services depend on your integration;
+# e.g. esphome_touch_designer.previous_page / go_to_page / next_page if supported.`,
     build: ({ x, y }) => {
       const w = 200;
       const h = 44;
@@ -211,12 +277,19 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const prevId = uid("nav_prev");
       const homeId = uid("nav_home");
       const nextId = uid("nav_next");
+      const raw = [
+        { id: uid("nav_bg"), type: "container", x: 0, y: 0, w, h, props: {}, style: { bg_color: bgDark, radius: 8 } },
+        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "−" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: homeId, type: "button", x: gap * 2 + btnW, y: 6, w: btnW, h: 32, props: { text: "⌂" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: "+" }, style: { bg_color: bgTrack, radius: 6 } },
+      ];
+      const widgets = wrapInGroup(x, y, raw);
       return {
-        widgets: [
-          { id: uid("nav_root"), type: "container", x, y, w, h, props: {}, style: { bg_color: bgDark, radius: 8 } },
-          { id: prevId, type: "button", x: x + gap, y: y + 6, w: btnW, h: 32, props: { text: "−" }, style: { bg_color: bgTrack, radius: 6 } },
-          { id: homeId, type: "button", x: x + gap * 2 + btnW, y: y + 6, w: btnW, h: 32, props: { text: "⌂" }, style: { bg_color: bgTrack, radius: 6 } },
-          { id: nextId, type: "button", x: x + gap * 3 + btnW * 2, y: y + 6, w: btnW, h: 32, props: { text: "+" }, style: { bg_color: bgTrack, radius: 6 } },
+        widgets,
+        action_bindings: [
+          { widget_id: prevId, event: "on_click", call: { domain: "esphome_touch_designer", service: "previous_page", data: {} } },
+          { widget_id: homeId, event: "on_click", call: { domain: "esphome_touch_designer", service: "go_to_page", data: { page: 0 } } },
+          { widget_id: nextId, event: "on_click", call: { domain: "esphome_touch_designer", service: "next_page", data: {} } },
         ],
       };
     },
@@ -290,25 +363,24 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const cellW = 44;
       const cellH = 40;
       const gap = 6;
-      const rootId = uid("keypad");
-      const widgets: any[] = [
-        { id: rootId, type: "container", x, y, w: 3 * cellW + 2 * gap, h: 4 * cellH + 3 * gap, props: {}, style: { bg_color: bgDark, radius: 8 } },
+      const raw: any[] = [
+        { id: uid("keypad"), type: "container", x: 0, y: 0, w: 3 * cellW + 2 * gap, h: 4 * cellH + 3 * gap, props: {}, style: { bg_color: bgDark, radius: 8 } },
       ];
       keys.forEach((k, i) => {
         const row = Math.floor(i / 3);
         const col = i % 3;
-        widgets.push({
+        raw.push({
           id: uid("kp_" + i),
           type: "button",
-          x: x + gap + col * (cellW + gap),
-          y: y + gap + row * (cellH + gap),
+          x: gap + col * (cellW + gap),
+          y: gap + row * (cellH + gap),
           w: cellW,
           h: cellH,
           props: { text: k },
           style: { bg_color: bgTrack, radius: 6 },
         });
       });
-      return { widgets };
+      return { widgets: wrapInGroup(x, y, raw) };
     },
   },
   {

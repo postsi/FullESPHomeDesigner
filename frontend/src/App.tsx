@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
-import { PREBUILT_WIDGETS } from "./prebuiltWidgets";
+import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
 import {
   getDisplayActionsForType,
@@ -284,6 +284,7 @@ async function onUploadAssetFile(file: File) {
 
 const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "widgets">("std");
+  const [snippetModalPrebuilt, setSnippetModalPrebuilt] = useState<PrebuiltWidget | null>(null);
   const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder">("properties");
   const [editingWidgetId, setEditingWidgetId] = useState<string>("");
   useEffect(() => {
@@ -294,6 +295,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [compileErr, setCompileErr] = useState<string>("");
   const [autoCompile, setAutoCompile] = useState<boolean>(true);
   const [compileBusy, setCompileBusy] = useState<boolean>(false);
+  const [validateYamlBusy, setValidateYamlBusy] = useState<boolean>(false);
+  const [validateYamlResult, setValidateYamlResult] = useState<{ ok: boolean; stdout?: string; stderr?: string; error?: string } | null>(null);
   const [exportBusy, setExportBusy] = useState<boolean>(false);
   const [exportPreview, setExportPreview] = useState<any>(null);
   const [exportPreviewErr, setExportPreviewErr] = useState<string>("");
@@ -1682,6 +1685,7 @@ function deleteSelected() {
     if (!project || !selectedDevice) return;
     setCompileBusy(true);
     setCompileErr("");
+    setValidateYamlResult(null);
     try {
       const yaml = await compileYaml(selectedDevice, project as any);
       setCompiledYaml(yaml || "");
@@ -2553,9 +2557,42 @@ function deleteSelected() {
                       </label>
                       <button className="secondary" disabled={compileBusy || !project} onClick={refreshCompile}>{compileBusy ? "Compiling…" : "Refresh"}</button>
                       <button className="secondary" disabled={!compiledYaml} onClick={() => navigator.clipboard.writeText(compiledYaml)}>Copy</button>
+                      <button
+                        className="secondary"
+                        disabled={validateYamlBusy || !compiledYaml}
+                        onClick={async () => {
+                          if (!compiledYaml) return;
+                          setValidateYamlBusy(true);
+                          setValidateYamlResult(null);
+                          try {
+                            const res = await validateYaml(compiledYaml);
+                            setValidateYamlResult(res);
+                            if (res.ok) setToast({ type: "ok", msg: "ESPHome config valid" });
+                          } catch (e) {
+                            setValidateYamlResult({ ok: false, stderr: String(e?.message || e) });
+                          } finally {
+                            setValidateYamlBusy(false);
+                          }
+                        }}
+                        title="Run esphome compile to validate config (requires ESPHome CLI on the server)"
+                      >
+                        {validateYamlBusy ? "Validating…" : "Validate with ESPHome"}
+                      </button>
                       <button className="secondary" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }}>Import recipe…</button>
                       <button className="secondary" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }}>Manage recipes…</button>
                     </div>
+                    {validateYamlResult && (
+                      <div style={{ marginBottom: 8 }}>
+                        {validateYamlResult.ok ? (
+                          <div className="toast ok" style={{ padding: "8px 12px" }}>Config valid — esphome compile succeeded.</div>
+                        ) : (
+                          <div style={{ background: "rgba(220,38,38,0.1)", border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
+                            <div className="muted" style={{ marginBottom: 4 }}>Validation failed {validateYamlResult.error ? `(${validateYamlResult.error})` : ""}</div>
+                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, margin: 0 }}>{(validateYamlResult.stderr || validateYamlResult.stdout || "No output").trim()}</pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {compileErr && <div className="toast error" style={{ marginBottom: 8 }}>Compile error: {compileErr}</div>}
                     <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 300, overflowY: "auto" }}>
                       {compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}
@@ -2663,19 +2700,51 @@ function deleteSelected() {
                         const p2 = clone(project);
                         const pg = p2.pages?.[safePageIndex];
                         if (!pg?.widgets) return;
-                        const { widgets } = pw.build({ x: 80, y: 80 });
+                        const built = pw.build({ x: 80, y: 80 });
+                        const widgets = built.widgets || [];
                         for (const w of widgets) pg.widgets.push(w);
+                        if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
+                          (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
+                          for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
+                        }
+                        if (Array.isArray(built.scripts) && built.scripts.length > 0) {
+                          (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
+                          for (const s of built.scripts) (p2 as any).scripts.push(s);
+                        }
                         setProject(p2, true);
                         setProjectDirty(true);
                         setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
                         setInspectorTab("properties");
                       }}
                       title={pw.description ? `${pw.description} (drag or click to add)` : "Drag or click to add"}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
                     >
-                      {pw.title}
+                      <span style={{ flex: 1, minWidth: 0 }}>{pw.title}</span>
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ flexShrink: 0, padding: "2px 6px", fontSize: 10 }}
+                        title="View YAML snippet"
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSnippetModalPrebuilt(pw); }}
+                      >
+                        YAML
+                      </button>
                     </div>
                   ))}
                 </div>
+                {snippetModalPrebuilt && (
+                  <div className="modalBackdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setSnippetModalPrebuilt(null)}>
+                    <div className="panelContent" style={{ maxWidth: 480, maxHeight: "80vh", overflow: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
+                      <div className="sectionTitle" style={{ marginBottom: 8 }}>YAML snippet — {snippetModalPrebuilt.title}</div>
+                      <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>{snippetModalPrebuilt.description}</p>
+                      <pre style={{ background: "#1e293b", padding: 12, borderRadius: 8, fontSize: 11, overflow: "auto", whiteSpace: "pre-wrap", marginBottom: 12 }}>{snippetModalPrebuilt.yamlSnippet || "No snippet for this widget. Use the Bindings panel to link entities and actions."}</pre>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" className="secondary" onClick={() => { const t = snippetModalPrebuilt.yamlSnippet || ""; if (t) navigator.clipboard.writeText(t); setToast({ type: "ok", msg: "Copied to clipboard" }); }}>Copy</button>
+                        <button type="button" className="secondary" onClick={() => setSnippetModalPrebuilt(null)}>Close</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
             <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Drag onto canvas. Hold <code>ALT</code> to disable snapping.</div>
@@ -2765,8 +2834,17 @@ function deleteSelected() {
                       if (pw) {
                         const pg = p2.pages?.[safePageIndex];
                         if (pg?.widgets) {
-                          const { widgets } = pw.build({ x, y });
+                          const built = pw.build({ x, y });
+                          const widgets = built.widgets || [];
                           for (const w of widgets) pg.widgets.push(w);
+                          if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
+                            (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
+                            for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
+                          }
+                          if (Array.isArray(built.scripts) && built.scripts.length > 0) {
+                            (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
+                            for (const s of built.scripts) (p2 as any).scripts.push(s);
+                          }
                           setProject(p2, true);
                           setProjectDirty(true);
                           setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
