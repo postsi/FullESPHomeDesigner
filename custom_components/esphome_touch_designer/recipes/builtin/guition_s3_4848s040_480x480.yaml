@@ -86,6 +86,11 @@ light:
     id: display_backlight
     restore_mode: ALWAYS_ON
 
+switch:
+  - platform: output
+    name: "Relay 1"
+    output: internal_relay_1
+
 i2c:
   - id: bus_a
     sda: GPIO19

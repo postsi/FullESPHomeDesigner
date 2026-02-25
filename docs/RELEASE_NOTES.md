@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.75
+
+- **Fix**: Generated YAML now starts with an explicit document start marker `---` to avoid parser errors ("expected document start, but found block mapping start").
+
 ## v0.70.74
 
 - **Fix**: `#__HA_BINDINGS__` no longer appears in generated YAML. The bindings compiler no longer embeds the marker in its output; the recipe marker is replaced only by the actual bindings content (or empty when none).
