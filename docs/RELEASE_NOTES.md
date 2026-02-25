@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.76
+
+- **Fix**: Top-level `name:` under `esphome` is now injected when the recipe only has nested `project.name`. The check was changed from "any line with `name:`" to "direct child at 2-space indent (`  name:`)" so recipes like Guition no longer skip injection and ESPHome's required `name:` is always present.
+
 ## v0.70.75
 
 - **Fix**: Generated YAML now starts with an explicit document start marker `---` to avoid parser errors ("expected document start, but found block mapping start").

@@ -596,8 +596,8 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
     if not esphome_block.strip() and "esphome:" not in rest:
         esphome_block = "esphome:\n  name: " + json.dumps(device.slug or "device") + "\n"
     else:
-        # ESPHome requires top-level name: under esphome. Inject if missing (recipes often have project.name only).
-        if esphome_block.strip() and not re.search(r"^\s+name\s*:", esphome_block, re.MULTILINE):
+        # ESPHome requires top-level name: under esphome (direct child = 2-space indent). Recipes often have only project.name (4-space); inject if missing.
+        if esphome_block.strip() and not re.search(r"^  name\s*:", esphome_block, re.MULTILINE):
             first_line = esphome_block.split("\n")[0]
             name_line = "  name: " + json.dumps(device.slug or "device") + "\n"
             esphome_block = first_line + "\n" + name_line + "\n".join(esphome_block.split("\n")[1:])
