@@ -203,8 +203,8 @@ def _compile_ha_bindings(project: dict) -> str:
     widget_type_by_id = _widget_type_map()
 
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
-        # Indent so that after "  " is added we get 8/10/12/14 under "      then:" (6 spaces)
-        i0, i1, i2, i3 = "      ", "        ", "          ", "            "  # 6,8,10,12 -> 8,10,12,14
+        # After caller adds "  ", we need: "- if:" at 8, "condition"/"then" at 12 (under if), lambda/- lvgl at 14, id/text at 16
+        i0, i1, i2, i3 = "      ", "          ", "            ", "              "  # 6,10,12,14 -> 8,12,14,16
         outs: list[str] = []
         targets = link_map.get((kind, entity_id, attr), [])
         for ln in targets:
