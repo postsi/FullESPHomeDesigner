@@ -917,8 +917,8 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
     esphome = schema.get("esphome", {})
     root_key = esphome.get("root_key") or wtype  # e.g. "label", "button"
 
-    # Widget list item: "- type:" then properties indented 2 more (YAML block under list item)
-    body_indent = "          "  # 10 spaces: content under "- container:" etc.
+    # Widget list item: "- type:" then properties indented 2 more (YAML: value of single key for ESPHome)
+    body_indent = "            "  # 12 spaces: value under "- container:" so parser sees one key per list item
     out: list[str] = []
     out.append(f"        - {root_key}:\n")
 
@@ -1075,13 +1075,13 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
-            # _emit_widget_from_schema: first line "        - type:", body lines "          key: val". Re-indent.
+            # _emit_widget_from_schema: first line "        - type:", body "            key: val" (12 sp). Re-indent so value is 2 spaces under type.
             raw = _emit_widget_from_schema(w, schema, ab_list)
             lines = raw.splitlines(True)
             out_lines = []
             for ln in lines:
-                if ln.startswith("          "):  # body: content under list item
-                    out_lines.append(indent + "  " + ln[10:])
+                if ln.startswith("            "):  # body: value of single-key dict (12 spaces)
+                    out_lines.append(indent + "    " + ln[12:])
                 elif ln.startswith("        "):
                     out_lines.append(indent + ln[8:])  # first line "- type:"
                 else:
@@ -1092,11 +1092,11 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
             out = "".join(
                 [
                     f"{indent}- container:\n",
-                    f"{indent}  id: {wid}\n",
-                    f"{indent}  x: {int(w.get('x', 0))}\n",
-                    f"{indent}  y: {int(w.get('y', 0))}\n",
-                    f"{indent}  width: {int(w.get('w', 100))}\n",
-                    f"{indent}  height: {int(w.get('h', 50))}\n",
+                    f"{indent}    id: {wid}\n",
+                    f"{indent}    x: {int(w.get('x', 0))}\n",
+                    f"{indent}    y: {int(w.get('y', 0))}\n",
+                    f"{indent}    width: {int(w.get('w', 100))}\n",
+                    f"{indent}    height: {int(w.get('h', 50))}\n",
                 ]
             )
 
@@ -1104,9 +1104,12 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         wid = str(w.get("id") or "")
         child_list = kids.get(wid) or []
         if child_list:
-            out += f"{indent}  widgets:\n"
+            out += f"{indent}    widgets:\n"
             for c in child_list:
-                out += emit_widget(c, indent + "    ", kids)
+                out += emit_widget(c, indent + "      ", kids)  # 6 spaces: list item 2 under "widgets:"
+        elif wtype == "container":
+            # Empty container: emit explicit list so structure is valid
+            out += f"{indent}    widgets: []\n"
         return out
 
     out: list[str] = []

@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.87
+
+- **Fix (LVGL compile)**: ESPHome requires each widget to be "a dictionary with a single key". Widget properties (id, x, y, etc.) are now indented 2 spaces under the type key (12-space body indent in schema, re-indented correctly) so each list item is a single-key mapping. Child widgets under `widgets:` are indented 2 spaces under `widgets:`; empty containers now emit `widgets: []`.
+
 ## v0.70.86
 
 - **Fix (compile)**: Duplicate top-level `script:` key removed. When the recipe already had a `script:` block (e.g. `manage_run_and_sleep` for display refresh), the compiler was appending a second `script:` section for action scripts (thermostat +/- etc.), causing "Duplicate key 'script'". Compiler-generated script entries are now merged into the recipe's existing `script:` block via `_merge_scripts_into_rest`.
