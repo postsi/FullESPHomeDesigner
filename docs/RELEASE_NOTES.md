@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.92
+
+- **Fix (LVGL compile)**: CSS hex colors (e.g. `#ffffff`) from the editor are now converted to integers when emitting LVGL color keys (`text_color`, `bg_color`, `border_color`, etc.), so ESPHome no longer reports "Expected integer, but cannot parse #ffffff as an integer." Nested color keys (e.g. arc `knob.bg_color`) are converted as well.
+
 ## v0.70.91
 
 - **Fix (HA bindings)**: `id:` and `text:` (and sibling keys) under `lvgl.label.update` / `lvgl.button.update` / `lvgl.arc.update` are now indented 2 spaces under the action key so ESPHome parses them as the value of the action (fixes "Key 'lvgl.button.update' overrides 'id'!").

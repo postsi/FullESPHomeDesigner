@@ -875,6 +875,26 @@ def _yaml_quote(v) -> str:
 _ESPHOME_ACTION_KEYS = frozenset({"on_click", "on_press", "on_release", "on_value", "on_change", "on_focus", "on_defocus"})
 
 
+def _color_value_for_esphome(key: str, value) -> str | int | None:
+    """Convert CSS hex color (#rrggbb etc.) to integer for ESPHome LVGL (expects integer or 0x hex)."""
+    if key != "color" and not (isinstance(key, str) and key.endswith("_color")):
+        return value
+    if not isinstance(value, str):
+        return value
+    s = value.strip()
+    if not s.startswith("#"):
+        return value  # CSS name or theme ref, leave as-is
+    if re.match(r"^#[0-9A-Fa-f]{6}$", s):
+        return int(s[1:7], 16)
+    if re.match(r"^#[0-9A-Fa-f]{8}$", s):
+        return int(s[1:7], 16)  # use RGB, ignore alpha
+    if re.match(r"^#[0-9A-Fa-f]{3}$", s):
+        # #rgb -> 0xRRGGBB
+        r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+        return r << 16 | g << 8 | b
+    return value
+
+
 def _emit_kv(indent: str, key: str, value) -> str:
     """Emit a YAML key/value fragment.
 
@@ -896,6 +916,7 @@ def _emit_kv(indent: str, key: str, value) -> str:
     if isinstance(value, dict):
         out = [f"{indent}{key}:\n"]
         for k, v in value.items():
+            v = _color_value_for_esphome(k, v)
             out.append(f"{indent}  {k}: {_yaml_quote(v)}\n")
         return "".join(out)
 
@@ -911,6 +932,7 @@ def _emit_kv(indent: str, key: str, value) -> str:
             out.append(f"{indent}  {ln}\n")
         return "".join(out)
 
+    value = _color_value_for_esphome(key, value)
     return f"{indent}{key}: {_yaml_quote(value)}\n"
 
 
