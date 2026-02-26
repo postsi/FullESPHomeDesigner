@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.81
+
+- **Compile**: Replace `__ETD_DEVICE_NAME__` in the Compile view response as well as in the compiler, so the device name is always substituted when using the compile API.
+- **ESPHome validate**: Recipes that call `script.execute: manage_run_and_sleep` in `on_boot` now get a defined script. Guition recipe includes the script block; the compiler injects a minimal stub (`delay: 1ms`) for any other recipe that references it but doesn't define it, so `esphome validate` / compile succeeds.
+
 ## v0.70.80
 
 - **Compile (device name)**: Hardware recipes now declare the device name via the placeholder `__ETD_DEVICE_NAME__` under `esphome:`; the compiler replaces it once with the device slug. All builtin recipes include `  name: __ETD_DEVICE_NAME__`; custom recipes should do the same for correct compilation.

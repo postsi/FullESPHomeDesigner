@@ -598,6 +598,14 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
 
     merged = _inject_pages_into_recipe(recipe_text, pages_yaml)
 
+    # If recipe references manage_run_and_sleep (e.g. on_boot display refresh) but doesn't define it, inject a minimal stub.
+    if "manage_run_and_sleep" in merged and "id: manage_run_and_sleep" not in scripts_yaml and "id: manage_run_and_sleep" not in merged:
+        stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
+        if scripts_yaml.strip():
+            scripts_yaml = scripts_yaml.rstrip() + "\n" + stub.rstrip() + "\n"
+        else:
+            scripts_yaml = "script:\n" + stub
+
     # Emit in standard order: esphome first, then api, wifi, ota, then rest of recipe.
     # Recipes declare the device name with the placeholder; we replace it once at the end.
     esphome_block, rest = _split_esphome_block(merged)
@@ -1877,9 +1885,11 @@ class CompileView(HomeAssistantView):
             finally:
                 device.project = original_project
                 device.hardware_recipe_id = original_recipe
+            yaml_text = yaml_text.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
             return self.json({"ok": True, "yaml": yaml_text, "mode": "preview"})
 
         yaml_text = compile_to_esphome_yaml(device, recipe_text=recipe_text)
+        yaml_text = yaml_text.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
         return self.json({"ok": True, "yaml": yaml_text, "mode": "stored"})
 
 

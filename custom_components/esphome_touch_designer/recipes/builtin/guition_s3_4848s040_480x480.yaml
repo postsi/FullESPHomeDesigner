@@ -145,5 +145,11 @@ display:
       blue: [4, 5, 6, 7, 15]
     # __LAMBDA_PLACEHOLDER__
 
+# Required by on_boot above (Issue #80: display refresh on boot to prevent black screen)
+script:
+  - id: manage_run_and_sleep
+    then:
+      - delay: 1ms
+
 lvgl:
   #__LVGL_PAGES__
