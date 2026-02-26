@@ -38,6 +38,7 @@
 # ============================================================================
 
 esphome:
+  name: __ETD_DEVICE_NAME__
   min_version: 2024.11.0
   project:
     name: "Waveshare.ESP32-Universal-epaper-7.5v2"

@@ -14,6 +14,9 @@ import secrets
 
 RECIPES_BUILTIN_DIR = Path(__file__).resolve().parent.parent / "recipes" / "builtin"
 
+# Placeholder in hardware recipes for the device name; compiler replaces with device slug (YAML-quoted).
+ETD_DEVICE_NAME_PLACEHOLDER = "__ETD_DEVICE_NAME__"
+
 
 def _integration_version() -> str:
     """Best-effort integration version (from manifest.json)."""
@@ -553,10 +556,11 @@ def _compile_ui_lock_globals(project: dict) -> str:
     out.append("\n")
     return "".join(out)
 
-def compile_to_esphome_yaml(device: DeviceProject) -> str:
+def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = None) -> str:
     """Compile a device project into a full ESPHome YAML document.
 
-    - Loads the selected hardware recipe YAML.
+    - When recipe_text is None, loads the hardware recipe from RECIPES_BUILTIN_DIR.
+    - When recipe_text is provided (e.g. by CompileView from same source as UI), uses it.
     - Injects optional user YAML (pre/post + markers).
     - Compiles LVGL pages (schema-driven) and inserts at the pages marker.
     - Compiles HA bindings and inserts at the bindings marker.
@@ -568,8 +572,9 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
         or device.hardware_recipe_id
         or "sunton_2432s028r_320x240"
     )
-    recipe_path = RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml"
-    recipe_text = recipe_path.read_text("utf-8") if recipe_path.exists() else ""
+    if recipe_text is None:
+        recipe_path = RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml"
+        recipe_text = recipe_path.read_text("utf-8") if recipe_path.exists() else ""
 
     assets_yaml = _compile_assets(project)
     ha_bindings_yaml = _compile_ha_bindings(project)
@@ -593,35 +598,30 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
 
     merged = _inject_pages_into_recipe(recipe_text, pages_yaml)
 
-    # Emit in standard order: esphome first, then api, wifi, ota, then rest of recipe
+    # Emit in standard order: esphome first, then api, wifi, ota, then rest of recipe.
+    # Recipes declare the device name with the placeholder; we replace it once at the end.
     esphome_block, rest = _split_esphome_block(merged)
-    slug_name = json.dumps(device.slug or "device")
+    name_placeholder_line = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER
     if not esphome_block.strip() and "esphome:" not in rest:
-        # No esphome block at all (e.g. empty recipe): emit minimal block.
-        esphome_block = "esphome:\n  name: " + slug_name + "\n"
+        esphome_block = "esphome:\n" + name_placeholder_line + "\n"
     elif not esphome_block.strip() and "esphome:" in rest:
-        # Split failed: no line matched esphome block start. Inject name after first "esphome:" line in rest.
-        # Match line that is optional BOM/space + "esphome:" + optional rest (whitespace or # comment) + newline.
         rest = re.sub(
             r"(?m)^((?:\ufeff)?\s*esphome:\s*(?:#.*)?)\r?\n",
-            r"\1\n  name: " + slug_name + r"\n",
+            r"\1\n" + name_placeholder_line + r"\n",
             rest,
             count=1,
         )
-        # esphome_block stays empty so we don't emit a duplicate block below.
     else:
-        # Normal case: we have the esphome block. Force name as first key (insert or replace).
+        # Recipe has esphome block; ensure placeholder is the first key (recipes should already have it).
         lines = esphome_block.splitlines()
         if not lines:
-            esphome_block = "esphome:\n  name: " + slug_name + "\n"
+            esphome_block = "esphome:\n" + name_placeholder_line + "\n"
         else:
             rest_lines = [ln for ln in lines[1:] if not re.match(r"^  name\s*:", ln)]
-            name_line = "  name: " + slug_name
-            # Normalize first line: strip leading space and BOM so we emit clean "esphome:" at column 0
             first_line = lines[0].lstrip("\ufeff \t") or "esphome:"
             if first_line.startswith("esphome:"):
-                first_line = "esphome:"  # drop any trailing content from same line (e.g. "esphome: # comment")
-            esphome_block = first_line + "\n" + name_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
+                first_line = "esphome:"
+            esphome_block = first_line + "\n" + name_placeholder_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
 
     # Add default wifi/ota if recipe does not already include them (top-level key)
     def has_top_level_key(text: str, key: str) -> bool:
@@ -663,6 +663,8 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
         out += fonts_yaml.rstrip() + "\n\n"
     if assets_yaml.strip():
         out += assets_yaml.rstrip() + "\n"
+    # Replace recipe placeholder with the device slug (YAML-quoted).
+    out = out.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
     return out
 
 
@@ -1848,6 +1850,16 @@ class CompileView(HomeAssistantView):
             if isinstance(body.get("hardware_recipe_id"), str) and body.get("hardware_recipe_id").strip():
                 recipe_override = body.get("hardware_recipe_id").strip()
 
+        # Load recipe from same source as UI (builtin or user via _find_recipe_path_by_id)
+        project = device.project or {}
+        recipe_id = (
+            (project.get("hardware") or {}).get("recipe_id")
+            or device.hardware_recipe_id
+            or "sunton_2432s028r_320x240"
+        )
+        recipe_path = _find_recipe_path_by_id(hass, recipe_id) or (RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml")
+        recipe_text = recipe_path.read_text("utf-8") if recipe_path.exists() else ""
+
         if project_override is not None or recipe_override is not None:
             original_project = device.project
             original_recipe = device.hardware_recipe_id
@@ -1856,13 +1868,18 @@ class CompileView(HomeAssistantView):
                     device.project = project_override
                 if recipe_override is not None:
                     device.hardware_recipe_id = recipe_override
-                yaml_text = compile_to_esphome_yaml(device)
+                # Re-resolve recipe_id and recipe_text when override is present
+                proj = device.project or {}
+                rid = (proj.get("hardware") or {}).get("recipe_id") or device.hardware_recipe_id or recipe_id
+                rpath = _find_recipe_path_by_id(hass, rid) or (RECIPES_BUILTIN_DIR / f"{rid}.yaml")
+                rtext = rpath.read_text("utf-8") if rpath.exists() else ""
+                yaml_text = compile_to_esphome_yaml(device, recipe_text=rtext)
             finally:
                 device.project = original_project
                 device.hardware_recipe_id = original_recipe
             return self.json({"ok": True, "yaml": yaml_text, "mode": "preview"})
 
-        yaml_text = compile_to_esphome_yaml(device)
+        yaml_text = compile_to_esphome_yaml(device, recipe_text=recipe_text)
         return self.json({"ok": True, "yaml": yaml_text, "mode": "stored"})
 
 

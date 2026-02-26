@@ -40,6 +40,7 @@
 # ============================================================================
 
 esphome:
+  name: __ETD_DEVICE_NAME__
   min_version: 2025.1.0
   project:
     name: "JC1060P470.ESP32-P4-Touch-LCD-7"

@@ -3,6 +3,10 @@
 # Touch: GT911 (0x5D primary, 0x14 fallback). Touch interrupt is NC on XC family boards (polling).
 # NOTE: ESPHome does not currently document a dedicated `model:` preset for this board. Use `model: CUSTOM` in mipi_dsi.
 
+esphome:
+  name: __ETD_DEVICE_NAME__
+  min_version: 2025.1.0
+
 id: waveshare_esp32_p4_wifi6_touch_lcd_4c_720x720
 label: "Waveshare • ESP32-P4-WIFI6-Touch-LCD-4C • 720x720"
 vendor: Waveshare

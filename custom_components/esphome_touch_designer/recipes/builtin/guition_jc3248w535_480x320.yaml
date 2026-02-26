@@ -2,6 +2,7 @@
 # Source: https://github.com/RyanEwen/esphome-lvgl (devices/JC3248W535.yaml)
 
 esphome:
+  name: __ETD_DEVICE_NAME__
   platformio_options:
     upload_speed: 921600
     board_build.flash_mode: dio

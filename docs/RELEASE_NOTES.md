@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.80
+
+- **Compile (device name)**: Hardware recipes now declare the device name via the placeholder `__ETD_DEVICE_NAME__` under `esphome:`; the compiler replaces it once with the device slug. All builtin recipes include `  name: __ETD_DEVICE_NAME__`; custom recipes should do the same for correct compilation.
+- **Compile**: Recipe is loaded from the same source as the UI (builtin or user via `_find_recipe_path_by_id`) when compiling from the Compile view.
+- **Recipes**: Added `esphome:` section (with name placeholder and `min_version`) to the three builtin recipes that lacked it: `sunton_2432s028r_320x240`, `elecrow_dis05035h_480x320`, `waveshare_esp32_p4_wifi6_touch_lcd_4c_720x720`.
+
 ## v0.70.79
 
 - **Fix (compile)**: Esphome block detection and name injection now handle `esphome:` when there is more on the same line (e.g. `esphome: # comment`) or a leading BOM. Block start matches `(?:\ufeff)?\s*esphome:`; split-fail inject matches the first line with optional BOM/space + `esphome:` + optional rest; first line of block is normalized to emit clean `esphome:` at column 0.

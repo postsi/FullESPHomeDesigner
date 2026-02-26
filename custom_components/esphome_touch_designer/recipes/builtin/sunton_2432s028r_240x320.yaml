@@ -37,6 +37,7 @@
 # ============================================================================
 
 esphome:
+  name: __ETD_DEVICE_NAME__
   min_version: 2024.11.0
   # Fix Issue #80: Call display refresh script on boot to prevent black screen
   on_boot:

@@ -1,6 +1,10 @@
 # Built-in hardware recipe
 # Source: https://github.com/RyanEwen/esphome-lvgl (devices/DIS05035H.yaml)
 
+esphome:
+  name: __ETD_DEVICE_NAME__
+  min_version: 2024.6.0
+
 esp32:
   board: odroid_esp32
   framework:

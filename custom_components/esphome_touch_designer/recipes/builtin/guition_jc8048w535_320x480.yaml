@@ -37,6 +37,7 @@
 # ============================================================================
 
 esphome:
+  name: __ETD_DEVICE_NAME__
   min_version: 2024.11.0
   project:
     name: "Guition.ESP32-jc8048w535"
