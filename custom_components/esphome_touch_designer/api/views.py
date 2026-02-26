@@ -373,15 +373,16 @@ def _compile_scripts(project: dict) -> str:
 
 
 def _split_esphome_block(recipe_text: str) -> tuple[str, str]:
-    """Split recipe into (esphome_block, rest). esphome_block starts with 'esphome:' and runs to the next top-level key."""
+    """Split recipe into (esphome_block, rest). esphome_block starts with 'esphome:' and runs to the next top-level key.
+    Accepts a line that is optional BOM/whitespace + 'esphome:' + optional rest (whitespace, comment, or more)."""
     lines = recipe_text.splitlines()
     start_idx: int | None = None
     for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        # Top-level key: no leading indent and ends with colon
-        if (len(line) - len(line.lstrip())) == 0 and stripped.startswith("esphome:"):
+        # Block start: optional BOM, optional leading space, then "esphome:" (rest of line can be anything)
+        if re.match(r"^(?:\ufeff)?\s*esphome:", line):
             start_idx = i
             break
     if start_idx is None:
@@ -393,6 +394,7 @@ def _split_esphome_block(recipe_text: str) -> tuple[str, str]:
             continue
         if line.strip().startswith("#"):
             continue
+        # Next top-level key: no leading indent
         if (len(line) - len(line.lstrip())) == 0 and ":" in line:
             end_idx = i
             break
@@ -598,9 +600,14 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
         # No esphome block at all (e.g. empty recipe): emit minimal block.
         esphome_block = "esphome:\n  name: " + slug_name + "\n"
     elif not esphome_block.strip() and "esphome:" in rest:
-        # Split failed: "esphome:" was not at column 0 (e.g. leading space/BOM). Inject name into
-        # rest so we don't output a minimal block + full rest (duplicate esphome keys; second wins, name lost).
-        rest = re.sub(r"^(\s*esphome:\s*\n)", r"\1  name: " + slug_name + r"\n", rest, count=1)
+        # Split failed: no line matched esphome block start. Inject name after first "esphome:" line in rest.
+        # Match line that is optional BOM/space + "esphome:" + optional rest (whitespace or # comment) + newline.
+        rest = re.sub(
+            r"(?m)^((?:\ufeff)?\s*esphome:\s*(?:#.*)?)\r?\n",
+            r"\1\n  name: " + slug_name + r"\n",
+            rest,
+            count=1,
+        )
         # esphome_block stays empty so we don't emit a duplicate block below.
     else:
         # Normal case: we have the esphome block. Force name as first key (insert or replace).
@@ -610,7 +617,11 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
         else:
             rest_lines = [ln for ln in lines[1:] if not re.match(r"^  name\s*:", ln)]
             name_line = "  name: " + slug_name
-            esphome_block = lines[0] + "\n" + name_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
+            # Normalize first line: strip leading space and BOM so we emit clean "esphome:" at column 0
+            first_line = lines[0].lstrip("\ufeff \t") or "esphome:"
+            if first_line.startswith("esphome:"):
+                first_line = "esphome:"  # drop any trailing content from same line (e.g. "esphome: # comment")
+            esphome_block = first_line + "\n" + name_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
 
     # Add default wifi/ota if recipe does not already include them (top-level key)
     def has_top_level_key(text: str, key: str) -> bool:
