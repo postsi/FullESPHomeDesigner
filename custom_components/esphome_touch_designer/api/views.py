@@ -75,7 +75,7 @@ def _compile_lvgl_pages(project: dict) -> str:
 
     out: list[str] = []
     out.append("  pages:\n")
-    out.append(f"    - id: {page.get('id','main')}\n")
+    out.append(f"    - id: {_esphome_safe_page_id(page.get('id', 'main'))}\n")
     out.append("      widgets:\n")
 
     for w in widgets:
@@ -976,6 +976,13 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
     return "".join(out)
 
 
+def _esphome_safe_page_id(pid: str) -> str:
+    """Return an ESPHome-safe page id for emitted YAML. ESPHome generates C++ from page ids;
+    'main' is reserved (C++ entry point), so we emit 'main_page' instead."""
+    s = (pid or "").strip()
+    return "main_page" if s == "main" else (s or "main_page")
+
+
 def _compile_lvgl_pages_schema_driven(project: dict) -> str:
     """Compile LVGL pages from the project model.
 
@@ -1050,7 +1057,8 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
     for page in pages:
         if not isinstance(page, dict):
             continue
-        pid = page.get("page_id") or page.get("id") or "main"
+        raw_pid = page.get("page_id") or page.get("id") or "main"
+        pid = _esphome_safe_page_id(raw_pid)
         # ESPHome LVGL pages only support id and widgets (no name).
         out.append(f"    - id: {pid}\n")
         all_widgets = page.get("widgets") or []

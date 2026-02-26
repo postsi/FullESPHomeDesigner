@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.84
+
+- **Fix (LVGL compile)**: Page id `main` is reserved in C++ (entry point). ESPHome generates a global variable from each page id, so `id: main` caused "cannot declare '::main' to be a global variable". The compiler now emits `main_page` instead of `main` in generated YAML when the project page id is "main"; stored project data and UI labels are unchanged.
+
 ## v0.70.83
 
 - **Fix (LVGL compile)**: Empty or name-only pages no longer produce invalid YAML. ESPHome LVGL `pages` only accept `id` and `widgets`; the compiler no longer emits `name` for pages. When a page has no widgets, it now emits `widgets: []` instead of a bare `widgets:` key, so ESPHome no longer reports "Expected a list of widgets" or "[name] is an invalid option for [pages]".
