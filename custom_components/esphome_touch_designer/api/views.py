@@ -203,8 +203,8 @@ def _compile_ha_bindings(project: dict) -> str:
     widget_type_by_id = _widget_type_map()
 
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
-        # After caller adds "  ", we need: "- if:" at 8, "condition"/"then" at 12 (under if), lambda/- lvgl at 14, id/text at 16
-        i0, i1, i2, i3 = "      ", "          ", "            ", "              "  # 6,10,12,14 -> 8,12,14,16
+        # After caller adds "  ": "- if:" at 8, condition/then at 12, lambda/- lvgl at 14, id/text at 18 (2 under lvgl key)
+        i0, i1, i2, i3 = "      ", "          ", "            ", "                "  # 6,10,12,16 -> 8,12,14,18
         outs: list[str] = []
         targets = link_map.get((kind, entity_id, attr), [])
         for ln in targets:
@@ -353,7 +353,11 @@ def _compile_ha_bindings(project: dict) -> str:
 
     out = []
     out.append(emit_text_sensor(text_sensors))
+    if text_sensors:
+        out.append("\n")
     out.append(emit_sensor(sensors))
+    if sensors:
+        out.append("\n")
     out.append(emit_binary_sensor(binary_sensors))
     return "".join(out).rstrip() + "\n" if any(out) else ""
 

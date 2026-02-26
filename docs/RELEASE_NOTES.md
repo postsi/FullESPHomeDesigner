@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.91
+
+- **Fix (HA bindings)**: `id:` and `text:` (and sibling keys) under `lvgl.label.update` / `lvgl.button.update` / `lvgl.arc.update` are now indented 2 spaces under the action key so ESPHome parses them as the value of the action (fixes "Key 'lvgl.button.update' overrides 'id'!").
+- **Compile**: Blank line added between `text_sensor`, `sensor`, and `binary_sensor` blocks in generated YAML for readability.
+
 ## v0.70.90
 
 - **Fix (HA bindings)**: `condition:` and `then:` in the `on_value`/`then` block are now indented under the `- if:` key so ESPHome parses them as the value of `if:` (fixes "Key 'if' overrides 'condition'! Did you forget to indent the block inside the if?").
