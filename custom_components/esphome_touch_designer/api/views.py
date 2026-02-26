@@ -849,13 +849,18 @@ def _yaml_quote(v) -> str:
     return str(v)
 
 
+# ESPHome event/action keys that expect a dict (then: / actions), not a literal string.
+_ESPHOME_ACTION_KEYS = frozenset({"on_click", "on_press", "on_release", "on_value", "on_change", "on_focus", "on_defocus"})
+
+
 def _emit_kv(indent: str, key: str, value) -> str:
     """Emit a YAML key/value fragment.
 
     Notes:
       - We omit None/null values by default.
-      - Multiline strings are emitted as a block scalar (|-), which is used
-        heavily for ESPHome action fragments inside events.
+      - For action keys (on_release, etc.) with multiline values, emit as embedded YAML so
+        ESPHome parses a dict (then: ...), not a literal string.
+      - Other multiline strings use block scalar (|-).
     """
     if value is None:
         return ""
@@ -873,6 +878,12 @@ def _emit_kv(indent: str, key: str, value) -> str:
         return "".join(out)
 
     if isinstance(value, str) and "\n" in value:
+        # Action keys must be a dict (then: ...); emit as embedded YAML, not literal.
+        if key in _ESPHOME_ACTION_KEYS:
+            out = [f"{indent}{key}:\n"]
+            for ln in value.splitlines():
+                out.append(f"{indent}  {ln}\n")
+            return "".join(out)
         out = [f"{indent}{key}: |-\n"]
         for ln in value.splitlines():
             out.append(f"{indent}  {ln}\n")
@@ -1022,9 +1033,9 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
             continue
         out.append(f"{body_indent}{part_section}:\n")
         for k, field_def in part_fields.items():
-            if k not in values:
-                continue
-            v = values[k]
+            v = values.get(k)
+            if v is None and part_section == "knob" and k == "pad_right":
+                v = values.get("padding")  # backwards compat: schema used to say "padding", ESPHome expects pad_right
             if v is None or v == "":
                 continue
             out.append(_emit_kv(body_indent + "  ", k, v))

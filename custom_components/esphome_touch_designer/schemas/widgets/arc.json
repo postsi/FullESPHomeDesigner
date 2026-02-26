@@ -179,12 +179,12 @@
       "max": 255,
       "default": 0
     },
-    "padding": {
+    "pad_right": {
       "type": "number",
       "title": "Padding (size vs indicator)",
       "min": 0,
       "max": 50,
-      "default": 0
+      "default": 5
     }
   },
   "indicator": {
@@ -219,7 +219,7 @@
         "radius",
         "width",
         "height",
-        "padding"
+        "pad_right"
       ]
     },
     "Indicator": {

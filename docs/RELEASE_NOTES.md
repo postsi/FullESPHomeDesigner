@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.88
+
+- **Fix (LVGL compile)**: Event actions (on_release, on_click, etc.) are now emitted as embedded YAML (key + indented structure) instead of a literal block scalar (`|-`), so ESPHome receives a dict and no longer reports "expected a dictionary". Arc knob: schema and emission use `pad_right` instead of invalid `padding`; stored `padding` is still mapped to `pad_right` for backwards compatibility.
+
 ## v0.70.87
 
 - **Fix (LVGL compile)**: ESPHome requires each widget to be "a dictionary with a single key". Widget properties (id, x, y, etc.) are now indented 2 spaces under the type key (12-space body indent in schema, re-indented correctly) so each list item is a single-key mapping. Child widgets under `widgets:` are indented 2 spaces under `widgets:`; empty containers now emit `widgets: []`.
