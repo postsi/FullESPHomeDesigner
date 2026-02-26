@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.82
+
+- **Fix (compile)**: Builtin recipes in `list_builtin_recipes()` did not include `path`, so `_find_recipe_path_by_id()` returned `Path("None")` and the Compile view could read a file named "None" in the process cwd instead of the real recipe, producing minimal or wrong YAML. Builtin recipe dicts now include `"path": str(p)` so the correct recipe file is always used. Empty-recipe fallbacks in CompileView and `compile_to_esphome_yaml` were removed.
+
 ## v0.70.81
 
 - **Compile**: Replace `__ETD_DEVICE_NAME__` in the Compile view response as well as in the compiler, so the device name is always substituted when using the compile API.

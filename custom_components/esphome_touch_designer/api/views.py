@@ -55,7 +55,7 @@ def list_builtin_recipes() -> list[dict]:
         return out
     for p in sorted(RECIPES_BUILTIN_DIR.glob("*.yaml")):
         rid = p.stem
-        out.append({"id": rid, "name": label_map.get(rid, rid.replace("_", " ")), "kind": "builtin"})
+        out.append({"id": rid, "name": label_map.get(rid, rid.replace("_", " ")), "kind": "builtin", "path": str(p)})
     return out
 
 def _compile_lvgl_pages(project: dict) -> str:
