@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.86
+
+- **Fix (compile)**: Duplicate top-level `script:` key removed. When the recipe already had a `script:` block (e.g. `manage_run_and_sleep` for display refresh), the compiler was appending a second `script:` section for action scripts (thermostat +/- etc.), causing "Duplicate key 'script'". Compiler-generated script entries are now merged into the recipe's existing `script:` block via `_merge_scripts_into_rest`.
+
 ## v0.70.85
 
 - **Fix (LVGL compile)**: Widget YAML indentation corrected. Properties under list items (e.g. `id`, `x`, `y` under `- container:`) were emitted at the same indent as the list marker, causing "expected <block end>, but found '?'". Schema-driven emission now uses a body indent (10 spaces) for all widget properties under `- type:` so the mapping is valid YAML. Default logger section added when the recipe does not include one (fixes "Logger is not configured!" after upload).

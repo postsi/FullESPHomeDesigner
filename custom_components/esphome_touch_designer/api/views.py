@@ -431,6 +431,47 @@ def _default_logger_yaml() -> str:
 """
 
 
+def _merge_scripts_into_rest(rest: str, scripts_yaml: str) -> str:
+    """Merge compiler-generated script entries into rest's existing script: block to avoid duplicate top-level key.
+    Returns rest with our script list items appended inside the recipe's script block; scripts_yaml is the
+    full 'script:\\n  - id: ...' block from _compile_scripts."""
+    if not (rest and scripts_yaml and scripts_yaml.strip()):
+        return rest
+    # Top-level key: line at column 0 with key:
+    top_level_re = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s*:")
+    lines = rest.splitlines(keepends=True)
+    if not lines:
+        return rest
+    script_start: int | None = None
+    for i, ln in enumerate(lines):
+        m = top_level_re.match(ln.lstrip("\ufeff"))
+        if m and m.group(1) == "script":
+            script_start = i
+            break
+    if script_start is None:
+        return rest
+    # Find next top-level key after script
+    next_top = len(lines)
+    for i in range(script_start + 1, len(lines)):
+        ln = lines[i]
+        if not ln.strip():
+            continue
+        m = top_level_re.match(ln.lstrip("\ufeff"))
+        if m:
+            next_top = i
+            break
+    # Extract our script list items (strip "script:\n" from scripts_yaml)
+    script_body = scripts_yaml.strip()
+    if script_body.lower().startswith("script:"):
+        script_body = script_body[7:].lstrip("\n")
+    if not script_body.strip():
+        return rest
+    # Insert our items before the next top-level key (at end of script block)
+    insert_at = next_top
+    new_lines = lines[:insert_at] + [script_body.rstrip() + "\n", "\n"] + lines[insert_at:]
+    return "".join(new_lines)
+
+
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
     adv = project.get("advanced") or {}
     pre = str(adv.get("yaml_pre", "") or "")
@@ -671,6 +712,10 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         out += ota_yaml.rstrip() + "\n\n"
     if logger_yaml:
         out += logger_yaml.rstrip() + "\n\n"
+    # Merge our script entries into rest's script: block when recipe already has one (avoid duplicate key).
+    if has_top_level_key(rest, "script") and scripts_yaml.strip():
+        rest = _merge_scripts_into_rest(rest, scripts_yaml)
+        scripts_yaml = ""
     out += rest + "\n\n"
     if locks_yaml.strip():
         out += locks_yaml.rstrip() + "\n\n"
