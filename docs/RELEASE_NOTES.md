@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.93
+
+- **Fix (compile)**: LVGL pages injection now replaces the entire line containing `#__LVGL_PAGES__` instead of only the marker, preserving correct YAML indentation. Previously, recipes with indented markers produced `pages:` and `- id:` at the same indent, breaking the LVGL structure and causing device scroll or layout issues.
+- **Fix (LVGL compile)**: Dropdown and roller `options` stored as a newline-separated string (e.g. `"heat\\noff"`) are now emitted as a YAML list (`options: [heat, off]`) so ESPHome shows separate choices instead of literal `\n` text.
+
 ## v0.70.92
 
 - **Fix (LVGL compile)**: CSS hex colors (e.g. `#ffffff`) from the editor are now converted to integers when emitting LVGL color keys (`text_color`, `bg_color`, `border_color`, etc.), so ESPHome no longer reports "Expected integer, but cannot parse #ffffff as an integer." Nested color keys (e.g. arc `knob.bg_color`) are converted as well.

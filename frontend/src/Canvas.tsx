@@ -42,6 +42,45 @@ function toFillColor(val: any, fallback: string): string {
   return fallback;
 }
 
+/** LVGL align (TOP_LEFT, CENTER, etc.) + padding -> Konva Text position and align. Use so canvas matches device. */
+function textLayoutFromWidget(
+  ax: number,
+  ay: number,
+  width: number,
+  height: number,
+  props: Record<string, unknown> = {},
+  style: Record<string, unknown> = {}
+): { x: number; y: number; width: number; height: number; align: "left" | "center" | "right"; verticalAlign: "top" | "middle" | "bottom" } {
+  const align = String(props.align ?? style.align ?? "TOP_LEFT").toUpperCase();
+  const padLeft = Number(style.pad_left ?? 0);
+  const padRight = Number(style.pad_right ?? 0);
+  const padTop = Number(style.pad_top ?? 0);
+  const padBottom = Number(style.pad_bottom ?? 0);
+  const contentW = Math.max(0, width - padLeft - padRight);
+  const contentH = Math.max(0, height - padTop - padBottom);
+  const left = ax + padLeft;
+  const top = ay + padTop;
+  const horizontal: "left" | "center" | "right" =
+    align === "TOP_LEFT" || align === "LEFT_MID" || align === "BOTTOM_LEFT"
+      ? "left"
+      : align === "TOP_RIGHT" || align === "RIGHT_MID" || align === "BOTTOM_RIGHT"
+        ? "right"
+        : "center";
+  const vertical: "top" | "middle" | "bottom" =
+    align === "TOP_LEFT" || align === "TOP_MID" || align === "TOP_RIGHT"
+      ? "top"
+      : align === "BOTTOM_LEFT" || align === "BOTTOM_MID" || align === "BOTTOM_RIGHT"
+        ? "bottom"
+        : "middle";
+  return {
+    x: left,
+    y: top,
+    width: contentW,
+    height: contentH,
+    align: horizontal,
+    verticalAlign: vertical,
+  };
+}
 
 // Ensure only valid widgets (avoids "undefined is not an object (evaluating '*.id')" when array has holes)
 function safeWidgets(list: Widget[]): Widget[] {
@@ -168,7 +207,7 @@ const stageRef = useRef<any>(null);
     const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacity = Number(s.opacity ?? 1);
-    const radius = Math.min(12, Math.max(0, Number(s.corner_radius ?? p.corner_radius ?? 8)));
+    const radius = Math.min(12, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 8)));
     const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
     const fontSize = Math.max(10, Math.min(28, Number(s.font_size ?? p.font_size ?? 16)));
 
@@ -277,23 +316,29 @@ const stageRef = useRef<any>(null);
     // Type-specific adornments
     const type = w.type.toLowerCase();
     if (type === "image_button") {
+      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#1f2937" stroke="#4b5563" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={String(p.text ?? "Img")} x={ax} y={ay + (w.h - 14) / 2} width={w.w} align="center" fontSize={12} fill={textColor} listening={false} />
+          <Text text={String(p.text ?? "Img")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={12} fill={textColor} listening={false} />
         </Group>
       );
     }
 
     if (type.includes("label")) {
+      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       return (
         <Group key={w.id}>
           {base}
           <Text
             text={String(title)}
-            x={ax + 8}
-            y={ay + Math.max(6, (w.h - 18) / 2)}
+            x={layout.x}
+            y={layout.y}
+            width={layout.width}
+            height={layout.height}
+            align={layout.align}
+            verticalAlign={layout.verticalAlign}
             fontSize={Math.max(12, Math.min(22, fontSize ?? 18))}
             fill={textColor}
             listening={false}
@@ -304,6 +349,7 @@ const stageRef = useRef<any>(null);
 
     if (type.includes("button")) {
       const checked = override?.checked ?? (p as any).checked ?? false;
+      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       return (
         <Group key={w.id}>
           {base}
@@ -315,15 +361,17 @@ const stageRef = useRef<any>(null);
             fill={String(checked ? (s.inner_bg_color ?? "#065f46") : (s.inner_bg_color ?? "#0b1220"))}
             stroke={String(s.inner_border_color ?? (isSel ? "#34d399" : "#1f2937"))}
             strokeWidth={Number(s.inner_border_width ?? 2)}
-            cornerRadius={Math.min(10, Math.max(0, Number(s.corner_radius ?? p.corner_radius ?? 10)))}
+            cornerRadius={Math.min(10, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 10)))}
             listening={false}
           />
           <Text
             text={String(title || "Button")}
-            x={ax}
-            y={ay + (w.h - 16) / 2}
-            width={w.w}
-            align="center"
+            x={layout.x}
+            y={layout.y}
+            width={layout.width}
+            height={layout.height}
+            align={layout.align}
+            verticalAlign={layout.verticalAlign}
             fontSize={Math.max(12, Math.min(20, fontSize ?? 16))}
             fill={textColor}
             listening={false}
@@ -487,7 +535,12 @@ const stageRef = useRef<any>(null);
             <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg - knobOffset)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
           )}
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
-          <Text text={String(val)} x={ax} y={cy - 8} width={w.w} align="center" fontSize={Math.max(10, fontSize - 2)} fill={textColor} listening={false} />
+          {(() => {
+            const arcLayout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+            return (
+              <Text text={String(val)} x={arcLayout.x} y={arcLayout.y} width={arcLayout.width} height={arcLayout.height} align={arcLayout.align} verticalAlign={arcLayout.verticalAlign} fontSize={Math.max(10, fontSize - 2)} fill={textColor} listening={false} />
+            );
+          })()}
         </Group>
       );
     }
@@ -513,6 +566,9 @@ const stageRef = useRef<any>(null);
     if (type === "checkbox") {
       const checked = !!(p.checked ?? p.state);
       const size = Math.min(24, w.h - 8);
+      const labelLeft = ax + 6 + size + 8;
+      const labelW = w.w - 6 - size - 8;
+      const layout = textLayoutFromWidget(labelLeft, ay, labelW, w.h, p, s);
       return (
         <Group key={w.id}>
           {base}
@@ -520,7 +576,7 @@ const stageRef = useRef<any>(null);
           {checked && (
             <Text text="✓" x={ax + 6} y={ay + (w.h - size) / 2 - 2} width={size} height={size} align="center" fontSize={size - 4} fill="#10b981" listening={false} />
           )}
-          <Text text={String(title || "Checkbox")} x={ax + 6 + size + 8} y={ay + (w.h - 16) / 2} fontSize={fontSize} fill={textColor} listening={false} />
+          <Text text={String(title || "Checkbox")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
         </Group>
       );
     }
@@ -540,11 +596,13 @@ const stageRef = useRef<any>(null);
       const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
       const displayText = override?.text !== undefined ? String(override.text) : String(opts[selIdx] ?? opts[0] ?? "Select…");
       const ddBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
+      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+      const textW = Math.max(20, layout.width - 24);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={ddBg} stroke="#334155" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={displayText} x={ax + 14} y={ay + (w.h - 16) / 2} width={w.w - 36} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Text text={displayText} x={layout.x} y={layout.y} width={textW} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
           <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={textColor} listening={false} />
         </Group>
       );
@@ -571,11 +629,12 @@ const stageRef = useRef<any>(null);
 
     if (type === "textarea") {
       const taBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
+      const layout = textLayoutFromWidget(ax + 6, ay + 6, w.w - 12, w.h - 12, p, s);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={taBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
-          <Text text={String(p.text ?? "Text…")} x={ax + 12} y={ay + 12} width={w.w - 24} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Text text={String(p.text ?? "Text…")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
         </Group>
       );
     }
@@ -613,11 +672,12 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "spinbox") {
+      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={String(p.value ?? "0")} x={ax + 12} y={ay + (w.h - 16) / 2} width={w.w - 24} align="center" fontSize={fontSize} fill={textColor} listening={false} />
+          <Text text={String(p.value ?? "0")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
           <Text text="−" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
         </Group>

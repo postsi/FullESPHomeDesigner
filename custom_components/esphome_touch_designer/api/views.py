@@ -130,9 +130,13 @@ def _compile_lvgl_pages(project: dict) -> str:
 
 def _inject_pages_into_recipe(recipe_text: str, pages_yaml: str) -> str:
     marker = "#__LVGL_PAGES__"
-    if marker in recipe_text:
-        return recipe_text.replace(marker, pages_yaml.rstrip())
-    return recipe_text.rstrip() + "\n\n" + pages_yaml
+    if marker not in recipe_text:
+        return recipe_text.rstrip() + "\n\n" + pages_yaml
+    # Replace the entire line containing the marker so our pages_yaml indentation is preserved.
+    # If we only replaced the marker substring, a recipe line like "    #__LVGL_PAGES__" would become
+    # "    " + "  pages:\n    - id: ...", putting "pages:" and "- id:" at the same indent and breaking YAML.
+    pattern = re.compile(r"^.*" + re.escape(marker) + r".*$", re.MULTILINE)
+    return pattern.sub(lambda m: pages_yaml.rstrip(), recipe_text, count=1)
 
 
 
@@ -903,9 +907,17 @@ def _emit_kv(indent: str, key: str, value) -> str:
       - For action keys (on_release, etc.) with multiline values, emit as embedded YAML so
         ESPHome parses a dict (then: ...), not a literal string.
       - Other multiline strings use block scalar (|-).
+      - For dropdown/roller "options", string values are normalized to a list (split by newline or \\n).
     """
     if value is None:
         return ""
+
+    # ESPHome dropdown/roller expect options as a list; frontend may store as "a\\nb\\nc" or "a\nb\nc".
+    if key == "options" and isinstance(value, str):
+        raw = value.replace("\\n", "\n").replace("\\r", "")
+        value = [s.strip() for s in raw.split("\n") if s.strip()]
+        if not value:
+            value = ["Option 1"]
 
     if isinstance(value, list):
         out = [f"{indent}{key}:\n"]
