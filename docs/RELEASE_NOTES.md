@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.89
+
+- **Fix (HA bindings)**: Display links with action `label_text` now use the correct LVGL update: `lvgl.button.update` when the target widget is a button (fixes "ID of type lv_btn_t doesn't inherit from lv_label_t"). Widget type is resolved from project pages (including nested containers). Indentation of `on_value`/`then` blocks in text_sensor/sensor/binary_sensor output was corrected so the `- if:` list and nested `id:`/`text:` parse correctly. Condition lambda is emitted as a quoted string.
+
 ## v0.70.88
 
 - **Fix (LVGL compile)**: Event actions (on_release, on_click, etc.) are now emitted as embedded YAML (key + indented structure) instead of a literal block scalar (`|-`), so ESPHome receives a dict and no longer reports "expected a dictionary". Arc knob: schema and emission use `pad_right` instead of invalid `padding`; stored `padding` is still mapped to `pad_right` for backwards compatibility.

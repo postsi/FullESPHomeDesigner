@@ -184,7 +184,27 @@ def _compile_ha_bindings(project: dict) -> str:
             continue
         link_map.setdefault((kind, entity_id, attr), []).append(ln)
 
+    # Widget id -> type (label, button, arc, slider, ...) for correct lvgl.*.update
+    def _collect_widget_types(widgets: list, m: dict[str, str]) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            if w.get("id"):
+                m[str(w["id"])] = str(w.get("type") or "label")
+            _collect_widget_types(w.get("widgets") or [], m)
+
+    def _widget_type_map() -> dict[str, str]:
+        m: dict[str, str] = {}
+        for page in project.get("pages") or []:
+            if isinstance(page, dict):
+                _collect_widget_types(page.get("widgets") or [], m)
+        return m
+
+    widget_type_by_id = _widget_type_map()
+
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
+        # Indent so that after "  " is added we get 8/10/12/14 under "      then:" (6 spaces)
+        i0, i1, i2, i3 = "      ", "        ", "          ", "            "  # 6,8,10,12 -> 8,10,12,14
         outs: list[str] = []
         targets = link_map.get((kind, entity_id, attr), [])
         for ln in targets:
@@ -195,67 +215,65 @@ def _compile_ha_bindings(project: dict) -> str:
             scale = tgt.get("scale")
             fmt = tgt.get("format")
 
-            # v0.49: per-link lock gating. Each update checks the global lock,
-            # per-entity lock, and per-link (entity+widget) lock.
             sid = _slugify_entity_id(entity_id)
-            outs.append("            - if:\n")
-            outs.append("                condition:\n")
+            outs.append(f"{i0}- if:\n")
+            outs.append(f"{i1}condition:\n")
             outs.append(
-                f"                  lambda: return (millis() > id(etd_ui_lock_until)) && (millis() > id(etd_lock_{sid})) && (millis() > id(etd_lock_{sid}_{wid_safe}));\n"
+                f"{i2}lambda: 'return (millis() > id(etd_ui_lock_until)) && (millis() > id(etd_lock_{sid})) && (millis() > id(etd_lock_{sid}_{wid_safe}));'\n"
             )
-            outs.append("                then:\n")
+            outs.append(f"{i1}then:\n")
 
-            # v0.70: per-link yaml_override: use custom YAML when set (manual edit in editor).
             yaml_override = tgt.get("yaml_override")
             if isinstance(yaml_override, str) and yaml_override.strip():
                 for line in yaml_override.strip().splitlines():
-                    outs.append("                  " + line + "\n")
+                    outs.append(f"{i2}{line}\n")
                 continue
 
             if action == "widget_checked":
-                outs.append("                  - lvgl.widget.update:\n")
-                outs.append(f"                      id: {wid}\n")
-                outs.append("                      state:\n")
-                outs.append("                        checked: !lambda return x;\n")
+                outs.append(f"{i2}- lvgl.widget.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
+                outs.append(f"{i3}state:\n")
+                outs.append(f"{i3}  checked: !lambda return x;\n")
             elif action == "slider_value":
-                outs.append("                  - lvgl.slider.update:\n")
-                outs.append(f"                      id: {wid}\n")
+                outs.append(f"{i2}- lvgl.slider.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
                 if isinstance(scale, (int, float)) and float(scale) != 1.0:
-                    outs.append(f"                      value: !lambda return (x * {float(scale)});\n")
+                    outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
                 else:
-                    outs.append("                      value: !lambda return x;\n")
+                    outs.append(f"{i3}value: !lambda return x;\n")
             elif action == "arc_value":
-                outs.append("                  - lvgl.arc.update:\n")
-                outs.append(f"                      id: {wid}\n")
+                outs.append(f"{i2}- lvgl.arc.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
                 if isinstance(scale, (int, float)) and float(scale) != 1.0:
-                    outs.append(f"                      value: !lambda return (x * {float(scale)});\n")
+                    outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
                 else:
-                    outs.append("                      value: !lambda return x;\n")
+                    outs.append(f"{i3}value: !lambda return x;\n")
             elif action == "label_text":
-                outs.append("                  - lvgl.label.update:\n")
-                outs.append(f"                      id: {wid}\n")
-                if kind in ("state", "attribute_text"):
-                    outs.append("                      text: !lambda return x;\n")
+                wtype = widget_type_by_id.get(wid) or "label"
+                if wtype == "button":
+                    outs.append(f"{i2}- lvgl.button.update:\n")
                 else:
-                    outs.append("                      text:\n")
-                    outs.append(f"                        format: {json.dumps(str(fmt or '%.0f'))}\n")
-                    outs.append("                        args: [ 'x' ]\n")
+                    outs.append(f"{i2}- lvgl.label.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
+                if kind in ("state", "attribute_text"):
+                    outs.append(f"{i3}text: !lambda return x;\n")
+                else:
+                    outs.append(f"{i3}text:\n")
+                    outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
+                    outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "obj_hidden":
-                # Show/hide an `obj` (or container) based on a condition.
-                # Convention: hidden = !condition (so the object is visible when condition is true).
                 expr = None
                 try:
                     expr = (tgt.get("condition_expr") or "").strip()
                 except Exception:
                     expr = ""
-                outs.append("                  - lvgl.obj.update:\n")
-                outs.append(f"                      id: {wid}\n")
+                outs.append(f"{i2}- lvgl.obj.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
                 if expr:
-                    outs.append(f"                      hidden: !lambda return !({expr});\n")
+                    outs.append(f"{i3}hidden: !lambda return !({expr});\n")
                 else:
-                    # Default: for binary sources, show when x is true (hidden when false).
-                    outs.append("                      hidden: !lambda return !(x);\n")
+                    outs.append(f"{i3}hidden: !lambda return !(x);\n")
         return "".join(outs)
 
     text_sensors: list[dict] = []
