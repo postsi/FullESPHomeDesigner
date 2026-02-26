@@ -425,6 +425,12 @@ def _default_ota_yaml() -> str:
 """
 
 
+def _default_logger_yaml() -> str:
+    """Default logger section when recipe does not include one. ESPHome requires logger to be configured."""
+    return """logger:
+"""
+
+
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
     adv = project.get("advanced") or {}
     pre = str(adv.get("yaml_pre", "") or "")
@@ -637,6 +643,7 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         return f"\n{key}:" in t or text.strip().startswith(f"{key}:")
     wifi_yaml = _default_wifi_yaml() if not has_top_level_key(rest, "wifi") else ""
     ota_yaml = _default_ota_yaml() if not has_top_level_key(rest, "ota") else ""
+    logger_yaml = _default_logger_yaml() if not has_top_level_key(rest, "logger") else ""
 
     # Explicit YAML document start so parsers don't complain (e.g. "expected document start, but found block mapping")
     header = (
@@ -662,6 +669,8 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         out += wifi_yaml.rstrip() + "\n\n"
     if ota_yaml:
         out += ota_yaml.rstrip() + "\n\n"
+    if logger_yaml:
+        out += logger_yaml.rstrip() + "\n\n"
     out += rest + "\n\n"
     if locks_yaml.strip():
         out += locks_yaml.rstrip() + "\n\n"
@@ -863,15 +872,17 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
     esphome = schema.get("esphome", {})
     root_key = esphome.get("root_key") or wtype  # e.g. "label", "button"
 
+    # Widget list item: "- type:" then properties indented 2 more (YAML block under list item)
+    body_indent = "          "  # 10 spaces: content under "- container:" etc.
     out: list[str] = []
     out.append(f"        - {root_key}:\n")
 
     # geometry
     wid = widget.get("id") or "w"
-    out.append(f"        id: {wid}\n")
+    out.append(f"{body_indent}id: {wid}\n")
     for geom_key, yaml_key in [("x","x"),("y","y"),("w","width"),("h","height")]:
         if geom_key in widget:
-            out.append(f"        {yaml_key}: {int(widget.get(geom_key, 0))}\n")
+            out.append(f"{body_indent}{yaml_key}: {int(widget.get(geom_key, 0))}\n")
 
     action_by_event = {}
     if action_bindings_for_widget:
@@ -936,10 +947,10 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
         for k, field_def in fields.items():
             yaml_key = mapping.get(k, k)
             if k in values and values[k] not in (None, ""):
-                out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, values[k])))
+                out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, values[k])))
             else:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
-                    out.append(_emit_kv("        ", yaml_key, field_def.get("default")))
+                    out.append(_emit_kv(body_indent, yaml_key, field_def.get("default")))
         # Emit action_binding events that are not in schema (e.g. arc on_release when schema has events: {}).
         if section == "events" and action_by_event:
             for event_key, ab in action_by_event.items():
@@ -947,9 +958,9 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
                     continue  # already emitted above
                 yaml_key = (esphome.get("events") or {}).get(event_key) or event_key
                 if ab.get("yaml_override"):
-                    out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, ab["yaml_override"])))
+                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, ab["yaml_override"])))
                 elif ab.get("call"):
-                    out.append(_emit_kv("        ", yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(ab["call"]))))
+                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(ab["call"]))))
 
     # Style parts and nested blocks: any schema section that is a dict of field defs (not props/style/events)
     _skip = {"props", "style", "events", "type", "title", "esphome", "groups"}
@@ -964,14 +975,14 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
         values = widget.get(part_section) or {}
         if not values:
             continue
-        out.append(f"        {part_section}:\n")
+        out.append(f"{body_indent}{part_section}:\n")
         for k, field_def in part_fields.items():
             if k not in values:
                 continue
             v = values[k]
             if v is None or v == "":
                 continue
-            out.append(_emit_kv("          ", k, v))
+            out.append(_emit_kv(body_indent + "  ", k, v))
 
     return "".join(out)
 
@@ -1019,14 +1030,15 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
-            # _emit_widget_from_schema uses fixed indentation (8 spaces). We re-indent by post-processing.
+            # _emit_widget_from_schema: first line "        - type:", body lines "          key: val". Re-indent.
             raw = _emit_widget_from_schema(w, schema, ab_list)
             lines = raw.splitlines(True)
-            # Replace the leading 8 spaces with requested indent.
             out_lines = []
             for ln in lines:
-                if ln.startswith("        "):
-                    out_lines.append(indent + ln[8:])
+                if ln.startswith("          "):  # body: content under list item
+                    out_lines.append(indent + "  " + ln[10:])
+                elif ln.startswith("        "):
+                    out_lines.append(indent + ln[8:])  # first line "- type:"
                 else:
                     out_lines.append(indent + ln)
             out = "".join(out_lines)

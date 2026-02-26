@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.85
+
+- **Fix (LVGL compile)**: Widget YAML indentation corrected. Properties under list items (e.g. `id`, `x`, `y` under `- container:`) were emitted at the same indent as the list marker, causing "expected <block end>, but found '?'". Schema-driven emission now uses a body indent (10 spaces) for all widget properties under `- type:` so the mapping is valid YAML. Default logger section added when the recipe does not include one (fixes "Logger is not configured!" after upload).
+
 ## v0.70.84
 
 - **Fix (LVGL compile)**: Page id `main` is reserved in C++ (entry point). ESPHome generates a global variable from each page id, so `id: main` caused "cannot declare '::main' to be a global variable". The compiler now emits `main_page` instead of `main` in generated YAML when the project page id is "main"; stored project data and UI labels are unchanged.
