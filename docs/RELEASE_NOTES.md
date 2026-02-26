@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.77
+
+- **Fix**: ESPHome `name:` is now always emitted as the first key under `esphome:` (insert or replace any existing direct-child `name:`). Ensures the required `name:` is present regardless of recipe or cache.
+
 ## v0.70.76
 
 - **Fix**: Top-level `name:` under `esphome` is now injected when the recipe only has nested `project.name`. The check was changed from "any line with `name:`" to "direct child at 2-space indent (`  name:`)" so recipes like Guition no longer skip injection and ESPHome's required `name:` is always present.

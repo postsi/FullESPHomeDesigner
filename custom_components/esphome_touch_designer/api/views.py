@@ -593,14 +593,19 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
 
     # Emit in standard order: esphome first, then api, wifi, ota, then rest of recipe
     esphome_block, rest = _split_esphome_block(merged)
+    slug_name = json.dumps(device.slug or "device")
     if not esphome_block.strip() and "esphome:" not in rest:
-        esphome_block = "esphome:\n  name: " + json.dumps(device.slug or "device") + "\n"
+        esphome_block = "esphome:\n  name: " + slug_name + "\n"
     else:
-        # ESPHome requires top-level name: under esphome (direct child = 2-space indent). Recipes often have only project.name (4-space); inject if missing.
-        if esphome_block.strip() and not re.search(r"^  name\s*:", esphome_block, re.MULTILINE):
-            first_line = esphome_block.split("\n")[0]
-            name_line = "  name: " + json.dumps(device.slug or "device") + "\n"
-            esphome_block = first_line + "\n" + name_line + "\n".join(esphome_block.split("\n")[1:])
+        # ESPHome requires top-level name: under esphome. Force it as the first key (insert or replace).
+        lines = esphome_block.splitlines()
+        if not lines:
+            esphome_block = "esphome:\n  name: " + slug_name + "\n"
+        else:
+            # Drop any existing direct-child "  name:" line so we don't duplicate
+            rest_lines = [ln for ln in lines[1:] if not re.match(r"^  name\s*:", ln)]
+            name_line = "  name: " + slug_name
+            esphome_block = lines[0] + "\n" + name_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
 
     # Add default wifi/ota if recipe does not already include them (top-level key)
     def has_top_level_key(text: str, key: str) -> bool:
