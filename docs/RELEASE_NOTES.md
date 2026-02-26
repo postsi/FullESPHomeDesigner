@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.83
+
+- **Fix (LVGL compile)**: Empty or name-only pages no longer produce invalid YAML. ESPHome LVGL `pages` only accept `id` and `widgets`; the compiler no longer emits `name` for pages. When a page has no widgets, it now emits `widgets: []` instead of a bare `widgets:` key, so ESPHome no longer reports "Expected a list of widgets" or "[name] is an invalid option for [pages]".
+
 ## v0.70.82
 
 - **Fix (compile)**: Builtin recipes in `list_builtin_recipes()` did not include `path`, so `_find_recipe_path_by_id()` returned `Path("None")` and the Compile view could read a file named "None" in the process cwd instead of the real recipe, producing minimal or wrong YAML. Builtin recipe dicts now include `"path": str(p)` so the correct recipe file is always used. Empty-recipe fallbacks in CompileView and `compile_to_esphome_yaml` were removed.

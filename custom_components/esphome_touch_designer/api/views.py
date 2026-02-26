@@ -1051,18 +1051,19 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         if not isinstance(page, dict):
             continue
         pid = page.get("page_id") or page.get("id") or "main"
-        name = page.get("name") or ""
+        # ESPHome LVGL pages only support id and widgets (no name).
         out.append(f"    - id: {pid}\n")
-        if name:
-            out.append(f"      name: {_yaml_quote(name)}\n")
-        out.append("      widgets:\n")
         all_widgets = page.get("widgets") or []
         if not isinstance(all_widgets, list):
             all_widgets = []
         kids = children_map([w for w in all_widgets if isinstance(w, dict)])
         roots = [w for w in all_widgets if isinstance(w, dict) and not w.get("parent_id")]
-        for w in roots:
-            out.append(emit_widget(w, "        ", kids))
+        if not roots:
+            out.append("      widgets: []\n")
+        else:
+            out.append("      widgets:\n")
+            for w in roots:
+                out.append(emit_widget(w, "        ", kids))
 
     return "".join(out)
 
