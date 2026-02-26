@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.78
+
+- **Fix (compile)**: Root cause of missing `name:` under `esphome:` fixed. When the recipe had `esphome:` not at column 0 (e.g. leading space or BOM), the split returned no block and the code emitted a minimal block plus the full recipe, producing two top-level `esphome:` blocks; in YAML the second overwrote the first so the name was lost. Now, when the split fails, the name is injected into the full text and no duplicate block is emitted. The previous safety-net regex at the end of the compiler has been removed.
+
 ## v0.70.77
 
 - **Fix**: ESPHome `name:` is now always emitted as the first key under `esphome:` (insert or replace any existing direct-child `name:`). Ensures the required `name:` is present regardless of recipe or cache.

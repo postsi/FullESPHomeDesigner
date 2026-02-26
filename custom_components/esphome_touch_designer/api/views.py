@@ -595,14 +595,19 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
     esphome_block, rest = _split_esphome_block(merged)
     slug_name = json.dumps(device.slug or "device")
     if not esphome_block.strip() and "esphome:" not in rest:
+        # No esphome block at all (e.g. empty recipe): emit minimal block.
         esphome_block = "esphome:\n  name: " + slug_name + "\n"
+    elif not esphome_block.strip() and "esphome:" in rest:
+        # Split failed: "esphome:" was not at column 0 (e.g. leading space/BOM). Inject name into
+        # rest so we don't output a minimal block + full rest (duplicate esphome keys; second wins, name lost).
+        rest = re.sub(r"^(\s*esphome:\s*\n)", r"\1  name: " + slug_name + r"\n", rest, count=1)
+        # esphome_block stays empty so we don't emit a duplicate block below.
     else:
-        # ESPHome requires top-level name: under esphome. Force it as the first key (insert or replace).
+        # Normal case: we have the esphome block. Force name as first key (insert or replace).
         lines = esphome_block.splitlines()
         if not lines:
             esphome_block = "esphome:\n  name: " + slug_name + "\n"
         else:
-            # Drop any existing direct-child "  name:" line so we don't duplicate
             rest_lines = [ln for ln in lines[1:] if not re.match(r"^  name\s*:", ln)]
             name_line = "  name: " + slug_name
             esphome_block = lines[0] + "\n" + name_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
@@ -623,7 +628,8 @@ def compile_to_esphome_yaml(device: DeviceProject) -> str:
         "\n"
     )
     out = header
-    out += esphome_block.rstrip() + "\n\n"
+    if esphome_block.strip():
+        out += esphome_block.rstrip() + "\n\n"
 
     # API encryption key for Home Assistant connectivity (32-byte base64)
     if device.api_key and str(device.api_key).strip():
