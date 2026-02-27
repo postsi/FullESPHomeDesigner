@@ -108,3 +108,52 @@ export async function exportRecipe(recipe_id: string): Promise<any> {
   }
   return data;
 }
+
+// --- Custom cards (v1: card = snapshot of current page) ---
+
+export async function listCards(): Promise<{ id: string; name: string; description: string; device_types: string[] }[]> {
+  const r = await fetch("/api/esphome_touch_designer/cards");
+  if (!r.ok) throw new Error(`cards list failed: ${r.status}`);
+  const data = await r.json();
+  return data.cards || [];
+}
+
+export async function getCard(cardId: string): Promise<any> {
+  const r = await fetch(`/api/esphome_touch_designer/cards/${encodeURIComponent(cardId)}`);
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    throw new Error(d?.error === "not_found" ? "Card not found" : `get card failed: ${r.status}`);
+  }
+  const data = await r.json();
+  return data.card;
+}
+
+export async function saveCard(definition: {
+  id?: string;
+  name: string;
+  description?: string;
+  device_types: string[];
+  widgets: any[];
+  links: any[];
+  action_bindings?: any[];
+  scripts?: any[];
+}): Promise<{ ok: boolean; id: string }> {
+  const r = await fetch("/api/esphome_touch_designer/cards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(definition),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data?.ok === false) {
+    throw new Error(data?.error ? String(data.error).replace(/_/g, " ") : `save card failed: ${r.status}`);
+  }
+  return { ok: true, id: data.id };
+}
+
+export async function deleteCard(cardId: string): Promise<void> {
+  const r = await fetch(`/api/esphome_touch_designer/cards/${encodeURIComponent(cardId)}`, { method: "DELETE" });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data?.ok === false) {
+    throw new Error(data?.error ? String(data.error) : `delete card failed: ${r.status}`);
+  }
+}

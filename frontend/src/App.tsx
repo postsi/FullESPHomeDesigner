@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -329,6 +329,27 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [recipeMgrBusy, setRecipeMgrBusy] = useState<boolean>(false);
   const [recipeMgrErr, setRecipeMgrErr] = useState<string>("");
 
+  // v1: Custom cards (card = snapshot of current page)
+  const [customCards, setCustomCards] = useState<{ id: string; name: string; description: string; device_types: string[] }[]>([]);
+  const [saveCardOpen, setSaveCardOpen] = useState<boolean>(false);
+  const [saveCardName, setSaveCardName] = useState<string>("");
+  const [saveCardDescription, setSaveCardDescription] = useState<string>("");
+  const [saveCardDeviceType, setSaveCardDeviceType] = useState<string>("climate");
+  const [saveCardBusy, setSaveCardBusy] = useState<boolean>(false);
+  const [saveCardErr, setSaveCardErr] = useState<string>("");
+
+  async function refreshCustomCards() {
+    try {
+      const cards = await listCards();
+      setCustomCards(cards);
+    } catch {
+      setCustomCards([]);
+    }
+  }
+  useEffect(() => {
+    if (paletteTab === "cards") refreshCustomCards();
+  }, [paletteTab]);
+
   async function doImportRecipe() {
     setRecipeImportBusy(true);
     setRecipeImportErr("");
@@ -550,13 +571,25 @@ useEffect(() => {
 }, [tmplCaps, tmplWizard]);
 
   function templateDomain(template_id: string): string {
-    // Convention: ha_<domain>_...
+    if ((template_id || "").startsWith("custom:")) {
+      const c = customCards.find((cc) => "custom:" + cc.id === template_id);
+      return (c?.device_types?.[0] || "").toLowerCase();
+    }
     const m = /^ha_([a-z0-9]+)_/i.exec(template_id || "");
     return (m?.[1] || "").toLowerCase();
   }
 
   const allTemplatesForWizard = [...CONTROL_TEMPLATES, ...(pluginControls ?? [])];
-  const wizardTemplate = tmplWizard ? allTemplatesForWizard.find((t) => t?.id === tmplWizard.template_id) ?? null : null;
+  const wizardTemplate = tmplWizard
+    ? (tmplWizard.template_id.startsWith("custom:")
+        ? (() => {
+            const c = customCards.find((cc) => "custom:" + cc.id === tmplWizard.template_id);
+            return c
+              ? { id: tmplWizard.template_id, title: "Card Library • " + c.name, entityDomain: c.device_types?.[0] || "climate", description: c.description || "Custom card" }
+              : allTemplatesForWizard.find((t) => t?.id === tmplWizard.template_id) ?? null;
+          })()
+        : allTemplatesForWizard.find((t) => t?.id === tmplWizard.template_id) ?? null)
+    : null;
   const wizardIsCard = !!(wizardTemplate && String((wizardTemplate as any).title || "").startsWith("Card Library •"));
   const wizardIsMultiEntity = !!(tmplWizard && (tmplWizard.template_id.startsWith("glance_card") || tmplWizard.template_id.startsWith("grid_card_")));
   const wizardWantsTapAction = !!(tmplWizard && (tmplWizard.template_id === "entity_card" || tmplWizard.template_id === "tile_card" || tmplWizard.template_id.startsWith("glance_card") || tmplWizard.template_id.startsWith("grid_card_")));
@@ -661,13 +694,13 @@ useEffect(() => {
     return baseTemplateId;
   }
 
-  function applyTemplateWizard() {
+  async function applyTemplateWizard() {
     if (!project || !tmplWizard) {
       if (!project) setToast({ type: "error", msg: "No project loaded. Select a device and open a project first." });
       return;
     }
     const entity_id = tmplEntity.trim();
-    let built: { widgets?: any[]; bindings?: any[]; links?: any[] } | undefined;
+    let built: { widgets?: any[]; bindings?: any[]; links?: any[]; action_bindings?: any[]; scripts?: any[] } | undefined;
     try {
     const p2 = clone(project);
     const allTemplates = [...CONTROL_TEMPLATES, ...(pluginControls || [])].filter((t) => t != null && typeof t === "object");
@@ -695,7 +728,9 @@ if (baseId.startsWith("glance_card")) {
       return t && String((t as any).title ?? "").startsWith("Card Library •");
     };
     let resolvedId = baseId;
-    if (isCardLibrary(baseId)) {
+    if (baseId.startsWith("custom:")) {
+      resolvedId = baseId;
+    } else if (isCardLibrary(baseId)) {
       resolvedId = baseId;
     } else if (baseId === "ha_auto") {
       const dom = entity_id.split(".")[0]?.toLowerCase() || "";
@@ -724,58 +759,86 @@ if (baseId.startsWith("glance_card")) {
     } else {
       resolvedId = pickCapabilityVariant(baseId, tmplCaps, tmplVariant);
     }
-    const tmpl = allTemplates.find((t) => t && t.id === resolvedId);
-    if (!tmpl) {
-      setToast({ type: "error", msg: `Template not found: ${resolvedId}` });
-      return;
-    }
-
-    const label = tmplLabel.trim() || undefined;
-    built = tmpl.build({
-      entity_id,
-      entities: tmplEntities,
-      x: tmplWizard.x,
-      y: tmplWizard.y,
-      label,
-      tap_action: tmplTapAction,
-      service: tmplService,
-      service_data: tmplServiceData,
-      caps: tmplCaps,
-
-      // v0.68: conditional card wizard
-      condition: (() => {
-        if (baseId !== "conditional_card") return undefined;
-        const v = String(tmplCondValue || "").trim();
-        if (!v) return 'x == "on"';
-        if (tmplCondNumeric) {
-          const num = Number(v);
-          if (Number.isFinite(num)) {
-            const f = `atof(x.c_str())`;
-            if (tmplCondOp === "gt") return `${f} > ${num}`;
-            if (tmplCondOp === "lt") return `${f} < ${num}`;
-            if (tmplCondOp === "neq") return `${f} != ${num}`;
-            return `${f} == ${num}`;
-          }
+    if (resolvedId.startsWith("custom:")) {
+      const cardId = resolvedId.slice(7);
+      try {
+        const def = await getCard(cardId);
+        const domain = (def.device_types && def.device_types[0]) || "climate";
+        const placeholder = domain + ".example";
+        built = {
+          widgets: JSON.parse(JSON.stringify(def.widgets || [])),
+          bindings: [] as any[],
+          links: (def.links || []).map((l: any) => ({ ...l, source: { ...l.source, entity_id: entity_id || placeholder } })),
+          action_bindings: (def.action_bindings || []).map((ab: any) => ({
+            ...ab,
+            call: ab.call ? { ...ab.call, entity_id: ab.call.entity_id ? (entity_id || placeholder) : ab.call.entity_id } : ab.call,
+          })),
+          scripts: (def.scripts || []).map((s: any) => ({ ...s, entity_id: s.entity_id ? (entity_id || placeholder) : s.entity_id })),
+        };
+        const seen = new Set<string>();
+        for (const l of built.links!) {
+          const s = l.source;
+          if (!s) continue;
+          const key = `${s.entity_id}|${s.kind}|${s.attribute || ""}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          built.bindings!.push({ entity_id: s.entity_id, kind: s.kind, attribute: s.attribute || undefined });
         }
-        const esc = v.replaceAll('"', '\\"');
-        if (tmplCondOp === "contains") return `x.find(\"${esc}\") != std::string::npos`;
-        if (tmplCondOp === "neq") return `x != \"${esc}\"`;
-        return `x == \"${esc}\"`;
-      })(),
+      } catch (e: any) {
+        setToast({ type: "error", msg: String(e?.message || e) });
+        return;
+      }
+    } else {
+      const tmpl = allTemplates.find((t) => t && t.id === resolvedId);
+      if (!tmpl) {
+        setToast({ type: "error", msg: `Template not found: ${resolvedId}` });
+        return;
+      }
+      const label = tmplLabel.trim() || undefined;
+      built = tmpl.build({
+        entity_id,
+        entities: tmplEntities,
+        x: tmplWizard.x,
+        y: tmplWizard.y,
+        label,
+        tap_action: tmplTapAction,
+        service: tmplService,
+        service_data: tmplServiceData,
+        caps: tmplCaps,
 
-      // v0.61: richer card options
-      th_min: tmplThMin,
-      th_max: tmplThMax,
-      th_step: tmplThStep,
+        condition: (() => {
+          if (baseId !== "conditional_card") return undefined;
+          const v = String(tmplCondValue || "").trim();
+          if (!v) return 'x == "on"';
+          if (tmplCondNumeric) {
+            const num = Number(v);
+            if (Number.isFinite(num)) {
+              const f = `atof(x.c_str())`;
+              if (tmplCondOp === "gt") return `${f} > ${num}`;
+              if (tmplCondOp === "lt") return `${f} < ${num}`;
+              if (tmplCondOp === "neq") return `${f} != ${num}`;
+              return `${f} == ${num}`;
+            }
+          }
+          const esc = v.replaceAll('"', '\\"');
+          if (tmplCondOp === "contains") return `x.find(\"${esc}\") != std::string::npos`;
+          if (tmplCondOp === "neq") return `x != \"${esc}\"`;
+          return `x == \"${esc}\"`;
+        })(),
 
-      media_show_transport: tmplMediaShowTransport,
-      media_show_volume: tmplMediaShowVolume,
-      media_show_mute: tmplMediaShowMute,
-      media_show_source: tmplMediaShowSource,
-      media_default_source: tmplMediaDefaultSource,
+        th_min: tmplThMin,
+        th_max: tmplThMax,
+        th_step: tmplThStep,
 
-      cover_show_tilt: tmplCoverShowTilt,
-    });
+        media_show_transport: tmplMediaShowTransport,
+        media_show_volume: tmplMediaShowVolume,
+        media_show_mute: tmplMediaShowMute,
+        media_show_source: tmplMediaShowSource,
+        media_default_source: tmplMediaDefaultSource,
+
+        cover_show_tilt: tmplCoverShowTilt,
+      });
+    }
 
     // v0.35: best-effort placeholder substitution for plugin templates.
     const replaceEntity = (s: string) => {
@@ -847,7 +910,7 @@ if (baseId.startsWith("glance_card")) {
 
     const insertX = tmplWizard.x;
     const insertY = tmplWizard.y;
-    const isCard = /_card$/.test(tmplWizard.template_id);
+    const isCard = /_card$/.test(tmplWizard.template_id) || tmplWizard.template_id.startsWith("custom:");
 
     if (isCard && ws.length > 0) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -2167,7 +2230,7 @@ function deleteSelected() {
 
             <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
               <button className="ghost" onClick={() => setTmplWizard(null)}>Cancel</button>
-              <button onClick={applyTemplateWizard} disabled={!project}>
+              <button onClick={() => void applyTemplateWizard()} disabled={!project}>
                 {wizardIsCard ? "Insert card" : "Insert control"}
               </button>
             </div>
@@ -2371,6 +2434,100 @@ function deleteSelected() {
             <div className="row" style={{ justifyContent: "space-between", gap: 8, marginTop: 12 }}>
               <button className="secondary" onClick={refreshRecipes} disabled={recipeMgrBusy}>Refresh</button>
               <button className="ghost" onClick={() => setRecipeMgrOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {saveCardOpen && (
+        <div className="modalOverlay" onClick={() => !saveCardBusy && setSaveCardOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modalHeader">
+              <div className="title">Save as card</div>
+              <button className="ghost" disabled={saveCardBusy} onClick={() => setSaveCardOpen(false)}>✕</button>
+            </div>
+            <p className="muted" style={{ marginBottom: 12 }}>
+              Saves the current page as a reusable card. Entity IDs will be replaced with a placeholder for the chosen device type.
+            </p>
+            <label className="label">Card name</label>
+            <input
+              value={saveCardName}
+              onChange={(e) => setSaveCardName(e.target.value)}
+              placeholder="e.g. My climate card"
+              style={{ width: "100%", marginBottom: 8 }}
+            />
+            <label className="label">Description (optional)</label>
+            <input
+              value={saveCardDescription}
+              onChange={(e) => setSaveCardDescription(e.target.value)}
+              placeholder="e.g. Thermostat with preset dropdown"
+              style={{ width: "100%", marginBottom: 8 }}
+            />
+            <label className="label">Device type</label>
+            <select
+              value={saveCardDeviceType}
+              onChange={(e) => setSaveCardDeviceType(e.target.value)}
+              title="Entity domain (entity_id will be stripped to this type)"
+              style={{ width: "100%", padding: "8px 10px", marginBottom: 12 }}
+            >
+              <option value="climate">climate</option>
+              <option value="light">light</option>
+              <option value="cover">cover</option>
+              <option value="switch">switch</option>
+              <option value="media_player">media_player</option>
+              <option value="fan">fan</option>
+              <option value="lock">lock</option>
+              <option value="sensor">sensor</option>
+              <option value="number">number</option>
+              <option value="select">select</option>
+            </select>
+            {saveCardErr && <div className="error" style={{ marginBottom: 8 }}>{saveCardErr}</div>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="ghost" disabled={saveCardBusy} onClick={() => setSaveCardOpen(false)}>Cancel</button>
+              <button
+                disabled={saveCardBusy || !saveCardName.trim()}
+                onClick={async () => {
+                  if (!project || !saveCardName.trim()) return;
+                  const page = project.pages?.[safePageIndex];
+                  if (!page?.widgets?.length) return setSaveCardErr("Current page has no widgets.");
+                  const widgetIds = new Set((page.widgets || []).map((w: any) => w?.id).filter(Boolean));
+                  const links = ((project as any).links || []).filter((l: any) => widgetIds.has(l?.target?.widget_id));
+                  const action_bindings = ((project as any).action_bindings || []).filter((ab: any) => widgetIds.has(ab?.widget_id));
+                  const placeholder = saveCardDeviceType + ".example";
+                  const strippedLinks = links.map((l: any) => ({
+                    ...l,
+                    source: l.source ? { ...l.source, entity_id: placeholder } : l.source,
+                  }));
+                  const strippedActions = action_bindings.map((ab: any) => ({
+                    ...ab,
+                    call: ab.call ? { ...ab.call, entity_id: ab.call.entity_id ? placeholder : ab.call.entity_id } : ab.call,
+                  }));
+                  const slug = saveCardName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "card";
+                  setSaveCardBusy(true);
+                  setSaveCardErr("");
+                  try {
+                    await saveCard({
+                      id: slug,
+                      name: saveCardName.trim(),
+                      description: saveCardDescription.trim() || undefined,
+                      device_types: [saveCardDeviceType],
+                      widgets: JSON.parse(JSON.stringify(page.widgets || [])),
+                      links: strippedLinks,
+                      action_bindings: strippedActions,
+                    });
+                    setSaveCardOpen(false);
+                    await refreshCustomCards();
+                    setToast({ type: "ok", msg: `Saved as card: ${saveCardName.trim()}` });
+                    setPaletteTab("cards");
+                  } catch (e: any) {
+                    setSaveCardErr(String(e?.message || e));
+                  } finally {
+                    setSaveCardBusy(false);
+                  }
+                }}
+              >
+                {saveCardBusy ? "Saving…" : "Save card"}
+              </button>
             </div>
           </div>
         </div>
@@ -2589,6 +2746,7 @@ function deleteSelected() {
         <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
+        <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
         <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
         <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
       </nav>
@@ -2634,6 +2792,18 @@ function deleteSelected() {
                       title={String((t as any).description ?? "") + " (click or drag onto canvas)"}
                     >
                       {t.title ?? t.id}
+                    </div>
+                  ))}
+                  {customCards.map((c) => (
+                    <div
+                      key={"custom:" + c.id}
+                      className="paletteItem"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", "custom:" + c.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onClick={() => { if (project && selectedDevice) openTemplateWizard("custom:" + c.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add cards" }); }}
+                      title={(c.description || "") + " (click or drag onto canvas)"}
+                    >
+                      {c.name} <span className="muted" style={{ fontSize: 10 }}>(custom)</span>
                     </div>
                   ))}
                 </div>

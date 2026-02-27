@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.99
+
+- **Custom cards (v1)**: Save the current page as a reusable card. Use **Save as card** (nav): name, description, and device type; entity IDs are stripped to a placeholder so the card can be bound to any entity of that type when inserted. Custom cards are stored under `config/esphome_touch_designer/cards/` (survives integration updates). Card Library shows built-in and custom cards; inserting a custom card uses the same entity wizard as built-in cards.
+
 ## v0.70.98
 
 - **Compile screen**: Simplified to Refresh, Copy, Export to /config/esphome/, and Close. Recipe management (Hardware dropdown, Import recipe, Manage recipes, Validate, Preview export, Open ESPHome Dashboard) removed from the compile modal. Hardware recipe is set in **Edit device**; Import recipe and Manage recipes are in the main nav.

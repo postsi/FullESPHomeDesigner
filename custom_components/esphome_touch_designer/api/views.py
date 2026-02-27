@@ -1880,6 +1880,129 @@ def list_all_recipes(hass) -> list[dict]:
     return sorted(recipes, key=_sort_key)
 
 
+# --- Custom cards (v1: card = snapshot of current page, stored under config) ---
+
+def _cards_root(hass: HomeAssistant) -> Path:
+    """Return /config/esphome_touch_designer/cards/; survives integration upgrades."""
+    root = Path(hass.config.path("esphome_touch_designer")) / "cards"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _safe_card_id(card_id: str) -> str:
+    """Filesystem-safe card id (used as filename stem)."""
+    s = re.sub(r"[^a-zA-Z0-9_-]", "_", str(card_id).strip())
+    return s[:120] if s else "card"
+
+
+def list_custom_cards(hass: HomeAssistant) -> list[dict]:
+    """Return list of custom card metadata (id, name, description, device_types)."""
+    out: list[dict] = []
+    root = _cards_root(hass)
+    for p in sorted(root.glob("*.json")):
+        card_id = p.stem
+        try:
+            data = json.loads(p.read_text("utf-8"))
+            if not isinstance(data, dict):
+                continue
+            out.append({
+                "id": card_id,
+                "name": data.get("name") or card_id,
+                "description": data.get("description") or "",
+                "device_types": data.get("device_types") or [],
+            })
+        except Exception:
+            continue
+    return out
+
+
+class CardsListView(HomeAssistantView):
+    url = f"/api/{DOMAIN}/cards"
+    name = f"api:{DOMAIN}:cards_list"
+    requires_auth = False
+
+    async def get(self, request):
+        hass = request.app["hass"]
+        return self.json({"ok": True, "cards": list_custom_cards(hass)})
+
+
+class CardDetailView(HomeAssistantView):
+    url = f"/api/{DOMAIN}/cards/{{card_id}}"
+    name = f"api:{DOMAIN}:cards_detail"
+    requires_auth = False
+
+    async def get(self, request, card_id: str):
+        hass = request.app["hass"]
+        safe_id = _safe_card_id(card_id)
+        path = _cards_root(hass) / f"{safe_id}.json"
+        if not path.exists() or not path.is_file():
+            return self.json({"ok": False, "error": "not_found"}, status_code=404)
+        try:
+            data = json.loads(path.read_text("utf-8"))
+            return self.json({"ok": True, "card": data})
+        except Exception as e:
+            return self.json({"ok": False, "error": str(e)}, status_code=500)
+
+
+class CardSaveView(HomeAssistantView):
+    url = f"/api/{DOMAIN}/cards"
+    name = f"api:{DOMAIN}:cards_save"
+    requires_auth = False
+
+    async def post(self, request):
+        hass = request.app["hass"]
+        try:
+            body = await request.json()
+        except Exception:
+            return self.json({"ok": False, "error": "invalid_json"}, status_code=400)
+        if not isinstance(body, dict):
+            return self.json({"ok": False, "error": "invalid_body"}, status_code=400)
+        card_id = body.get("id") or body.get("name")
+        if not card_id or not str(card_id).strip():
+            return self.json({"ok": False, "error": "id_or_name_required"}, status_code=400)
+        safe_id = _safe_card_id(str(card_id).strip())
+        required = ("name", "device_types", "widgets", "links")
+        for k in required:
+            if k not in body:
+                return self.json({"ok": False, "error": f"missing_{k}"}, status_code=400)
+        if not isinstance(body.get("device_types"), list) or len(body["device_types"]) < 1:
+            return self.json({"ok": False, "error": "device_types_min_one"}, status_code=400)
+        payload = {
+            "id": safe_id,
+            "name": str(body.get("name", "")).strip() or safe_id,
+            "description": str(body.get("description", "")).strip(),
+            "device_types": list(body["device_types"]),
+            "widgets": body["widgets"],
+            "links": body["links"],
+            "action_bindings": body.get("action_bindings") or [],
+            "scripts": body.get("scripts") or [],
+        }
+        path = _cards_root(hass) / f"{safe_id}.json"
+        try:
+            path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        except Exception as e:
+            return self.json({"ok": False, "error": str(e)}, status_code=500)
+        return self.json({"ok": True, "id": safe_id})
+
+
+class CardDeleteView(HomeAssistantView):
+    url = f"/api/{DOMAIN}/cards/{{card_id}}"
+    name = f"api:{DOMAIN}:cards_delete"
+    requires_auth = False
+
+    async def delete(self, request, card_id: str):
+        hass = request.app["hass"]
+        safe_id = _safe_card_id(card_id)
+        path = _cards_root(hass) / f"{safe_id}.json"
+        if not path.exists():
+            return self.json({"ok": False, "error": "not_found"}, status_code=404)
+        try:
+            path.unlink(missing_ok=True)
+            return self.json({"ok": True})
+        except Exception as e:
+            return self.json({"ok": False, "error": str(e)}, status_code=500)
+
+
 class RecipesView(HomeAssistantView):
     url = f"/api/{DOMAIN}/recipes"
     name = f"api:{DOMAIN}:recipes"
@@ -2324,6 +2447,12 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(SchemaDetailView)
     hass.http.register_view(DevicesView)
     hass.http.register_view(DeviceProjectView)
+
+    # Custom cards (v1: snapshot as card, stored under config)
+    hass.http.register_view(CardsListView)
+    hass.http.register_view(CardDetailView)
+    hass.http.register_view(CardSaveView)
+    hass.http.register_view(CardDeleteView)
 
     # Hardware recipes
     hass.http.register_view(RecipesView)
