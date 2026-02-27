@@ -75,7 +75,8 @@ function textLayoutFromWidget(
     horizontal = "center";
   }
 
-  // vertical: LVGL text_align doesn't define vertical; use align as hint or default middle
+  // vertical: LVGL has no vertical text align. Use widget align as hint so canvas matches device
+  // (position widget with CENTER/LEFT_MID etc. for vertically centered text).
   const align = String(props.align ?? style.align ?? "TOP_LEFT").toUpperCase();
   const vertical: "top" | "middle" | "bottom" =
     align === "TOP_LEFT" || align === "TOP_MID" || align === "TOP_RIGHT"
@@ -734,7 +735,7 @@ const stageRef = useRef<any>(null);
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
           <Text text={String(p.value ?? "0")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
-          <Text text="−" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+          <Text text="-" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
         </Group>
       );

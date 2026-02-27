@@ -36,7 +36,7 @@
     "overflow_visible": "overflow_visible"
   },
   "style_extras": {
-    "text_align": {"type": "enum", "title": "Text align", "values": ["LEFT", "CENTER", "RIGHT", "AUTO"], "default": "LEFT"},
+    "text_align": {"type": "enum", "title": "Text align (horizontal)", "values": ["LEFT", "CENTER", "RIGHT", "AUTO"], "default": "LEFT"},
     "text_decor": {"type": "enum", "title": "Text decor", "values": ["NONE", "UNDERLINE", "STRIKETHROUGH"], "default": "NONE"},
     "text_letter_space": {"type": "number", "title": "Letter space", "min": -20, "max": 50, "default": 0},
     "text_line_space": {"type": "number", "title": "Line space", "min": -20, "max": 50, "default": 0},

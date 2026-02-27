@@ -2032,7 +2032,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: bottomRowY,
           w: btnSize,
           h: btnSize,
-          props: { text: "−" },
+          props: { text: "-" },
           style: { bg_color: trackColor, radius: 6 },
           events: entity_id ? { on_click: `then:\n  - script.execute: ${scriptIdDec}` } : {},
         },
@@ -2122,6 +2122,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
 
       const bindings = entity_id
         ? [
+            { entity_id, kind: "attribute_text", attribute: "friendly_name" },
             { entity_id, kind: "attribute_number", attribute: "current_temperature" },
             { entity_id, kind: "attribute_number", attribute: "temperature" },
             { entity_id, kind: "state" },
@@ -2562,7 +2563,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: btnNext, type: "button", x: x + pad + 200, y: y + 70, w: 92, h: 44, props: { text: "⏭" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: sldVol, type: "slider", x: x + pad, y: y + 122, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
         { id: lblVol, type: "label", x: x + cardW - pad - 54, y: y + 122, w: 54, h: 36, props: { text: "0%" }, style: { text_color: 0x888888 } },
-        { id: btnVolDn, type: "button", x: x + pad, y: y + 166, w: 92, h: 40, props: { text: "Vol −" }, style: { bg_color: 0x333333, radius: 6 } },
+        { id: btnVolDn, type: "button", x: x + pad, y: y + 166, w: 92, h: 40, props: { text: "Vol -" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnMute, type: "button", x: x + pad + 100, y: y + 166, w: 92, h: 40, props: { text: "Mute" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnVolUp, type: "button", x: x + pad + 200, y: y + 166, w: 92, h: 40, props: { text: "Vol +" }, style: { bg_color: 0x333333, radius: 6 } },
       ];

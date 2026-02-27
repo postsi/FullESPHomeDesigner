@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.96
+
+- **Fix (thermostat card)**: Top label now shows the climate entity’s friendly name on the device. The card now includes a binding for `friendly_name`, and the compiler derives Home Assistant sensors from display links when a template omits a binding, so the label receives live updates.
+- **Fix (thermostat card)**: Decrease button no longer shows a square on device: Unicode minus (U+2212) replaced with ASCII hyphen (U+002D) so it renders in device fonts (e.g. Montserrat). Same change applied to pagination and media “Vol -” in the frontend.
+
 ## v0.70.95
 
 - **Fix (LVGL background)**: Display background color now applies on device. Compiler emits `disp_bg_color` in hex (e.g. `0x000000`) and sets each page’s `bg_color` and `bg_opa: COVER` so the visible screen matches the canvas background. UI note: recipe must have `display: auto_clear_enabled: false`.

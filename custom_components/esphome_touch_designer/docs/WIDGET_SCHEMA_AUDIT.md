@@ -172,9 +172,7 @@ ESPHome supports styling **parts** of widgets (main, indicator, knob, cursor, it
 ## 7. Semantic fix: align vs text_align
 
 - **align** (widget prop) = widget position on parent (TOP_LEFT, CENTER, etc.). Affects x/y interpretation.
-- **text_align** (style) = text alignment within the widget (LEFT, CENTER, RIGHT, AUTO).
-
-Our canvas `textLayoutFromWidget` incorrectly uses `align` for text layout. It should use `text_align`.
+- **text_align** (style) = text alignment within the widget (LEFT, CENTER, RIGHT, AUTO). No vertical text align in LVGL; use widget **align** (e.g. CENTER, LEFT_MID) so canvas and device match.
 
 ---
 

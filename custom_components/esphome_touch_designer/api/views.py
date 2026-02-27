@@ -280,18 +280,27 @@ def _compile_ha_bindings(project: dict) -> str:
                     outs.append(f"{i3}hidden: !lambda return !(x);\n")
         return "".join(outs)
 
+    # Collect (kind, entity_id, attr) from bindings, then add any from links that have no binding
+    # so display links (e.g. friendly_name -> label) get a homeassistant sensor and the device updates.
+    binding_keys: set[tuple[str, str, str]] = set()
+    for b in bindings:
+        if not isinstance(b, dict):
+            continue
+        eid = str(b.get("entity_id") or "").strip()
+        if not eid or "." not in eid:
+            continue
+        kind = str(b.get("kind") or "state")
+        attr = str(b.get("attribute") or "").strip()
+        binding_keys.add((kind, eid, attr))
+    for (kind, eid, attr) in link_map:
+        if eid and "." in eid:
+            binding_keys.add((kind, eid, attr))
+
     text_sensors: list[dict] = []
     sensors: list[dict] = []
     binary_sensors: list[dict] = []
 
-    for b in sorted(bindings, key=lambda x: (str(x.get('kind') or 'state'), str(x.get('entity_id') or ''), str(x.get('attribute') or '')) ):
-        if not isinstance(b, dict):
-            continue
-        entity_id = str(b.get("entity_id") or "").strip()
-        if not entity_id or "." not in entity_id:
-            continue
-        kind = str(b.get("kind") or "state")
-        attr = str(b.get("attribute") or "").strip()
+    for (kind, entity_id, attr) in sorted(binding_keys, key=lambda x: (x[0], x[1], x[2])):
         base_id = _safe_id(entity_id)
 
         if kind == "binary":

@@ -3965,6 +3965,16 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
         </div>
       );
     }
+    // Text prop: use textarea so user can insert line breaks (CRLF); emitted to YAML and shown on device.
+    if (section === "props" && key === "text") {
+      return (
+        <div>
+          <textarea rows={3} value={String(value ?? "")} onChange={(e) => onChange(section, key, e.target.value || undefined)} placeholder="Use Enter for new line" style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }} />
+          <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>New lines in YAML → multi-line on device.</div>
+          <div style={{ marginTop: 6 }}>{resetBtn}{clearBtn}</div>
+        </div>
+      );
+    }
     return (
       <div style={{ display: "flex", alignItems: "center" }}>
         <input value={value} onChange={(e) => onChange(section, key, e.target.value)} />

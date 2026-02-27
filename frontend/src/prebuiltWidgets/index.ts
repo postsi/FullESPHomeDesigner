@@ -265,7 +265,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_nav_bar",
     title: "Navigation bar",
-    description: "Page −, Home, Page +. Bind on_click to page change or actions.",
+    description: "Page -, Home, Page +. Bind on_click to page change or actions.",
     yamlSnippet: `# Action bindings are added automatically (prev/home/next page).
 # Edit in Bindings → Action tab for each button. Services depend on your integration;
 # e.g. esphome_touch_designer.previous_page / go_to_page / next_page if supported.`,
@@ -279,7 +279,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const nextId = uid("nav_next");
       const raw = [
         { id: uid("nav_bg"), type: "container", x: 0, y: 0, w, h, props: {}, style: { bg_color: bgDark, radius: 8 } },
-        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "−" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "-" }, style: { bg_color: bgTrack, radius: 6 } },
         { id: homeId, type: "button", x: gap * 2 + btnW, y: 6, w: btnW, h: 32, props: { text: "⌂" }, style: { bg_color: bgTrack, radius: 6 } },
         { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: "+" }, style: { bg_color: bgTrack, radius: 6 } },
       ];
