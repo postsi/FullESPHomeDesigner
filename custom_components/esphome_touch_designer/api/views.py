@@ -204,7 +204,30 @@ def _compile_ha_bindings(project: dict) -> str:
                 _collect_widget_types(page.get("widgets") or [], m)
         return m
 
+    # Widget id -> list of option strings (for dropdowns); used to emit selected_index lambda from text.
+    def _collect_dropdown_options(widgets: list, m: dict[str, list[str]]) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            if w.get("type") == "dropdown" and w.get("id"):
+                props = w.get("props") or {}
+                opts = props.get("options") or ["Option A", "Option B"]
+                if isinstance(opts, str):
+                    opts = [s.strip() for s in opts.replace("\\n", "\n").split("\n") if s.strip()]
+                else:
+                    opts = [str(o).strip() for o in opts if str(o).strip()]
+                m[str(w["id"])] = opts if opts else ["(none)"]
+            _collect_dropdown_options(w.get("widgets") or [], m)
+
+    def _dropdown_options_map() -> dict[str, list[str]]:
+        m: dict[str, list[str]] = {}
+        for page in project.get("pages") or []:
+            if isinstance(page, dict):
+                _collect_dropdown_options(page.get("widgets") or [], m)
+        return m
+
     widget_type_by_id = _widget_type_map()
+    dropdown_options_by_id = _dropdown_options_map()
 
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
         # After caller adds "  ": "- if:" at 8, condition/then at 12, lambda/- lvgl at 14, id/text at 18 (2 under lvgl key)
@@ -256,15 +279,35 @@ def _compile_ha_bindings(project: dict) -> str:
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype == "button":
                     outs.append(f"{i2}- lvgl.button.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if kind in ("state", "attribute_text"):
+                        outs.append(f"{i3}text: !lambda return x;\n")
+                    else:
+                        outs.append(f"{i3}text:\n")
+                        outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
+                        outs.append(f"{i3}  args: [ 'x' ]\n")
+                elif wtype == "dropdown" and kind in ("state", "attribute_text"):
+                    # Dropdown expects selected_index (int); HA sends text. Map text -> index from widget options.
+                    opts = dropdown_options_by_id.get(wid) or []
+                    outs.append(f"{i2}- lvgl.dropdown.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    # Emit lambda that returns index of x in options (C++: escape " and \ in option strings)
+                    parts = []
+                    for idx, opt in enumerate(opts):
+                        esc = str(opt).replace("\\", "\\\\").replace('"', '\\"')
+                        parts.append(f'if (x == "{esc}") return {idx};')
+                    parts.append("return 0;")
+                    lambda_body = " ".join(parts)
+                    outs.append(f"{i3}selected_index: !lambda '{lambda_body}'\n")
                 else:
                     outs.append(f"{i2}- lvgl.label.update:\n")
-                outs.append(f"{i3}id: {wid}\n")
-                if kind in ("state", "attribute_text"):
-                    outs.append(f"{i3}text: !lambda return x;\n")
-                else:
-                    outs.append(f"{i3}text:\n")
-                    outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
-                    outs.append(f"{i3}  args: [ 'x' ]\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if kind in ("state", "attribute_text"):
+                        outs.append(f"{i3}text: !lambda return x;\n")
+                    else:
+                        outs.append(f"{i3}text:\n")
+                        outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
+                        outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "obj_hidden":
                 expr = None

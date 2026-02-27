@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.97
+
+- **Fix (HA bindings)**: Display links that target **dropdown** widgets (e.g. thermostat HVAC mode, preset mode) now emit `lvgl.dropdown.update` with `selected_index` instead of `lvgl.label.update`, fixing "ID of type LvDropdownType doesn't inherit from lv_label_t". The compiler maps the incoming text value to the dropdown option index via a generated lambda.
+
 ## v0.70.96
 
 - **Fix (thermostat card)**: Top label now shows the climate entity’s friendly name on the device. The card now includes a binding for `friendly_name`, and the compiler derives Home Assistant sensors from display links when a template omits a binding, so the label receives live updates.
