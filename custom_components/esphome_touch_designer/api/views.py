@@ -1264,24 +1264,30 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
 
     out: list[str] = []
     disp_bg = project.get("disp_bg_color")
+    disp_bg_hex: int | None = None  # 0xRRGGBB for page bg_color
     if disp_bg and isinstance(disp_bg, str):
         s = str(disp_bg).strip()
         if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{6}$", s):
-            out.append(f"  disp_bg_color: {int(s[1:7], 16)}\n")
+            disp_bg_hex = int(s[1:7], 16)
+            out.append(f"  disp_bg_color: 0x{s[1:7].upper()}\n")
         elif s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{3}$", s):
             r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
-            out.append(f"  disp_bg_color: {r << 16 | g << 8 | b}\n")
+            disp_bg_hex = r << 16 | g << 8 | b
+            out.append(f"  disp_bg_color: 0x{r:02X}{g:02X}{b:02X}\n")
     out.append("  pages:\n")
     for page in pages:
         if not isinstance(page, dict):
             continue
         raw_pid = page.get("page_id") or page.get("id") or "main"
         pid = _esphome_safe_page_id(raw_pid)
-        # ESPHome LVGL pages support id, widgets, scrollable, etc.
-        # Disable page scroll to prevent unwanted vertical scrolling when widgets
-        # are near the bottom (e.g. relay button at y:420 on 480x480 display).
+        # ESPHome LVGL pages support id, widgets, scrollable, and style (bg_color, bg_opa).
+        # The visible background is the page; set page bg_color so it matches disp_bg_color
+        # (otherwise the page can default to white and hide the display background).
         out.append(f"    - id: {pid}\n")
         out.append("      scrollable: false\n")
+        if disp_bg_hex is not None:
+            out.append(f"      bg_color: 0x{disp_bg_hex:06X}\n")
+            out.append("      bg_opa: COVER\n")
         all_widgets = page.get("widgets") or []
         if not isinstance(all_widgets, list):
             all_widgets = []

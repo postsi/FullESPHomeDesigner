@@ -2966,7 +2966,7 @@ function deleteSelected() {
                     </button>
                   )}
                 </div>
-                <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>Sets disp_bg_color under lvgl in generated YAML</div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>Sets disp_bg_color and page bg_color in LVGL. Recipe must have display: auto_clear_enabled: false.</div>
               </div>
             )}
             {inspectorTab === "properties" && (
