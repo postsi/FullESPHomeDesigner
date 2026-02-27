@@ -195,3 +195,36 @@ ESPHome supports styling **parts** of widgets (main, indicator, knob, cursor, it
 animimg, arc, bar, button, buttonmatrix, calendar, canvas, chart, checkbox, colorwheel, container, dropdown, image, image_button, keyboard, label, led, line, list, meter, msgboxes, obj, qrcode, roller, slider, spinbox, spinner, switch, tabview, table, textarea, tileview
 
 All should be checked against ESPHome LVGL widget-specific schemas in `esphome/components/lvgl/widgets/*.py` for any widget-specific properties we might have missed.
+
+---
+
+## 10. Full scope (v0.71+): LVGL parity and editor UX
+
+**Design goal:** Expose every LVGL/ESPHome property (including sub-parts and top-level config), use them for canvas drawing where relevant, and match device screen as closely as possible.
+
+### LVGL Settings (top-level) – IMPLEMENTED
+
+- **Entry:** "LVGL settings" button in main nav (toolbar). Opens a dedicated mini-editor modal.
+- **Tabs:** Main | Style definitions | Theme | Gradients.
+- **Main:** `disp_bg_color`, `buffer_size`. Persisted in `project.lvgl_config.main`; emitted under `lvgl:` in compile.
+- **Style definitions:** List of named styles (`id` + optional style props). Stored in `project.lvgl_config.style_definitions`; emitted as `lvgl: style_definitions: - id: ...`. Widgets can reference via `styles: id` (to be wired in widget schema when needed).
+- **Theme:** Default styles per widget type (e.g. `button`, `arc`). Stored in `project.lvgl_config.theme`; emitted as `lvgl: theme: button: ...`. JSON key-value per type in the modal.
+- **Gradients:** List of `id`, `direction`, `stops` (color + position). Stored in `project.lvgl_config.gradients`; emitted as `lvgl: gradients:`.
+- **Main LVGL config (item 10):** `disp_bg_color`, `buffer_size` are in the Main tab. Other main config (touchscreens, encoders, keypads, etc.) can be added to the same tab or a separate "Input" section later.
+
+### Pages and top layer – IMPLEMENTED
+
+- **Page options:** Backend emits `layout` and `skip` per page when set in the page object. Frontend can add these to page metadata when we add a page-settings UI.
+- **top_layer:** `project.lvgl_config.top_layer.widgets` is emitted as `lvgl: top_layer: - id: top_layer widgets: ...`. Adding widgets to top_layer will require UI (e.g. a separate "Always on top" page or a checkbox on widgets).
+
+### Still to do (schema + canvas + backend)
+
+- **Common schema:** All missing style props and object flags (see §§1–2); canvas to use `text_align`, padding, shadow offset, etc.
+- **Widget schemas:** Full props/parts for every widget (§§5–6); canvas to use new props when drawing.
+- **align_to:** Widget-relative positioning (id, align, x, y) in schema and emit.
+- **State-based styling:** Per-widget or per-part state blocks (pressed, focused, checked, etc.) in schema and emit; optional canvas preview.
+- **Layouts:** `layout:` on containers/pages in schema and emit; canvas can approximate or ignore.
+- **SIZE_CONTENT / % width height:** Schema and editor support; backend emit.
+- **Font reference:** `text_font` options (built-in + custom id) in schema and emit.
+- **Full event set:** All widget triggers (on_value, on_short_click, on_long_press, etc.) in schema and bindable.
+- **Animated transitions:** Where applicable (e.g. tabview select animated, page change animation) in schema and emit.

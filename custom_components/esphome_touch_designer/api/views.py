@@ -1247,11 +1247,129 @@ def _esphome_safe_page_id(pid: str) -> str:
     return "main_page" if s == "main" else (s or "main_page")
 
 
+def _hex_color_for_yaml(v) -> str | int | None:
+    """Convert #rrggbb or #rgb to 0xRRGGBB integer for LVGL YAML."""
+    if not isinstance(v, str):
+        return v
+    s = v.strip()
+    if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{6}$", s):
+        return int(s[1:7], 16)
+    if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{3}$", s):
+        r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+        return r << 16 | g << 8 | b
+    return v
+
+
+def _emit_style_dict(indent: str, d: dict, key_filter: set | None = None) -> str:
+    """Emit a flat or nested style dict as YAML. Color-like keys get 0xRRGGBB."""
+    out: list[str] = []
+    for k, v in (d or {}).items():
+        if key_filter is not None and k not in key_filter:
+            continue
+        if v is None or v == "":
+            continue
+        if isinstance(v, dict) and not isinstance(v.get("_raw"), str):
+            out.append(f"{indent}{k}:\n")
+            out.append(_emit_style_dict(indent + "  ", v))
+            continue
+        if k.endswith("_color") or k == "color":
+            v = _hex_color_for_yaml(v) if isinstance(v, str) else v
+        if isinstance(v, str) and "\n" in v:
+            out.append(f"{indent}{k}: |-\n")
+            for line in v.splitlines():
+                out.append(f"{indent}  {line}\n")
+        else:
+            out.append(f"{indent}{k}: {v}\n")
+    return "".join(out)
+
+
+def _compile_lvgl_config_body(project: dict) -> str:
+    """Emit LVGL main config, style_definitions, theme, gradients (no pages/top_layer)."""
+    lc = project.get("lvgl_config") or {}
+    main = lc.get("main") or {}
+    out: list[str] = []
+
+    # Main config: disp_bg_color (project.disp_bg_color or lvgl_config.main), buffer_size, etc.
+    disp_bg = project.get("disp_bg_color") or main.get("disp_bg_color")
+    if disp_bg and isinstance(disp_bg, str):
+        s = disp_bg.strip()
+        if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{6}$", s):
+            out.append(f"  disp_bg_color: 0x{s[1:7].upper()}\n")
+        elif s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{3}$", s):
+            r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+            out.append(f"  disp_bg_color: 0x{r:02X}{g:02X}{b:02X}\n")
+    buf = main.get("buffer_size")
+    if buf and str(buf).strip():
+        out.append(f"  buffer_size: {buf}\n")
+
+    # style_definitions: list of { id: "...", ...style_props (nested state blocks allowed) }
+    style_defs = lc.get("style_definitions") or []
+    if isinstance(style_defs, list) and style_defs:
+        out.append("  style_definitions:\n")
+        for sd in style_defs:
+            if not isinstance(sd, dict):
+                continue
+            sid = sd.get("id") or "style"
+            out.append(f"    - id: {sid}\n")
+            for k, v in sd.items():
+                if k == "id" or v is None or v == "":
+                    continue
+                if isinstance(v, dict):
+                    out.append(f"      {k}:\n")
+                    out.append(_emit_style_dict("        ", v))
+                else:
+                    if k.endswith("_color") or k == "color":
+                        v = _hex_color_for_yaml(v) if isinstance(v, str) else v
+                    out.append(f"      {k}: {v}\n")
+
+    # theme: { widget_type: { ...props, pressed: {...}, checked: {...} } }
+    theme = lc.get("theme") or {}
+    if isinstance(theme, dict) and theme:
+        out.append("  theme:\n")
+        for wtype, props in theme.items():
+            if not isinstance(props, dict):
+                continue
+            out.append(f"    {wtype}:\n")
+            out.append(_emit_style_dict("      ", props))
+
+    # gradients: list of { id, direction, stops: [ { color, position } ] }
+    gradients = lc.get("gradients") or []
+    if isinstance(gradients, list) and gradients:
+        out.append("  gradients:\n")
+        for g in gradients:
+            if not isinstance(g, dict):
+                continue
+            gid = g.get("id") or "grad"
+            out.append(f"    - id: {gid}\n")
+            if g.get("direction"):
+                out.append(f"      direction: {g['direction']}\n")
+            stops = g.get("stops") or []
+            if stops:
+                out.append("      stops:\n")
+                for st in stops:
+                    if not isinstance(st, dict):
+                        continue
+                    c = st.get("color")
+                    pos = st.get("position")
+                    if c is None and pos is None:
+                        continue
+                    if c is not None:
+                        c = _hex_color_for_yaml(c) if isinstance(c, str) else c
+                    out.append("        -\n")
+                    if c is not None:
+                        out.append(f"          color: {c}\n")
+                    if pos is not None:
+                        out.append(f"          position: {pos}\n")
+
+    return "".join(out)
+
+
 def _compile_lvgl_pages_schema_driven(project: dict) -> str:
     """Compile LVGL pages from the project model.
 
     v0.18: supports container-style parenting via `parent_id` and emits nested
     `widgets:` blocks where applicable.
+    v0.71: emits lvgl_config (main, style_definitions, theme, gradients) then pages, then top_layer.
     """
 
     pages = project.get("pages") or []
@@ -1321,17 +1439,19 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         return out
 
     out: list[str] = []
-    disp_bg = project.get("disp_bg_color")
+    # Emit main config, style_definitions, theme, gradients (from lvgl_config)
+    out.append(_compile_lvgl_config_body(project))
+
+    disp_bg = project.get("disp_bg_color") or ((project.get("lvgl_config") or {}).get("main") or {}).get("disp_bg_color")
     disp_bg_hex: int | None = None  # 0xRRGGBB for page bg_color
     if disp_bg and isinstance(disp_bg, str):
         s = str(disp_bg).strip()
         if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{6}$", s):
             disp_bg_hex = int(s[1:7], 16)
-            out.append(f"  disp_bg_color: 0x{s[1:7].upper()}\n")
         elif s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{3}$", s):
             r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
             disp_bg_hex = r << 16 | g << 8 | b
-            out.append(f"  disp_bg_color: 0x{r:02X}{g:02X}{b:02X}\n")
+
     out.append("  pages:\n")
     for page in pages:
         if not isinstance(page, dict):
@@ -1343,6 +1463,10 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         # (otherwise the page can default to white and hide the display background).
         out.append(f"    - id: {pid}\n")
         out.append("      scrollable: false\n")
+        if page.get("layout") and str(page.get("layout")).strip().upper() != "NONE":
+            out.append(f"      layout: {page.get('layout')}\n")
+        if page.get("skip") is True:
+            out.append("      skip: true\n")
         if disp_bg_hex is not None:
             out.append(f"      bg_color: 0x{disp_bg_hex:06X}\n")
             out.append("      bg_opa: COVER\n")
@@ -1361,6 +1485,21 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
             out.append("      widgets:\n")
             for w in roots:
                 out.append(emit_widget(w, "        ", kids, disp_w, disp_h))
+
+    # top_layer: always-on-top widgets (from lvgl_config.top_layer.widgets)
+    top_layer = (project.get("lvgl_config") or {}).get("top_layer") or {}
+    tl_widgets = top_layer.get("widgets") or []
+    if isinstance(tl_widgets, list) and tl_widgets:
+        tl_kids = children_map([w for w in tl_widgets if isinstance(w, dict)])
+        tl_roots = [w for w in tl_widgets if isinstance(w, dict) and not w.get("parent_id")]
+        recipe_id = str((project.get("hardware") or {}).get("recipe_id", "") or (project.get("device") or {}).get("hardware_recipe_id", "") or "")
+        m = re.search(r"(\d{3,4})x(\d{3,4})", recipe_id, re.I) if recipe_id else None
+        disp_w, disp_h = (int(m.group(1)), int(m.group(2))) if m else (480, 320)
+        out.append("  top_layer:\n")
+        out.append("    - id: top_layer\n")
+        out.append("      widgets:\n")
+        for w in tl_roots:
+            out.append(emit_widget(w, "        ", tl_kids, disp_w, disp_h))
 
     return "".join(out)
 

@@ -594,8 +594,11 @@ const stageRef = useRef<any>(null);
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
           {(() => {
             const arcLayout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+            const valueFontSize = Math.max(8, Math.min(48, Number(s.font_size ?? p.font_size ?? 14)));
+            const valueX = arcLayout.x + Number(p.value_label_offset_x ?? 0);
+            const valueY = arcLayout.y + Number(p.value_label_offset_y ?? 0);
             return (
-              <Text text={String(val)} x={arcLayout.x} y={arcLayout.y} width={arcLayout.width} height={arcLayout.height} align={arcLayout.align} verticalAlign={arcLayout.verticalAlign} fontSize={Math.max(10, fontSize - 2)} fill={textColor} listening={false} />
+              <Text text={String(val)} x={valueX} y={valueY} width={arcLayout.width} height={arcLayout.height} align={arcLayout.align} verticalAlign={arcLayout.verticalAlign} fontSize={valueFontSize} fill={textColor} listening={false} />
             );
           })()}
         </Group>

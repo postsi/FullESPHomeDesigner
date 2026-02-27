@@ -51,6 +51,14 @@ export type ProjectModel = {
   };
   /** LVGL display background color (disp_bg_color). Hex string e.g. "#1a1a2e". Injected under lvgl: when set. */
   disp_bg_color?: string;
+  /** LVGL top-level config: main (disp_bg_color, buffer_size), style_definitions, theme, gradients, top_layer. */
+  lvgl_config?: {
+    main?: { disp_bg_color?: string; buffer_size?: string; [k: string]: unknown };
+    style_definitions?: Array<{ id: string; [k: string]: unknown }>;
+    theme?: Record<string, Record<string, unknown>>;
+    gradients?: Array<{ id: string; direction?: string; stops?: Array<{ color?: string; position?: number }> }>;
+    top_layer?: { widgets?: any[] };
+  };
 };
 
 export type ApiOk<T> = T & { ok: true };

@@ -17,7 +17,7 @@ def _default_project() -> dict[str, Any]:
             {
                 "page_id": "main",
                 "name": "Main",
-                "widgets": []
+                "widgets": [],
             }
         ],
         "palette": {
@@ -25,6 +25,16 @@ def _default_project() -> dict[str, Any]:
             "color.card": "#111827",
             "color.text": "#E5E7EB",
             "color.muted": "#9CA3AF"
+        },
+        "lvgl_config": {
+            "main": {
+                "disp_bg_color": "#0B0F14",
+                "buffer_size": "100%",
+            },
+            "style_definitions": [],
+            "theme": {},
+            "gradients": [],
+            "top_layer": {"widgets": []},
         }
     }
 
@@ -48,6 +58,23 @@ def _migrate_project(project: dict[str, Any] | None) -> dict[str, Any]:
     # Ensure palette exists
     if not isinstance(project.get("palette"), dict):
         project["palette"] = _default_project()["palette"]
+
+    # Ensure lvgl_config exists (theme, style_definitions, gradients, main, top_layer)
+    default_lvgl = _default_project()["lvgl_config"]
+    if not isinstance(project.get("lvgl_config"), dict):
+        project["lvgl_config"] = dict(default_lvgl)
+    else:
+        lc = project["lvgl_config"]
+        if not isinstance(lc.get("main"), dict):
+            lc["main"] = dict(default_lvgl.get("main", {}))
+        if not isinstance(lc.get("style_definitions"), list):
+            lc["style_definitions"] = []
+        if not isinstance(lc.get("theme"), dict):
+            lc["theme"] = {}
+        if not isinstance(lc.get("gradients"), list):
+            lc["gradients"] = []
+        if "top_layer" not in lc or not isinstance(lc.get("top_layer"), dict):
+            lc["top_layer"] = {"widgets": []}
 
     return project
 

@@ -119,6 +119,54 @@
       "type": "boolean",
       "title": "Adjustable",
       "default": false
+    },
+    "rotation": {
+      "type": "number",
+      "title": "Rotation (°)",
+      "min": -360,
+      "max": 360,
+      "default": 0
+    },
+    "bg_start_angle": {
+      "type": "number",
+      "title": "Background start angle (°)",
+      "min": 0,
+      "max": 360,
+      "default": 0
+    },
+    "bg_end_angle": {
+      "type": "number",
+      "title": "Background end angle (°)",
+      "min": 0,
+      "max": 360,
+      "default": 270
+    },
+    "knob_offset": {
+      "type": "number",
+      "title": "Knob offset (°)",
+      "min": -180,
+      "max": 180,
+      "default": 0
+    },
+    "mode": {
+      "type": "enum",
+      "title": "Mode",
+      "values": ["NORMAL", "SYMMETRICAL", "REVERSE"],
+      "default": "NORMAL"
+    },
+    "value_label_offset_x": {
+      "type": "number",
+      "title": "Value label offset X",
+      "min": -200,
+      "max": 200,
+      "default": 0
+    },
+    "value_label_offset_y": {
+      "type": "number",
+      "title": "Value label offset Y",
+      "min": -200,
+      "max": 200,
+      "default": 0
     }
   },
   "style": {
@@ -150,6 +198,13 @@
       "min": 0,
       "max": 60,
       "default": 0
+    },
+    "font_size": {
+      "type": "number",
+      "title": "Value label font size",
+      "min": 8,
+      "max": 48,
+      "default": 14
     }
   },
   "knob": {
@@ -212,6 +267,23 @@
         "adjustable"
       ]
     },
+    "Arc angles": {
+      "section": "props",
+      "keys": [
+        "rotation",
+        "bg_start_angle",
+        "bg_end_angle",
+        "knob_offset",
+        "mode"
+      ]
+    },
+    "Value label": {
+      "section": "props",
+      "keys": [
+        "value_label_offset_x",
+        "value_label_offset_y"
+      ]
+    },
     "Knob": {
       "section": "knob",
       "keys": [
@@ -249,7 +321,8 @@
         "radius",
         "border_color",
         "text_color",
-        "border_width"
+        "border_width",
+        "font_size"
       ]
     }
   }

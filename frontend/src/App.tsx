@@ -33,6 +33,7 @@ import {
   type WidgetSchema,
   type WidgetSchemaIndexItem,
 } from "./api";
+import LvglSettingsModal, { type LvglConfig } from "./LvglSettingsModal";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -319,6 +320,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [recipeImportBusy, setRecipeImportBusy] = useState<boolean>(false);
   const [recipeImportErr, setRecipeImportErr] = useState<string>("");
   const [recipeImportOk, setRecipeImportOk] = useState<any>(null);
+
+  const [lvglSettingsOpen, setLvglSettingsOpen] = useState<boolean>(false);
 
   // Live HA state for design-time preview (bound widgets show current HA values).
   const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
@@ -700,6 +703,7 @@ useEffect(() => {
       return;
     }
     const entity_id = tmplEntity.trim();
+    const label = tmplLabel.trim() || undefined;
     let built: { widgets?: any[]; bindings?: any[]; links?: any[]; action_bindings?: any[]; scripts?: any[] } | undefined;
     try {
     const p2 = clone(project);
@@ -794,7 +798,6 @@ if (baseId.startsWith("glance_card")) {
         setToast({ type: "error", msg: `Template not found: ${resolvedId}` });
         return;
       }
-      const label = tmplLabel.trim() || undefined;
       built = tmpl.build({
         entity_id,
         entities: tmplEntities,
@@ -2533,6 +2536,19 @@ function deleteSelected() {
         </div>
       )}
 
+      <LvglSettingsModal
+        open={lvglSettingsOpen}
+        onClose={() => setLvglSettingsOpen(false)}
+        config={project?.lvgl_config}
+        onSave={(config: LvglConfig) => {
+          if (project) {
+            setProject({ ...project, lvgl_config: config });
+            setProjectDirty(true);
+          }
+          setLvglSettingsOpen(false);
+        }}
+      />
+
       {editDeviceModalOpen && selectedDeviceObj && (
         <div className="modalOverlay" onClick={() => setEditDeviceModalOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
@@ -2747,6 +2763,7 @@ function deleteSelected() {
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
+        <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
         <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
         <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
       </nav>

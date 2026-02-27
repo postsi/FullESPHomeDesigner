@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.100
+
+- **LVGL settings**: New **LVGL settings** button in the main nav opens a mini-editor for top-level LVGL config. **Main** tab: display background color and buffer size (emitted as `disp_bg_color`, `buffer_size` under `lvgl:`). **Style definitions** tab: named reusable styles (id + props), emitted as `lvgl: style_definitions:`; widgets can reference them via `styles: id`. **Theme** tab: default styles per widget type (button, label, arc, etc.), emitted as `lvgl: theme:`. **Gradients** tab: gradient definitions (id, direction, stops) for use in styles via `bg_grad: id`, emitted as `lvgl: gradients:`.
+- **Pages & top layer**: Compiler emits page `layout` and `skip` when set. **top_layer** support: `project.lvgl_config.top_layer.widgets` is emitted as `lvgl: top_layer: - id: top_layer widgets: ...` so always-on-top widgets can be defined (UI for adding widgets to top_layer can be added later).
+- **Project model**: New `project.lvgl_config` (main, style_definitions, theme, gradients, top_layer). Stored and migrated in dashboard storage; backward compatible for existing projects.
+- **Docs**: `WIDGET_SCHEMA_AUDIT.md` updated with §10 (full LVGL parity scope, LVGL Settings UX, and remaining schema/canvas work).
+
 ## v0.70.99
 
 - **Custom cards (v1)**: Save the current page as a reusable card. Use **Save as card** (nav): name, description, and device type; entity IDs are stripped to a placeholder so the card can be bound to any entity of that type when inserted. Custom cards are stored under `config/esphome_touch_designer/cards/` (survives integration updates). Card Library shows built-in and custom cards; inserting a custom card uses the same entity wizard as built-in cards.
