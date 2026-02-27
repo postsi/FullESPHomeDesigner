@@ -2821,6 +2821,7 @@ function deleteSelected() {
                   height={screenSize.height}
                   gridSize={(project as any)?.ui?.gridSize || 10}
                   showGrid={((project as any)?.ui?.showGrid ?? true) as any}
+                  dispBgColor={(project as any)?.disp_bg_color}
                   liveOverrides={liveOverrides}
                   onSelect={(id, additive) => selectWidget(id, additive)}
                   onSelectNone={() => setSelectedWidgetIds([])}
@@ -2923,6 +2924,49 @@ function deleteSelected() {
               <div className="muted" style={{ marginBottom: 12, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 8, fontSize: 13 }}>
                 <strong>Physical Pixels:</strong> {screenSize.width} × {screenSize.height}
                 <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>({screenSize.source})</span>
+              </div>
+            )}
+            {project && (
+              <div style={{ marginBottom: 12, padding: 10, background: "rgba(255,255,255,.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,.08)" }}>
+                <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 8 }}>Canvas background</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-fA-F]{6}$/.test((project as any).disp_bg_color || "") ? (project as any).disp_bg_color : "#0b0f14"}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      setProject({ ...project, disp_bg_color: hex }, true);
+                      setProjectDirty(true);
+                    }}
+                    style={{ width: 42, height: 28, padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
+                  />
+                  <input
+                    type="text"
+                    value={(project as any).disp_bg_color || ""}
+                    onChange={(e) => {
+                      const v = e.target.value.trim();
+                      setProject({ ...project, disp_bg_color: v || undefined }, true);
+                      setProjectDirty(true);
+                    }}
+                    placeholder="None (device default)"
+                    style={{ flex: 1, fontSize: 12, fontFamily: "ui-monospace, monospace" }}
+                  />
+                  {((project as any).disp_bg_color) && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{ fontSize: 11 }}
+                      onClick={() => {
+                        const { disp_bg_color: _, ...rest } = project as any;
+                        setProject(rest, true);
+                        setProjectDirty(true);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>Sets disp_bg_color under lvgl in generated YAML</div>
               </div>
             )}
             {inspectorTab === "properties" && (
@@ -3656,6 +3700,9 @@ function MultiSelectProperties(props: {
   );
 }
 
+// ESPHome LVGL built-in fonts (Montserrat). User can pick these without uploading assets.
+const BUILTIN_LVGL_FONTS = ["montserrat_8","montserrat_10","montserrat_12","montserrat_14","montserrat_16","montserrat_18","montserrat_20","montserrat_22","montserrat_24","montserrat_26","montserrat_28","montserrat_30","montserrat_32","montserrat_34","montserrat_36","montserrat_38","montserrat_40","montserrat_42","montserrat_44","montserrat_46","montserrat_48"];
+
 function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (section: any, key: string, value: any) => void; assets: {name:string; size:number}[] }) {
   const { widget, schema, onChange, assets } = props;
   const fontFiles = (assets || []).map(a=>a.name).filter(n=>/\.(ttf|otf)$/i.test(n));
@@ -3664,9 +3711,18 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
   const [fieldFilter, setFieldFilter] = useState<string>("");
   const [modifiedOnly, setModifiedOnly] = useState<boolean>(false);
   const [recentColors, setRecentColors] = useState<string[]>([]);
-  const groups = (schema as any).groups as Record<string, { section: string; keys: string[] }> | undefined;
+  const groups = (schema as any).groups as Record<string, { section: string; keys: string[]; defaultCollapsed?: boolean }> | undefined;
   const groupNames = groups ? Object.keys(groups) : [];
-  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>({});
+  const [groupExpanded, setGroupExpanded] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    if (groups) {
+      for (const name of Object.keys(groups)) {
+        const gr = groups[name];
+        init[name] = !(gr && (gr as any).defaultCollapsed);
+      }
+    }
+    return init;
+  });
 
   const renderSection = (title: string, section: "props"|"style"|"events", fields?: Record<string, any>) => {
     const entriesAll = Object.entries(fields ?? {});
@@ -3820,59 +3876,82 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
       );
     }
     // v0.46: font picker helper.
-    // Convention: widget.props.font can be set to "asset:MyFont.ttf:24" (compiler emits font: section)
-    // or to a generated id (font_xxx) if user manually manages fonts.
+    // Value can be: built-in id (montserrat_16), asset descriptor (asset:file.ttf:24), or custom id.
     if (key === "font") {
-      const raw = String(value ?? "");
-      const isAsset = raw.trim().startsWith("asset:");
+      const raw = String(value ?? "").trim();
+      const isAsset = raw.startsWith("asset:");
+      const isBuiltin = BUILTIN_LVGL_FONTS.includes(raw);
       let curFile = "";
       let curSize = 16;
       if (isAsset) {
         try {
-          const rest = raw.trim().slice("asset:".length);
+          const rest = raw.slice("asset:".length);
           const parts = rest.split(":");
           curFile = parts.slice(0, -1).join(":") || "";
           curSize = parseInt(parts[parts.length - 1] || "16", 10) || 16;
         } catch {}
+      } else if (raw.startsWith("montserrat_")) {
+        const m = raw.match(/montserrat_(\d+)$/);
+        curSize = m ? parseInt(m[1], 10) || 16 : 16;
       }
       return (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <select
-            value={isAsset ? curFile : ""}
-            onChange={(e) => {
-              const fn = e.target.value;
-              if (!fn) return onChange(section, key, undefined);
-              onChange(section, key, `asset:${fn}:${curSize}`);
-            }}
-          >
-            <option value="">(select font asset)</option>
-            {fontFiles.map((fn) => (
-              <option key={fn} value={fn}>{fn}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={curSize}
-            min={6}
-            max={96}
-            onChange={(e) => {
-              const n = parseInt(e.target.value || "16", 10) || 16;
-              if (!isAsset || !curFile) return onChange(section, key, raw);
-              onChange(section, key, `asset:${curFile}:${n}`);
-            }}
-            style={{ width: 72 }}
-          />
-          <select
-            value={String(curSize)}
-            onChange={(e) => {
-              const n = parseInt(e.target.value || "16", 10) || 16;
-              if (!curFile) return;
-              onChange(section, key, `asset:${curFile}:${n}`);
-            }}
-          >
-            {fontSizes.map((n) => (<option key={n} value={n}>{n}px</option>))}
-          </select>
-          {resetBtn}{clearBtn}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <select
+              value={isBuiltin ? raw : (isAsset ? `asset:${curFile}` : "")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) return onChange(section, key, undefined);
+                if (v.startsWith("asset:")) {
+                  const fn = v.slice(6);
+                  if (fn) onChange(section, key, `asset:${fn}:${curSize}`);
+                } else {
+                  onChange(section, key, v);
+                }
+              }}
+              style={{ minWidth: 140 }}
+            >
+              <option value="">(default)</option>
+              <optgroup label="Built-in (Montserrat)">
+                {BUILTIN_LVGL_FONTS.map((f) => (
+                  <option key={f} value={f}>{f.replace("montserrat_", "")}px</option>
+                ))}
+              </optgroup>
+              {fontFiles.length > 0 && (
+                <optgroup label="Uploaded assets">
+                  {fontFiles.map((fn) => (
+                    <option key={fn} value={`asset:${fn}`}>{fn}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            {isAsset && curFile && (
+              <>
+                <input
+                  type="number"
+                  value={curSize}
+                  min={6}
+                  max={96}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value || "16", 10) || 16;
+                    onChange(section, key, `asset:${curFile}:${n}`);
+                  }}
+                  style={{ width: 60 }}
+                />
+                <span className="muted" style={{ fontSize: 12 }}>px</span>
+              </>
+            )}
+            {resetBtn}{clearBtn}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="text"
+              value={!isBuiltin && !isAsset ? raw : ""}
+              onChange={(e) => onChange(section, key, e.target.value.trim() || undefined)}
+              placeholder="Or type custom font id (e.g. roboto_16)"
+              style={{ flex: 1, fontSize: 12 }}
+            />
+          </div>
         </div>
       );
     }

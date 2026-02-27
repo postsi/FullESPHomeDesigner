@@ -854,12 +854,59 @@ def _get_storage(hass: HomeAssistant, entry_id: str):
 def _schemas_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "schemas" / "widgets"
 
+
+def _common_extras_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "schemas"
+
+
+def _load_common_extras() -> dict:
+    p = _common_extras_dir() / "common_extras.json"
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text("utf-8"))
+    except Exception:
+        return {}
+
+
+def _merge_common_extras(schema: dict) -> dict:
+    """Merge common_extras (extra props/style/groups) into a widget schema."""
+    extras = _load_common_extras()
+    if not extras:
+        return schema
+    schema = dict(schema)
+    # Merge props
+    for k, v in (extras.get("props_extras") or {}).items():
+        if k not in (schema.get("props") or {}):
+            schema.setdefault("props", {})[k] = v
+    # Merge style
+    for k, v in (extras.get("style_extras") or {}).items():
+        if k not in (schema.get("style") or {}):
+            schema.setdefault("style", {})[k] = v
+    # Merge esphome props mapping
+    esphome = schema.get("esphome") or {}
+    esphome = dict(esphome)
+    for k, v in (extras.get("esphome_props_extras") or {}).items():
+        if k not in (esphome.get("props") or {}):
+            esphome.setdefault("props", {})[k] = v
+    for k, v in (extras.get("esphome_style_extras") or {}).items():
+        if k not in (esphome.get("style") or {}):
+            esphome.setdefault("style", {})[k] = v
+    schema["esphome"] = esphome
+    # Merge groups (append new groups, don't overwrite)
+    for name, grp in (extras.get("groups_extras") or {}).items():
+        if name not in (schema.get("groups") or {}):
+            schema.setdefault("groups", {})[name] = grp
+    return schema
+
+
 # --- v0.6: schema-driven widget emission ---
 def _load_widget_schema(widget_type: str) -> dict | None:
     p = _schemas_dir() / f"{widget_type}.json"
     if not p.exists():
         return None
-    return json.loads(p.read_text("utf-8"))
+    schema = json.loads(p.read_text("utf-8"))
+    return _merge_common_extras(schema)
 
 
 def _yaml_quote(v) -> str:
@@ -979,7 +1026,13 @@ def _action_binding_call_to_yaml(call: dict) -> str:
     return "\n".join(lines)
 
 
-def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_widget: list | None = None) -> str:
+def _emit_widget_from_schema(
+    widget: dict,
+    schema: dict,
+    action_bindings_for_widget: list | None = None,
+    parent_w: int | None = None,
+    parent_h: int | None = None,
+) -> str:
     wtype = widget.get("type") or schema.get("type")
     esphome = schema.get("esphome", {})
     root_key = esphome.get("root_key") or wtype  # e.g. "label", "button"
@@ -989,12 +1042,42 @@ def _emit_widget_from_schema(widget: dict, schema: dict, action_bindings_for_wid
     out: list[str] = []
     out.append(f"        - {root_key}:\n")
 
-    # geometry
+    # geometry: x, y may need conversion when align is not TOP_LEFT
+    # LVGL: "If specifying align, x and y can be used as an offset to the calculated position"
+    # We store top-left coords; with CENTER LVGL expects offset from parent center.
     wid = widget.get("id") or "w"
     out.append(f"{body_indent}id: {wid}\n")
-    for geom_key, yaml_key in [("x","x"),("y","y"),("w","width"),("h","height")]:
+    x_val = int(widget.get("x", 0))
+    y_val = int(widget.get("y", 0))
+    w_val = int(widget.get("w", 100))
+    h_val = int(widget.get("h", 50))
+    align = str((widget.get("props") or {}).get("align", "TOP_LEFT") or "TOP_LEFT").strip().upper()
+    if align and align != "TOP_LEFT" and parent_w is not None and parent_h is not None:
+        # Convert top-left coords to LVGL's expected offset for non-default align
+        pw2, ph2 = parent_w // 2, parent_h // 2
+        if align == "CENTER":
+            x_val = x_val + w_val // 2 - pw2
+            y_val = y_val + h_val // 2 - ph2
+        elif align == "TOP_MID":
+            x_val = x_val + w_val // 2 - pw2
+        elif align == "TOP_RIGHT":
+            x_val = x_val + w_val - parent_w
+        elif align == "LEFT_MID":
+            y_val = y_val + h_val // 2 - ph2
+        elif align == "RIGHT_MID":
+            x_val = x_val + w_val - parent_w
+            y_val = y_val + h_val // 2 - ph2
+        elif align == "BOTTOM_LEFT":
+            y_val = y_val + h_val - parent_h
+        elif align == "BOTTOM_MID":
+            x_val = x_val + w_val // 2 - pw2
+            y_val = y_val + h_val - parent_h
+        elif align == "BOTTOM_RIGHT":
+            x_val = x_val + w_val - parent_w
+            y_val = y_val + h_val - parent_h
+    for geom_key, yaml_key, val in [("x", "x", x_val), ("y", "y", y_val), ("w", "width", w_val), ("h", "height", h_val)]:
         if geom_key in widget:
-            out.append(f"{body_indent}{yaml_key}: {int(widget.get(geom_key, 0))}\n")
+            out.append(f"{body_indent}{yaml_key}: {int(val)}\n")
 
     action_by_event = {}
     if action_bindings_for_widget:
@@ -1136,14 +1219,13 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
             m.setdefault(pid, []).append(w)
         return m
 
-    def emit_widget(w: dict, indent: str, kids: dict[str, list[dict]]) -> str:
+    def emit_widget(w: dict, indent: str, kids: dict[str, list[dict]], parent_w: int, parent_h: int) -> str:
         wtype = w.get("type")
         wid = str(w.get("id") or "")
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
-            # _emit_widget_from_schema: first line "        - type:", body "            key: val" (12 sp). Re-indent so value is 2 spaces under type.
-            raw = _emit_widget_from_schema(w, schema, ab_list)
+            raw = _emit_widget_from_schema(w, schema, ab_list, parent_w, parent_h)
             lines = raw.splitlines(True)
             out_lines = []
             for ln in lines:
@@ -1170,35 +1252,51 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         # Children: nest under `widgets:`. ESPHome LVGL supports this for containers and many widgets.
         wid = str(w.get("id") or "")
         child_list = kids.get(wid) or []
+        pw, ph = int(w.get("w", 100)), int(w.get("h", 50))
         if child_list:
             out += f"{indent}    widgets:\n"
             for c in child_list:
-                out += emit_widget(c, indent + "      ", kids)  # 6 spaces: list item 2 under "widgets:"
+                out += emit_widget(c, indent + "      ", kids, pw, ph)  # 6 spaces: list item 2 under "widgets:"
         elif wtype == "container":
             # Empty container: emit explicit list so structure is valid
             out += f"{indent}    widgets: []\n"
         return out
 
     out: list[str] = []
+    disp_bg = project.get("disp_bg_color")
+    if disp_bg and isinstance(disp_bg, str):
+        s = str(disp_bg).strip()
+        if s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{6}$", s):
+            out.append(f"  disp_bg_color: {int(s[1:7], 16)}\n")
+        elif s.startswith("#") and re.match(r"^#[0-9A-Fa-f]{3}$", s):
+            r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+            out.append(f"  disp_bg_color: {r << 16 | g << 8 | b}\n")
     out.append("  pages:\n")
     for page in pages:
         if not isinstance(page, dict):
             continue
         raw_pid = page.get("page_id") or page.get("id") or "main"
         pid = _esphome_safe_page_id(raw_pid)
-        # ESPHome LVGL pages only support id and widgets (no name).
+        # ESPHome LVGL pages support id, widgets, scrollable, etc.
+        # Disable page scroll to prevent unwanted vertical scrolling when widgets
+        # are near the bottom (e.g. relay button at y:420 on 480x480 display).
         out.append(f"    - id: {pid}\n")
+        out.append("      scrollable: false\n")
         all_widgets = page.get("widgets") or []
         if not isinstance(all_widgets, list):
             all_widgets = []
         kids = children_map([w for w in all_widgets if isinstance(w, dict)])
         roots = [w for w in all_widgets if isinstance(w, dict) and not w.get("parent_id")]
+        # Display dims for align conversion: extract from recipe_id (e.g. guition_s3_4848s040_480x480)
+        recipe_id = str((project.get("hardware") or {}).get("recipe_id", "") or (project.get("device") or {}).get("hardware_recipe_id", "") or "")
+        m = re.search(r"(\d{3,4})x(\d{3,4})", recipe_id, re.I) if recipe_id else None
+        disp_w, disp_h = (int(m.group(1)), int(m.group(2))) if m else (480, 320)
         if not roots:
             out.append("      widgets: []\n")
         else:
             out.append("      widgets:\n")
             for w in roots:
-                out.append(emit_widget(w, "        ", kids))
+                out.append(emit_widget(w, "        ", kids, disp_w, disp_h))
 
     return "".join(out)
 
@@ -1494,6 +1592,7 @@ class SchemaDetailView(HomeAssistantView):
         if not schemas_path.exists():
             return self.json({"ok": False, "error": "schema_not_found"}, status_code=404)
         data = json.loads(schemas_path.read_text("utf-8"))
+        data = _merge_common_extras(data)
         return self.json({"ok": True, "schema": data})
 
 

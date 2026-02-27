@@ -49,6 +49,8 @@ export type ProjectModel = {
     gridSize?: number;
     showGrid?: boolean;
   };
+  /** LVGL display background color (disp_bg_color). Hex string e.g. "#1a1a2e". Injected under lvgl: when set. */
+  disp_bg_color?: string;
 };
 
 export type ApiOk<T> = T & { ok: true };

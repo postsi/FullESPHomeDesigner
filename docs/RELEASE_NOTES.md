@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.94
+
+- **LVGL properties**: Added missing ESPHome LVGL properties via shared `common_extras.json` merged into all widget schemas. New props: `click_focusable`, `scroll_elastic`, `scroll_momentum`, `scroll_one`, `scroll_chain_hor`/`scroll_chain_ver`, `scroll_on_focus`, `scroll_with_arrow`, `snappable`, `press_lock`, `event_bubble`, `gesture_bubble`, `adv_hittest`, `ignore_layout`, `floating`, `overflow_visible`. New style: `text_align`, `text_decor`, `text_letter_space`, `text_line_space`, `text_opa`, `bg_opa`, `border_opa`/`border_post`/`border_side`, `shadow_ofs_x`/`shadow_ofs_y`, `shadow_opa`/`shadow_spread`, `pad_all`, `clip_corner`, `opa`, outline and size-limit/transform options. Label: `recolor`, `long_mode`.
+- **Panel UX**: New properties are grouped (Scroll Flags, Advanced Flags, Text Style, Background, Border, Shadow, Outline, Padding, Size Limits, Transform) with expand/collapse; advanced groups default to collapsed. Inspector supports `defaultCollapsed` on schema groups.
+- **Canvas**: Text layout now uses `text_align` (LEFT, CENTER, RIGHT, AUTO) from style for horizontal alignment instead of widget `align`; `align` remains for widget position. Canvas respects `pad_all`, `shadow_ofs_x`/`shadow_ofs_y`, `shadow_opa`, and `style.opa`/`props.opacity` for drawing.
+
 ## v0.70.93
 
 - **Fix (compile)**: LVGL pages injection now replaces the entire line containing `#__LVGL_PAGES__` instead of only the marker, preserving correct YAML indentation. Previously, recipes with indented markers produced `pages:` and `- id:` at the same indent, breaking the LVGL structure and causing device scroll or layout issues.

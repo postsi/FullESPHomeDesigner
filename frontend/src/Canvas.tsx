@@ -21,6 +21,8 @@ type Props = {
   height: number;
   gridSize: number;
   showGrid: boolean;
+  /** LVGL disp_bg_color for preview (hex e.g. #1a1a2e). */
+  dispBgColor?: string;
   liveOverrides?: Record<string, { text?: string; value?: number; checked?: boolean }>;
   onSelect: (id: string, additive: boolean) => void;
   onSelectNone: () => void;
@@ -42,7 +44,9 @@ function toFillColor(val: any, fallback: string): string {
   return fallback;
 }
 
-/** LVGL align (TOP_LEFT, CENTER, etc.) + padding -> Konva Text position and align. Use so canvas matches device. */
+/** LVGL text_align (LEFT, CENTER, RIGHT, AUTO) + padding -> Konva Text position and align.
+ * text_align controls text alignment within the widget; use it when set, else fall back to
+ * align (widget position) for backward compatibility. */
 function textLayoutFromWidget(
   ax: number,
   ay: number,
@@ -51,27 +55,35 @@ function textLayoutFromWidget(
   props: Record<string, unknown> = {},
   style: Record<string, unknown> = {}
 ): { x: number; y: number; width: number; height: number; align: "left" | "center" | "right"; verticalAlign: "top" | "middle" | "bottom" } {
-  const align = String(props.align ?? style.align ?? "TOP_LEFT").toUpperCase();
-  const padLeft = Number(style.pad_left ?? 0);
-  const padRight = Number(style.pad_right ?? 0);
-  const padTop = Number(style.pad_top ?? 0);
-  const padBottom = Number(style.pad_bottom ?? 0);
+  const padLeft = Number(style.pad_all ?? style.pad_left ?? 0);
+  const padRight = Number(style.pad_all ?? style.pad_right ?? 0);
+  const padTop = Number(style.pad_all ?? style.pad_top ?? 0);
+  const padBottom = Number(style.pad_all ?? style.pad_bottom ?? 0);
   const contentW = Math.max(0, width - padLeft - padRight);
   const contentH = Math.max(0, height - padTop - padBottom);
   const left = ax + padLeft;
   const top = ay + padTop;
-  const horizontal: "left" | "center" | "right" =
-    align === "TOP_LEFT" || align === "LEFT_MID" || align === "BOTTOM_LEFT"
-      ? "left"
-      : align === "TOP_RIGHT" || align === "RIGHT_MID" || align === "BOTTOM_RIGHT"
-        ? "right"
-        : "center";
+
+  // text_align (style) = text alignment within widget (LEFT, CENTER, RIGHT, AUTO)
+  const textAlign = String(style.text_align ?? "LEFT").toUpperCase();
+  let horizontal: "left" | "center" | "right";
+  if (textAlign === "LEFT" || textAlign === "AUTO") {
+    horizontal = "left";
+  } else if (textAlign === "RIGHT") {
+    horizontal = "right";
+  } else {
+    horizontal = "center";
+  }
+
+  // vertical: LVGL text_align doesn't define vertical; use align as hint or default middle
+  const align = String(props.align ?? style.align ?? "TOP_LEFT").toUpperCase();
   const vertical: "top" | "middle" | "bottom" =
     align === "TOP_LEFT" || align === "TOP_MID" || align === "TOP_RIGHT"
       ? "top"
       : align === "BOTTOM_LEFT" || align === "BOTTOM_MID" || align === "BOTTOM_RIGHT"
         ? "bottom"
         : "middle";
+
   return {
     x: left,
     y: top,
@@ -134,6 +146,7 @@ export default function Canvas({
   height,
   gridSize,
   showGrid,
+  dispBgColor,
   liveOverrides = {},
   onSelect,
   onSelectNone,
@@ -176,19 +189,50 @@ const stageRef = useRef<any>(null);
     return m;
   }, [widgets]);
 
-  const absPos = (w: Widget): { ax: number; ay: number } => {
-    // parent-relative coordinates: child stores x/y relative to parent
-    let ax = w.x;
-    let ay = w.y;
-    let p = w.parent_id ? widgetById.get(w.parent_id) : undefined;
-    // guard against loops
-    let guard = 0;
-    while (p && guard++ < 10) {
-      ax += p.x;
-      ay += p.y;
-      p = p.parent_id ? widgetById.get(p.parent_id) : undefined;
+  // Parent position (top-left in canvas coords) and parent content size for align math.
+  const parentInfo = (w: Widget): { ax: number; ay: number; pw: number; ph: number } => {
+    if (!w.parent_id) {
+      return { ax: 0, ay: 0, pw: width, ph: height };
     }
-    return { ax, ay };
+    const p = widgetById.get(w.parent_id);
+    if (!p) return { ax: 0, ay: 0, pw: width, ph: height };
+    const grand = parentInfo(p);
+    const align = String((p.props || {}).align ?? "TOP_LEFT").toUpperCase();
+    const px = p.x, py = p.y, pw = p.w || 100, ph = p.h || 50;
+    if (align === "TOP_LEFT" || !align) {
+      return { ax: grand.ax + px, ay: grand.ay + py, pw, ph };
+    }
+    const pw2 = grand.pw / 2, ph2 = grand.ph / 2;
+    let pax = grand.ax, pay = grand.ay;
+    if (align === "CENTER") { pax = grand.ax + grand.pw / 2 - pw / 2; pay = grand.ay + grand.ph / 2 - ph / 2; }
+    else if (align === "TOP_MID") { pax = grand.ax + grand.pw / 2 - pw / 2; }
+    else if (align === "TOP_RIGHT") { pax = grand.ax + grand.pw - pw; }
+    else if (align === "LEFT_MID") { pay = grand.ay + grand.ph / 2 - ph / 2; }
+    else if (align === "RIGHT_MID") { pax = grand.ax + grand.pw - pw; pay = grand.ay + grand.ph / 2 - ph / 2; }
+    else if (align === "BOTTOM_LEFT") { pay = grand.ay + grand.ph - ph; }
+    else if (align === "BOTTOM_MID") { pax = grand.ax + grand.pw / 2 - pw / 2; pay = grand.ay + grand.ph - ph; }
+    else if (align === "BOTTOM_RIGHT") { pax = grand.ax + grand.pw - pw; pay = grand.ay + grand.ph - ph; }
+    return { ax: pax, ay: pay, pw, ph };
+  };
+
+  // Visual top-left (ax, ay) so canvas matches device. We store x,y as top-left; backend converts on emit.
+  const absPos = (w: Widget): { ax: number; ay: number } => {
+    const { ax: pax, ay: pay, pw, ph } = parentInfo(w);
+    const align = String((w.props || {}).align ?? "TOP_LEFT").toUpperCase();
+    const x = w.x, y = w.y, ww = w.w || 100, hh = w.h || 50;
+    if (align === "TOP_LEFT" || !align) return { ax: pax + x, ay: pay + y };
+    const pw2 = pw / 2, ph2 = ph / 2;
+    let ox = 0, oy = 0;
+    if (align === "CENTER") { ox = x + ww / 2 - pw2; oy = y + hh / 2 - ph2; }
+    else if (align === "TOP_MID") { ox = x + ww / 2 - pw2; }
+    else if (align === "TOP_RIGHT") { ox = x + ww - pw; }
+    else if (align === "LEFT_MID") { oy = y + hh / 2 - ph2; }
+    else if (align === "RIGHT_MID") { ox = x + ww - pw; oy = y + hh / 2 - ph2; }
+    else if (align === "BOTTOM_LEFT") { oy = y + hh - ph; }
+    else if (align === "BOTTOM_MID") { ox = x + ww / 2 - pw2; oy = y + hh - ph; }
+    else if (align === "BOTTOM_RIGHT") { ox = x + ww - pw; oy = y + hh - ph; }
+    const centerX = pax + pw2 + ox, centerY = pay + ph2 + oy;
+    return { ax: centerX - ww / 2, ay: centerY - hh / 2 };
   };
 
   const renderWidget = (w: Widget, isSel: boolean) => {
@@ -200,17 +244,23 @@ const stageRef = useRef<any>(null);
     const s = w.style || {};
     const title = (override?.text !== undefined ? override.text : (p.text ?? p.label ?? p.name ?? w.type)) as string;
 
-    // Style helpers (schema-driven properties land in `style`, but many widgets also keep
-    // some legacy/compat props in `props`). We treat style as authoritative when present.
-    // Use toFillColor so numeric 0xrrggbb from templates render legibly.
+    // Style helpers (schema-driven properties land in `style`). Support LVGL extras:
+    // opacity (opa), shadow_ofs_x/y, shadow_width/color/opa/spread, clip_corner, border_side.
     const bg = toFillColor(s.bg_color ?? s.background_color ?? p.bg_color, "#111827");
     const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
-    const opacity = Number(s.opacity ?? 1);
+    const opacityRaw = s.opa ?? p.opacity ?? 100;
+    const opacity = typeof opacityRaw === "number" ? opacityRaw / 100 : 1;
     const radius = Math.min(12, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 8)));
+    const shadowW = Number(s.shadow_width ?? 0);
+    const shadowOfsX = Number(s.shadow_ofs_x ?? 0);
+    const shadowOfsY = Number(s.shadow_ofs_y ?? 0);
+    const shadowCol = toFillColor(s.shadow_color, "#000000");
+    const shadowOpa = Number(s.shadow_opa ?? 100) / 100;
     const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
     const fontSize = Math.max(10, Math.min(28, Number(s.font_size ?? p.font_size ?? 16)));
 
+    const hasShadow = shadowW > 0 || shadowOfsX !== 0 || shadowOfsY !== 0;
     // Base background
     const base = (
       <Rect
@@ -224,6 +274,12 @@ const stageRef = useRef<any>(null);
         strokeWidth={borderWidth}
         cornerRadius={radius}
         opacity={opacity}
+        {...(hasShadow && {
+          shadowColor: shadowCol,
+          shadowBlur: shadowW || 4,
+          shadowOffset: { x: shadowOfsX, y: shadowOfsY },
+          shadowOpacity: shadowOpa,
+        })}
         draggable
         onClick={(e) => onSelect(w.id, !!e.evt.shiftKey)}
         onTap={(e) => onSelect(w.id, !!(e.evt as any).shiftKey)}
@@ -979,7 +1035,7 @@ const stageRef = useRef<any>(null);
       width={width}
       height={height}
       ref={stageRef}
-      style={{ background: "#0b0f14", borderRadius: 12, overflow: "hidden" }}
+      style={{ background: /^#[0-9a-fA-F]{6}$/.test(dispBgColor || "") ? dispBgColor : "#0b0f14", borderRadius: 12, overflow: "hidden" }}
       onMouseDown={(e) => {
         // click on empty space clears selection
         const clickedOnEmpty = e.target === e.target.getStage();

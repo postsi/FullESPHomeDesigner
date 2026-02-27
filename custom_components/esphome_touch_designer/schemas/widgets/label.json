@@ -13,7 +13,9 @@
       "opacity": "opacity",
       "group": "group",
       "text": "text",
-      "font": "text_font"
+      "font": "text_font",
+      "recolor": "recolor",
+      "long_mode": "long_mode"
     },
     "style": {
       "bg_color": "bg_color",
@@ -110,6 +112,18 @@
       "title": "Font id / asset",
       "default": "",
       "description": "Set to an ESPHome font id (e.g. roboto_16) or an asset font descriptor like asset:MyFont.ttf:24"
+    },
+    "recolor": {
+      "type": "boolean",
+      "title": "Recolor",
+      "default": false,
+      "description": "Parse #RRGGBB color codes in text"
+    },
+    "long_mode": {
+      "type": "enum",
+      "title": "Long mode",
+      "values": ["WRAP", "DOT", "SCROLL", "SCROLL_CIRCULAR", "CLIP"],
+      "default": "WRAP"
     }
   },
   "style": {
@@ -170,7 +184,9 @@
       "section": "props",
       "keys": [
         "text",
-        "font"
+        "font",
+        "recolor",
+        "long_mode"
       ]
     },
     "Common": {
