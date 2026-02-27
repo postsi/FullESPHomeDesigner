@@ -1983,7 +1983,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           style: { bg_color: bgDark, radius: 10 },
         },
         { id: lblTitle, type: "label", x: x + pad, y: y + 8, w: 100, h: 22, props: { text: label }, style: { text_color: textGray } },
-        { id: lblSetpointTop, type: "label", x: x + cardW - pad - 50, y: y + 8, w: 50, h: 22, props: { text: "—°" }, style: { text_color: accentColor } },
+        { id: lblSetpointTop, type: "label", x: x + cardW - pad - 50, y: y + 8, w: 50, h: 22, props: { text: "-°" }, style: { text_color: accentColor } },
         {
           id: arcSet,
           type: "arc",
@@ -2036,7 +2036,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           style: { bg_color: trackColor, radius: 6 },
           events: entity_id ? { on_click: `then:\n  - script.execute: ${scriptIdDec}` } : {},
         },
-        { id: lblSet, type: "label", x: x + (cardW - 150) / 2 + btnSize, y: bottomRowY + 8, w: 150 - 2 * btnSize, h: 22, props: { text: "Set —" }, style: { text_color: textMuted } },
+        { id: lblSet, type: "label", x: x + (cardW - 150) / 2 + btnSize, y: bottomRowY + 8, w: 150 - 2 * btnSize, h: 22, props: { text: "Set -" }, style: { text_color: textMuted } },
         {
           id: btnPlus,
           type: "button",

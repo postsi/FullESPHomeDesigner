@@ -176,6 +176,8 @@ export default function App() {
   const [newDeviceWizardSlug, setNewDeviceWizardSlug] = useState("");
   const [newDeviceWizardApiKey, setNewDeviceWizardApiKey] = useState("");
 
+  const [editDeviceRecipeId, setEditDeviceRecipeId] = useState<string>("");
+
   const [selectedDevice, setSelectedDevice] = useState<string>("");
   const projectHist = useHistory<ProjectModel | null>(null);
   const project = projectHist.present;
@@ -969,11 +971,12 @@ if (baseId.startsWith("glance_card")) {
         name: newDeviceName.trim(),
         slug: newDeviceSlug.trim() || undefined,
         api_key: newDeviceApiKey.trim() || undefined,
+        hardware_recipe_id: editDeviceRecipeId.trim() || undefined,
       });
       if (!res.ok) return setToast({ type: "error", msg: res.error });
       setToast({ type: "ok", msg: "Device updated" });
       setEditDeviceModalOpen(false);
-      setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug(""); setNewDeviceApiKey("");
+      setNewDeviceId(""); setNewDeviceName(""); setNewDeviceSlug(""); setNewDeviceApiKey(""); setEditDeviceRecipeId("");
       await refresh();
     } finally { setBusy(false); }
   }
@@ -1017,6 +1020,7 @@ if (baseId.startsWith("glance_card")) {
     setNewDeviceName(selectedDeviceObj.name || "");
     setNewDeviceSlug(selectedDeviceObj.slug || selectedDeviceObj.device_id || "");
     setNewDeviceApiKey(selectedDeviceObj.api_key ?? "");
+    setEditDeviceRecipeId(selectedDeviceObj.hardware_recipe_id ?? "");
     setEditDeviceModalOpen(true);
   }
 
@@ -1720,6 +1724,7 @@ function deleteSelected() {
       const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected, entryId);
       if (!res?.ok) throw new Error(res?.error || "export_failed");
       setExportResult(res);
+      setToast({ type: "ok", msg: "Exported to /config/esphome/" });
       // Refresh preview so hashes/diff reflect latest write.
       await previewExport();
     } catch (e: any) {
@@ -2391,6 +2396,18 @@ function deleteSelected() {
               onChange={(e) => setNewDeviceSlug(e.target.value)}
               placeholder="Used for .yaml export"
             />
+            <label className="label">Hardware recipe</label>
+            <select
+              value={editDeviceRecipeId}
+              onChange={(e) => setEditDeviceRecipeId(e.target.value)}
+              title="Hardware profile (resolution, display, touch)"
+              style={{ width: "100%", padding: "8px 10px" }}
+            >
+              <option value="">(none)</option>
+              {recipes.map((r) => (
+                <option key={r.id} value={r.id}>{r.label || r.id}</option>
+              ))}
+            </select>
             <label className="label">API key</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
@@ -2513,7 +2530,7 @@ function deleteSelected() {
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 900, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div className="modalHeader">
               <div className="title">Compile</div>
-              <button className="ghost" onClick={() => setCompileModalOpen(false)}>✕</button>
+              <button className="ghost" onClick={() => setCompileModalOpen(false)}>Close</button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", paddingRight: 8 }}>
               {!selectedDevice || !project ? (
@@ -2521,90 +2538,25 @@ function deleteSelected() {
               ) : (
                 <>
                   <div className="section">
-                    <div className="sectionTitle">Hardware (recipe)</div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <select
-                        value={selectedRecipeId || ""}
-                        onChange={async (e) => {
-                          if (!selectedDeviceObj) return;
-                          const rid = e.target.value || null;
-                          setBusy(true);
-                          try {
-                            const res = await upsertDevice(entryId, { device_id: selectedDeviceObj.device_id, name: selectedDeviceObj.name, slug: selectedDeviceObj.slug, hardware_recipe_id: rid });
-                            if (!res.ok) throw new Error(res.error);
-                            await refresh();
-                            setToast({ type: "ok", msg: rid ? `Recipe set: ${rid}` : "Recipe cleared" });
-                          } catch (err: any) {
-                            setToast({ type: "error", msg: String(err?.message || err) });
-                          } finally { setBusy(false); }
-                        }}
-                        title="Hardware recipe"
-                      >
-                        <option value="">(none)</option>
-                        {recipes.map((r) => (
-                          <option key={r.id} value={r.id}>{r.label || r.id}</option>
-                        ))}
-                      </select>
-                      {recipeValidateRes?.ok && <span className="toast ok" style={{ padding: "6px 10px" }}>valid</span>}
-                      {recipeValidateRes && !recipeValidateRes.ok && <span className="toast error" style={{ padding: "6px 10px" }}>needs attention</span>}
-                    </div>
-                  </div>
-                  <div className="section">
-                    <div className="sectionTitle">Compiled YAML</div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                      <label className="muted" style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        <input type="checkbox" checked={autoCompile} onChange={(e) => setAutoCompile(e.target.checked)} /> auto
-                      </label>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                       <button className="secondary" disabled={compileBusy || !project} onClick={refreshCompile}>{compileBusy ? "Compiling…" : "Refresh"}</button>
-                      <button className="secondary" disabled={!compiledYaml} onClick={() => navigator.clipboard.writeText(compiledYaml)}>Copy</button>
+                      <button className="secondary" disabled={!compiledYaml} onClick={() => { if (compiledYaml) navigator.clipboard.writeText(compiledYaml); setToast({ type: "ok", msg: "Copied to clipboard" }); }}>Copy</button>
                       <button
-                        className="secondary"
-                        disabled={validateYamlBusy || !compiledYaml}
+                        disabled={exportBusy || !entryId || !selectedDevice}
                         onClick={async () => {
-                          if (!compiledYaml) return;
-                          setValidateYamlBusy(true);
-                          setValidateYamlResult(null);
-                          try {
-                            const res = await validateYaml(compiledYaml);
-                            setValidateYamlResult(res);
-                            if (res.ok) setToast({ type: "ok", msg: "ESPHome config valid" });
-                          } catch (e) {
-                            setValidateYamlResult({ ok: false, stderr: String(e?.message || e) });
-                          } finally {
-                            setValidateYamlBusy(false);
-                          }
+                          if (!entryId || !selectedDevice) return;
+                          if (!exportPreview && !exportPreviewErr) await previewExport();
+                          await doExport();
                         }}
-                        title="Run esphome compile to validate config (requires ESPHome CLI on the server)"
                       >
-                        {validateYamlBusy ? "Validating…" : "Validate with ESPHome"}
+                        {exportBusy ? "Exporting…" : "Export to /config/esphome/"}
                       </button>
-                      <button className="secondary" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }}>Import recipe…</button>
-                      <button className="secondary" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }}>Manage recipes…</button>
                     </div>
-                    {validateYamlResult && (
-                      <div style={{ marginBottom: 8 }}>
-                        {validateYamlResult.ok ? (
-                          <div className="toast ok" style={{ padding: "8px 12px" }}>Config valid — esphome compile succeeded.</div>
-                        ) : (
-                          <div style={{ background: "rgba(220,38,38,0.1)", border: "1px solid var(--border)", borderRadius: 8, padding: 12 }}>
-                            <div className="muted" style={{ marginBottom: 4 }}>Validation failed {validateYamlResult.error ? `(${validateYamlResult.error})` : ""}</div>
-                            <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, margin: 0 }}>{(validateYamlResult.stderr || validateYamlResult.stdout || "No output").trim()}</pre>
-                          </div>
-                        )}
-                      </div>
-                    )}
                     {compileErr && <div className="toast error" style={{ marginBottom: 8 }}>Compile error: {compileErr}</div>}
-                    <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 300, overflowY: "auto" }}>
+                    {exportErr && <div className="toast error" style={{ marginBottom: 8 }}>Export error: {exportErr}</div>}
+                    <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 400, overflowY: "auto" }}>
                       {compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}
                     </pre>
-                  </div>
-                  <div className="section">
-                    <div className="sectionTitle">Deployment</div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <button className="secondary" disabled={exportBusy || !entryId || !selectedDevice} onClick={previewExport}>Preview export</button>
-                      <button disabled={exportBusy || !entryId || !exportPreview || exportPreview?.error || exportPreview?.externally_modified} onClick={doExport}>Export to /config/esphome/</button>
-                      <button className="secondary" onClick={() => window.open("/esphome", "_blank")}>Open ESPHome Dashboard</button>
-                    </div>
                   </div>
                 </>
               )}
@@ -2637,6 +2589,8 @@ function deleteSelected() {
         <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
+        <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
+        <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
       </nav>
 
       <main

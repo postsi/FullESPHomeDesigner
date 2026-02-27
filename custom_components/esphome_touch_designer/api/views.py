@@ -83,16 +83,22 @@ def _compile_lvgl_pages(project: dict) -> str:
             continue
         wtype = w.get("type")
         props = w.get("props") or {}
+        # Normalize Unicode minus (U+2212) / em dash (U+2014) to ASCII hyphen so device fonts render it
+        def _safe_text(s: str) -> str:
+            if not s:
+                return s
+            return str(s).replace("\u2212", "-").replace("\u2014", "-")
+
         if wtype == "label":
-            txt = props.get("text", "Label")
+            txt = _safe_text(props.get("text", "Label") or "Label")
             out.append("        - label:\n")
             out.append(common(w))
-            out.append(f"        text: {json.dumps(str(txt))}\n")
+            out.append(f"        text: {json.dumps(txt)}\n")
         elif wtype == "button":
-            txt = props.get("text", "Button")
+            txt = _safe_text(props.get("text", "Button") or "Button")
             out.append("        - button:\n")
             out.append(common(w))
-            out.append(f"        text: {json.dumps(str(txt))}\n")
+            out.append(f"        text: {json.dumps(txt)}\n")
         elif wtype == "arc":
             out.append("        - arc:\n")
             out.append(common(w))

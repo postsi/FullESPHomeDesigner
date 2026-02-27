@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.98
+
+- **Compile screen**: Simplified to Refresh, Copy, Export to /config/esphome/, and Close. Recipe management (Hardware dropdown, Import recipe, Manage recipes, Validate, Preview export, Open ESPHome Dashboard) removed from the compile modal. Hardware recipe is set in **Edit device**; Import recipe and Manage recipes are in the main nav.
+- **Fix (device display)**: Compiler normalizes Unicode minus (U+2212) and em dash (U+2014) to ASCII hyphen in label and button text so existing projects and templates render correctly on device fonts. Thermostat template placeholders updated (Set — → Set -, —° → -°).
+
 ## v0.70.97
 
 - **Fix (HA bindings)**: Display links that target **dropdown** widgets (e.g. thermostat HVAC mode, preset mode) now emit `lvgl.dropdown.update` with `selected_index` instead of `lvgl.label.update`, fixing "ID of type LvDropdownType doesn't inherit from lv_label_t". The compiler maps the incoming text value to the dropdown option index via a generated lambda.
