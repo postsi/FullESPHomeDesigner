@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.102
+
+- **Binding Builder**: Entity list now appears when typing in the **Action** binding entity box (same type-to-search dropdown as Display bindings). **Delete** button added next to Edit YAML for each display link and action binding so individual bindings can be removed.
+- **Layout**: Properties, HA Bindings, and Binding Builder panels are scrollable with a fixed layout height so the canvas stays in view when the right panel has many items.
+- **Compile dialog**: Copy button uses async clipboard API and shows a clear error toast if copy fails (e.g. permissions).
+- **Export**: When writing to `/config/esphome/<slug>.yaml`, any existing designer-generated block (e.g. from a previous export without markers) is removed first via `_export_merge_yaml()` so the file is not duplicated; preview and export share the same merge logic.
+- **Fix (compile)**: Compiler no longer emits `font_size` for LVGL widgets; ESPHome expects `font:` (id), not `font_size`, so "[font_size] is an invalid option for [label]" is resolved. Designer still uses `font_size` for canvas preview only.
+
 ## v0.70.101
 
 - **Widget events**: Full event set for remaining widgets. **Tabview** and **tileview**: Events group with `on_value` (tab/tile changed). **Keyboard**: `on_key` in esphome.events, events section, and Events group. **Spinner**: `on_click` in esphome.events, events section, and Events group. **Textarea**: `on_focus` and `on_defocus` added alongside `on_ready` (esphome.events, events section, Events group). WIDGET_SCHEMA_AUDIT.md updated with full event set summary.

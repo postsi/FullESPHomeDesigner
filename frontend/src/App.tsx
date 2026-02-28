@@ -256,6 +256,7 @@ export default function App() {
   const [actionEvent, setActionEvent] = useState<string>("on_click");
   const [actionService, setActionService] = useState<string>("");
   const [actionEntity, setActionEntity] = useState<string>("");
+  const [actionEntityDropdownOpen, setActionEntityDropdownOpen] = useState(false);
   const [editingLinkOverride, setEditingLinkOverride] = useState<{ widgetId: string; entityId: string; attribute: string; action: string } | null>(null);
   const [editingActionOverride, setEditingActionOverride] = useState<{ widgetId: string; event: string } | null>(null);
   const [editingOverrideYaml, setEditingOverrideYaml] = useState<string>("");
@@ -2713,7 +2714,15 @@ function deleteSelected() {
                   <div className="section">
                     <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                       <button className="secondary" disabled={compileBusy || !project} onClick={refreshCompile}>{compileBusy ? "Compiling…" : "Refresh"}</button>
-                      <button className="secondary" disabled={!compiledYaml} onClick={() => { if (compiledYaml) navigator.clipboard.writeText(compiledYaml); setToast({ type: "ok", msg: "Copied to clipboard" }); }}>Copy</button>
+                      <button className="secondary" disabled={!compiledYaml} onClick={async () => {
+                          if (!compiledYaml) return;
+                          try {
+                            await navigator.clipboard.writeText(compiledYaml);
+                            setToast({ type: "ok", msg: "Copied to clipboard" });
+                          } catch {
+                            setToast({ type: "error", msg: "Copy failed (check permissions)" });
+                          }
+                        }}>Copy</button>
                       <button
                         disabled={exportBusy || !entryId || !selectedDevice}
                         onClick={async () => {
@@ -3385,6 +3394,7 @@ function deleteSelected() {
                                   {hasOverride && <span title="Custom YAML">✎ </span>}
                                   <code>{ent}{attr ? ` [${attr}]` : ""}</code>{action ? ` → ${action}` : ""}
                                   <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingLinkOverride({ widgetId, entityId: ent, attribute: attr, action }); setEditingActionOverride(null); setEditingOverrideYaml(tgt?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
+                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const links = (p2 as any).links || []; const idx = links.findIndex((l: any) => l?.target?.widget_id === widgetId && l?.source?.entity_id === ent && String(l?.source?.attribute || "") === attr && l?.target?.action === action); if (idx >= 0) { links.splice(idx, 1); (p2 as any).links = links; setProject(p2, true); setProjectDirty(true); setEditingLinkOverride(null); setEditingActionOverride(null); } }} title="Delete this binding">Delete</button>
                                 </li>
                               );
                             })}
@@ -3398,6 +3408,7 @@ function deleteSelected() {
                                   {hasOverride && <span title="Custom YAML">✎ </span>}
                                   <span className="muted">{ab?.event}</span> → <code>{call?.domain}.{call?.service}</code>
                                   <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingActionOverride({ widgetId, event: ev }); setEditingLinkOverride(null); setEditingOverrideYaml(ab?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
+                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const abs = (p2 as any).action_bindings || []; const aIdx = abs.findIndex((a: any) => a?.widget_id === widgetId && a?.event === ev); if (aIdx >= 0) { abs.splice(aIdx, 1); (p2 as any).action_bindings = abs; setProject(p2, true); setProjectDirty(true); setEditingActionOverride(null); } }} title="Delete this binding">Delete</button>
                                 </li>
                               );
                             })}
@@ -3533,15 +3544,34 @@ function deleteSelected() {
                                   ))}
                                 </select>
                               </div>
-                              <div>
+                              <div style={{ position: "relative" }}>
                                 <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Entity</div>
-                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>HA entity to call the service on.</div>
+                                <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Type to search; pick from list.</div>
                                 <input
                                   placeholder="e.g. switch.living_room"
                                   value={actionEntity}
-                                  onChange={(e) => setActionEntity(e.target.value)}
+                                  onChange={(e) => { setActionEntity(e.target.value); setActionEntityDropdownOpen(true); }}
+                                  onFocus={() => setActionEntityDropdownOpen(true)}
+                                  onBlur={() => setTimeout(() => setActionEntityDropdownOpen(false), 180)}
                                   style={{ width: "100%", boxSizing: "border-box" }}
                                 />
+                                {actionEntityDropdownOpen && (
+                                  <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid var(--divider-color)", borderRadius: 4, marginTop: 2, background: "var(--panel-bg, #1e293b)" }}>
+                                    {entities
+                                      .filter((e) => !e?.entity_id ? false : !actionEntity.trim() ? true : (String(e.entity_id).toLowerCase().includes(actionEntity.trim().toLowerCase()) || String(e?.friendly_name || "").toLowerCase().includes(actionEntity.trim().toLowerCase())))
+                                      .slice(0, 200)
+                                      .map((e) => (
+                                        <div
+                                          key={e.entity_id}
+                                          onClick={() => { setActionEntity(e.entity_id); setActionEntityDropdownOpen(false); }}
+                                          style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)" }}
+                                        >
+                                          {e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}
+                                        </div>
+                                      ))}
+                                    {entities.filter((e) => !e?.entity_id ? false : !actionEntity.trim() ? true : (String(e.entity_id).toLowerCase().includes(actionEntity.trim().toLowerCase()) || String(e?.friendly_name || "").toLowerCase().includes(actionEntity.trim().toLowerCase()))).length === 0 && <div className="muted" style={{ padding: 8, fontSize: 12 }}>No matching entities.</div>}
+                                  </div>
+                                )}
                                 {linksForWidget.length > 0 && (
                                   <button type="button" className="secondary" style={{ marginTop: 4, fontSize: 11 }} onClick={() => setActionEntity(linksForWidget[0]?.source?.entity_id || "")}>Use same as display binding</button>
                                 )}
