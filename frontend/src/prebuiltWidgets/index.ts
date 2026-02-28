@@ -79,7 +79,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const raw = [
         { id: bodyId, type: "container", x: 0, y: 4, w: bodyW, h: bodyH, props: {}, style: { bg_color: bgTrack, radius: 4 } },
         { id: tipId, type: "container", x: bodyW, y: 8, w: tipW, h: tipH, props: {}, style: { bg_color: bgTrack, radius: 2 } },
-        { id: fillId, type: "bar", x: fillPad, y: 8, w: bodyW - fillPad * 2, h: bodyH - 8, props: { min: 0, max: 100, value: 75 }, style: { bg_color: bgDark, radius: 3 } },
+        { id: fillId, type: "bar", x: fillPad, y: 8, w: bodyW - fillPad * 2, h: bodyH - 8, props: { min_value: 0, max_value: 100, value: 75 }, style: { bg_color: bgDark, radius: 3 } },
         { id: lblId, type: "label", x: bodyW + tipW + 6, y: 2, w: 28, h: 24, props: { text: "75%" }, style: { text_color: textMuted } },
       ];
       const out = wrapInGroup(x, y, raw);
@@ -107,7 +107,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
           y: 26 - barH[i],
           w: barW,
           h: barH[i],
-          props: { min: 0, max: 100, value: 100 },
+          props: { min_value: 0, max_value: 100, value: 100 },
           style: { bg_color: bgDark, radius: 2 },
         });
       }
@@ -164,18 +164,6 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     },
   },
   {
-    id: "prebuilt_color_picker",
-    title: "Colour picker",
-    description: "2D hue/saturation picker for lights with HS support.",
-    build: ({ x, y }) => {
-      const raw = [
-        { id: uid("colorwheel"), type: "colorwheel", x: 0, y: 0, w: 120, h: 120, props: { mode: "hsv" }, style: { bg_color: bgDark, radius: 8 } },
-        { id: uid("color_preview"), type: "label", x: 0, y: 124, w: 120, h: 20, props: { text: "HS" }, style: { text_color: textMuted } },
-      ];
-      return { widgets: wrapInGroup(x, y, raw) };
-    },
-  },
-  {
     id: "prebuilt_color_temp",
     title: "White to warm",
     description: "Colour temperature slider (cool white ← → warm white). Bind to light color_temp or mireds.",
@@ -185,7 +173,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     build: ({ x, y }) => {
       const raw = [
         { id: uid("ct_label"), type: "label", x: 0, y: 0, w: 180, h: 18, props: { text: "Cool ←  —  → Warm" }, style: { text_color: textMuted } },
-        { id: uid("ct_slider"), type: "slider", x: 0, y: 20, w: 180, h: 24, props: { min: 153, max: 500, value: 250 }, style: { bg_color: bgTrack, radius: 4 } },
+        { id: uid("ct_slider"), type: "slider", x: 0, y: 20, w: 180, h: 24, props: { min_value: 153, max_value: 500, value: 250 }, style: { bg_color: bgTrack, radius: 4 } },
       ];
       return { widgets: wrapInGroup(x, y, raw) };
     },
@@ -220,7 +208,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     description: "Generic 0–100% bar. Bind value via link.",
     build: ({ x, y }) => {
       const raw = [
-        { id: uid("progress_bar"), type: "bar", x: 0, y: 0, w: 160, h: 24, props: { min: 0, max: 100, value: 50 }, style: { bg_color: bgTrack, radius: 4 } },
+        { id: uid("progress_bar"), type: "bar", x: 0, y: 0, w: 160, h: 24, props: { min_value: 0, max_value: 100, value: 50 }, style: { bg_color: bgTrack, radius: 4 } },
         { id: uid("progress_lbl"), type: "label", x: 164, y: 0, w: 40, h: 24, props: { text: "50%" }, style: { text_color: textMuted } },
       ];
       return { widgets: wrapInGroup(x, y, raw) };
@@ -390,7 +378,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     build: ({ x, y }) => {
       return {
         widgets: [
-          { id: uid("list_menu"), type: "dropdown", x, y, w: 180, h: 40, props: { options: "Option A\\nOption B\\nOption C" }, style: { bg_color: bgTrack, radius: 6 } },
+          { id: uid("list_menu"), type: "dropdown", x, y, w: 180, h: 40, props: { options: ["Option A", "Option B", "Option C"] }, style: { bg_color: bgTrack, radius: 6 } },
         ],
       };
     },

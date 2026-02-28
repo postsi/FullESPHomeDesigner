@@ -14,7 +14,10 @@
       "group": "group",
       "map": "map",
       "control": "control",
-      "width": "width"
+      "width": "width",
+      "one_checked": "one_checked",
+      "pad_row": "pad_row",
+      "pad_column": "pad_column"
     },
     "style": {
       "bg_color": "bg_color",
@@ -117,6 +120,25 @@
       "title": "Column widths",
       "default": "",
       "description": "Space-separated weights, e.g. 1 1 1"
+    },
+    "one_checked": {
+      "type": "boolean",
+      "title": "One checked (radio)",
+      "default": false
+    },
+    "pad_row": {
+      "type": "number",
+      "title": "Pad row (px)",
+      "min": 0,
+      "max": 50,
+      "default": 0
+    },
+    "pad_column": {
+      "type": "number",
+      "title": "Pad column (px)",
+      "min": 0,
+      "max": 50,
+      "default": 0
     }
   },
   "style": {
@@ -176,7 +198,10 @@
       "keys": [
         "map",
         "control",
-        "width"
+        "width",
+        "one_checked",
+        "pad_row",
+        "pad_column"
       ]
     },
     "Style": {

@@ -12,7 +12,8 @@
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
       "group": "group",
-      "tabs": "tabs"
+      "tabs": "tabs",
+      "position": "position"
     },
     "style": {
       "bg_color": "bg_color",
@@ -101,6 +102,12 @@
         "Tab 1",
         "Tab 2"
       ]
+    },
+    "position": {
+      "type": "enum",
+      "title": "Tab bar position",
+      "values": ["TOP", "BOTTOM", "LEFT", "RIGHT"],
+      "default": "TOP"
     }
   },
   "style": {
@@ -158,7 +165,8 @@
     "Props": {
       "section": "props",
       "keys": [
-        "tabs"
+        "tabs",
+        "position"
       ]
     },
     "Style": {

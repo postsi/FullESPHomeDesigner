@@ -11,7 +11,8 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "scales": "scales"
     },
     "style": {
       "bg_color": "bg_color",
@@ -90,7 +91,26 @@
       "type": "string",
       "title": "Input group",
       "default": ""
+    },
+    "scales": {
+      "type": "yaml_block",
+      "title": "Scales (YAML)",
+      "default": "",
+      "description": "Meter scale(s): range_from, range_to, angle_range, rotation, ticks, indicators"
     }
+  },
+  "main": {
+    "bg_color": { "type": "color", "title": "Background", "default": "" },
+    "text_color": { "type": "color", "title": "Text color", "default": "" }
+  },
+  "indicator": {
+    "bg_color": { "type": "color", "title": "Indicator color", "default": "" }
+  },
+  "ticks": {
+    "bg_color": { "type": "color", "title": "Ticks color", "default": "" }
+  },
+  "items": {
+    "bg_color": { "type": "color", "title": "Items color", "default": "" }
   },
   "style": {
     "bg_color": {
@@ -137,6 +157,11 @@
         "opacity",
         "group"
       ]
+    },
+    "Meter": {
+      "section": "props",
+      "keys": ["scales"],
+      "defaultCollapsed": true
     },
     "Style": {
       "section": "style",

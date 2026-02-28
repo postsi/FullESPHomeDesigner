@@ -313,6 +313,10 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [selfCheckResult, setSelfCheckResult] = useState<any>(null);
   const [selfCheckErr, setSelfCheckErr] = useState<string>("");
 
+  // Simulator: live interactive preview
+  const [simulationOpen, setSimulationOpen] = useState<boolean>(false);
+  const [simOverrides, setSimOverrides] = useState<Record<string, { value?: number; checked?: boolean; selected_index?: number; text?: string }>>({});
+
   // v0.64: Hardware recipe importer (Product Mode)
   const [recipeImportOpen, setRecipeImportOpen] = useState<boolean>(false);
   const [recipeImportYaml, setRecipeImportYaml] = useState<string>("");
@@ -2747,6 +2751,49 @@ function deleteSelected() {
         </div>
       )}
 
+      {simulationOpen && selectedDevice && project && (
+        <div className="modalOverlay" onClick={() => setSimulationOpen(false)} style={{ zIndex: 10001 }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "none", width: "auto", maxHeight: "95vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div className="modalHeader">
+              <div className="title">Simulator</div>
+              <button className="ghost" onClick={() => setSimulationOpen(false)}>Close</button>
+            </div>
+            <div style={{ padding: 12, overflow: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <p className="muted" style={{ marginBottom: 8, fontSize: 12 }}>Click and drag widgets to try controls. Buttons and actions show a toast.</p>
+              <div style={{ outline: "2px solid rgba(16, 185, 129, 0.4)", borderRadius: 12 }}>
+                <Canvas
+                  widgets={widgets}
+                  selectedIds={[]}
+                  width={screenSize.width}
+                  height={screenSize.height}
+                  gridSize={(project as any)?.ui?.gridSize || 10}
+                  showGrid={false}
+                  dispBgColor={(project as any)?.disp_bg_color}
+                  liveOverrides={liveOverrides}
+                  simulationMode={true}
+                  simOverrides={simOverrides}
+                  onSimulateUpdate={(widgetId, updates) => setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], ...updates } }))}
+                  onSimulateAction={(widgetId, event) => {
+                    const actionBindings = (project as any)?.action_bindings || [];
+                    const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
+                    const call = ab?.call;
+                    if (call?.domain && call?.service) {
+                      setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
+                    } else {
+                      setToast({ type: "ok", msg: `Action: ${event} (${widgetId})` });
+                    }
+                  }}
+                  onSelect={() => {}}
+                  onSelectNone={() => {}}
+                  onDropCreate={() => {}}
+                  onChangeMany={() => {}}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
         <select
           value={selectedDevice}
@@ -2942,10 +2989,25 @@ function deleteSelected() {
                 fontSize: 14,
                 fontWeight: 600,
                 color: "var(--ha-text-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
               }}>
-                <span style={{ marginRight: 8 }}>Physical screen:</span>
-                <span>{screenSize.width} × {screenSize.height} px</span>
-                <span className="muted" style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>({screenSize.source})</span>
+                <span>
+                  <span style={{ marginRight: 8 }}>Physical screen:</span>
+                  <span>{screenSize.width} × {screenSize.height} px</span>
+                  <span className="muted" style={{ marginLeft: 8, fontSize: 12, fontWeight: 400 }}>({screenSize.source})</span>
+                </span>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => { setSimOverrides({}); setSimulationOpen(true); }}
+                  title="Open live interactive simulator"
+                >
+                  Simulate
+                </button>
               </div>
               <div className="canvasAxis" style={{ alignSelf: "flex-start" }}>
                 <div style={{
@@ -3066,16 +3128,10 @@ function deleteSelected() {
         <aside className="designerPanel designerPanelRight" style={{ minWidth: 260 }}>
           <div className="panelTabs">
             <button type="button" className={`panelTab ${inspectorTab === "properties" ? "active" : ""}`} onClick={() => setInspectorTab("properties")}>Properties</button>
-            <button type="button" className={`panelTab ${inspectorTab === "bindings" ? "active" : ""}`} onClick={() => setInspectorTab("bindings")}>HA Bindings</button>
             <button type="button" className={`panelTab ${inspectorTab === "builder" ? "active" : ""}`} onClick={() => setInspectorTab("builder")}>Binding Builder</button>
+            <button type="button" className={`panelTab ${inspectorTab === "bindings" ? "active" : ""}`} onClick={() => setInspectorTab("bindings")}>HA Bindings</button>
           </div>
           <div className="panelContent">
-            {selectedDevice && project && (
-              <div className="muted" style={{ marginBottom: 12, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 8, fontSize: 13 }}>
-                <strong>Physical Pixels:</strong> {screenSize.width} × {screenSize.height}
-                <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>({screenSize.source})</span>
-              </div>
-            )}
             {project && (
               <div style={{ marginBottom: 12, padding: 10, background: "rgba(255,255,255,.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,.08)" }}>
                 <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 8 }}>Canvas background</div>
@@ -3266,7 +3322,7 @@ function deleteSelected() {
                     if (!byType[type]) byType[type] = { links: [], actions: [] };
                     byType[type].actions.push({ index: idx, ab });
                   });
-                  const typeOrder = ["label", "button", "arc", "slider", "dropdown", "switch", "checkbox", "container", "image_button", "other"];
+                  const typeOrder = ["label", "button", "arc", "slider", "dropdown", "switch", "checkbox", "container", "other"];
                   const sortedTypes = Object.keys(byType).sort((a, b) => {
                     const ia = typeOrder.indexOf(a);
                     const ib = typeOrder.indexOf(b);

@@ -15,7 +15,6 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   dropdown: ["label_text"],
   switch: ["widget_checked", "label_text"],
   checkbox: ["widget_checked", "label_text"],
-  image_button: ["label_text", "widget_checked"],
   led: [],
   image: [],
   bar: ["label_text"],
@@ -36,7 +35,6 @@ export const DISPLAY_ACTION_LABELS: Record<DisplayAction, string> = {
 export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   button: ["on_click"],
   container: ["on_click"],
-  image_button: ["on_click"],
   arc: ["on_release", "on_value"],
   slider: ["on_release", "on_value"],
   dropdown: ["on_value", "on_change"],

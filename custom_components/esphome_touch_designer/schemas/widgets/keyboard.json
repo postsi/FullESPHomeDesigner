@@ -99,6 +99,12 @@
       "type": "string",
       "title": "Textarea ID",
       "default": ""
+    },
+    "mode": {
+      "type": "enum",
+      "title": "Mode",
+      "values": ["TEXT_LOWER", "TEXT_UPPER", "SPECIAL", "NUMBER"],
+      "default": "TEXT_LOWER"
     }
   },
   "style": {
@@ -143,7 +149,8 @@
     "Keyboard": {
       "section": "props",
       "keys": [
-        "textarea_id"
+        "textarea_id",
+        "mode"
       ]
     },
     "Common": {

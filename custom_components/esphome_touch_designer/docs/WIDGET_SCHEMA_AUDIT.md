@@ -190,9 +190,9 @@ ESPHome supports styling **parts** of widgets (main, indicator, knob, cursor, it
 
 ---
 
-## 9. Widgets we have (32)
+## 9. Widgets we have (26, ESPHome-backed only)
 
-animimg, arc, bar, button, buttonmatrix, calendar, canvas, chart, checkbox, colorwheel, container, dropdown, image, image_button, keyboard, label, led, line, list, meter, msgboxes, obj, qrcode, roller, slider, spinbox, spinner, switch, tabview, table, textarea, tileview
+animimg, arc, bar, button, buttonmatrix, canvas, checkbox, container, dropdown, image, keyboard, label, led, line, meter, msgboxes, obj, qrcode, roller, slider, spinbox, spinner, switch, tabview, textarea, tileview
 
 All should be checked against ESPHome LVGL widget-specific schemas in `esphome/components/lvgl/widgets/*.py` for any widget-specific properties we might have missed.
 
@@ -224,8 +224,8 @@ All should be checked against ESPHome LVGL widget-specific schemas in `esphome/c
 - **State-based styling:** Common_extras `state_extras` with `_yaml` (YAML block); backend emits `state:` with raw YAML; "State styles" group in inspector.
 - **Layouts:** Container has `layout` (NONE/FLEX/GRID) in schema and emit; page `layout` and `skip` emitted per page.
 - **SIZE_CONTENT / % width height:** Props `width_override`, `height_override` (e.g. SIZE_CONTENT, 50%); backend uses them in geometry emit; "Size override" group.
-- **Widget schemas (remaining 27):** All widget schemas have full `esphome` (root_key, props, style, events) where needed; switch/checkbox/spinner/buttonmatrix/textarea have widget-specific props and events mapped; chart, image_button, list, table, calendar, colorwheel use `root_key` and full esphome blocks. Canvas uses schema props for list (items, item_height), table (col_cnt, row_cnt, cell_padding), tabview (tabs), buttonmatrix (map), and checkbox label (p.text).
-- **Parts (items/selected):** Roller, dropdown, list have `items` and `selected` style parts (bg_color, text_color); backend emits them; canvas uses them for selected-row and item colors.
+- **Widget schemas (26):** All widget schemas have full `esphome` (root_key, props, style, events) where needed; switch/checkbox/spinner/buttonmatrix/textarea have widget-specific props and events mapped. Canvas uses schema props for tabview (tabs), buttonmatrix (map), and checkbox label (p.text).
+- **Parts (items/selected):** Roller, dropdown have `items` and `selected` style parts (bg_color, text_color); backend emits them; canvas uses them for selected-row and item colors.
 - **Parts (cursor):** Spinbox and textarea have `cursor` part (color, width); backend emits; canvas draws cursor line.
 - **Parts (scrollbar):** common_extras `parts_extras.scrollbar` (bg_color, bg_opa) merged into all widget schemas; backend emits when set; "Scrollbar" group in inspector.
 - **Buttonmatrix:** Props `control` (YAML) and `width` (column weights); canvas uses `width` for column widths.
@@ -236,5 +236,5 @@ All should be checked against ESPHome LVGL widget-specific schemas in `esphome/c
 ### Still to do (schema + canvas + backend)
 
 - **Font reference:** (Hold off per user.) `text_font` options (built-in + custom id) in schema and emit.
-- **Full event set:** Per-widget events added: arc/bar (on_value, on_release), slider (on_value, on_release), image_button/image/label/obj/animimg (on_click, on_release where applicable), tabview/tileview (on_value), keyboard (on_key), spinner (on_click), textarea (on_ready, on_focus, on_defocus). Button has on_click, on_short_click, on_long_press.
+- **Full event set:** Per-widget events added: arc/bar (on_value, on_release), slider (on_value, on_release), image/label/obj/animimg (on_click, on_release where applicable), tabview/tileview (on_value), keyboard (on_key), spinner (on_click), textarea (on_ready, on_focus, on_defocus). Button has on_click, on_short_click, on_long_press.
 - **Animated transitions:** Where applicable (e.g. tabview select animated, page change animation) in schema and emit.

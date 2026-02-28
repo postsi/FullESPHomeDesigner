@@ -215,7 +215,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             y: y + 70,
             w: 320,
             h: 46,
-            props: { min: 0, max: 255 },
+            props: { min_value: 0, max_value: 255 },
             events: {
               // NOTE: in ESPHome LVGL actions, slider callbacks expose value as `x` in lambdas.
               // This is first-pass: we set brightness to slider value (0..255).
@@ -276,7 +276,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             y: y + 125,
             w: 320,
             h: 46,
-            props: { min: 153, max: 500 },
+            props: { min_value: 153, max_value: 500 },
             events: {
               on_value: `then:\n  - homeassistant.action:\n      action: light.turn_on\n      data:\n        entity_id: ${ent}\n        color_temp: !lambda return (int)x;`,
             },
@@ -371,7 +371,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             y: y + 76,
             w: 320,
             h: 46,
-            props: { min: 5, max: 35 },
+            props: { min_value: 5, max_value: 35 },
             events: {
               on_release: `then:
   - homeassistant.action:
@@ -528,7 +528,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: y + 72,
           w: 260,
           h: 40,
-          props: { min: 5, max: 35 },
+          props: { min_value: 5, max_value: 35 },
           events: {
             on_release: `then:\n  - homeassistant.action:\n      action: climate.set_temperature\n      data:\n        entity_id: ${ent}\n        temperature: !lambda return (float)x;`,
           },
@@ -609,7 +609,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             y: y + 32,
             w: 320,
             h: 46,
-            props: { min: 0, max: 100 },
+            props: { min_value: 0, max_value: 100 },
             events: {
               on_release: `then:
   - homeassistant.action:
@@ -739,7 +739,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: y + 32,
           w: 320,
           h: 46,
-          props: { min: 0, max: 100, disabled: !hasPos },
+          props: { min_value: 0, max_value: 100, disabled: !hasPos },
           events: hasPos
             ? {
                 on_release: `then:\n  - homeassistant.action:\n      action: cover.set_cover_position\n      data:\n        entity_id: ${ent}\n        position: !lambda return (int)x;`,
@@ -790,7 +790,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: y + 146,
           w: 320,
           h: 46,
-          props: { min: 0, max: 100, disabled: !hasTilt },
+          props: { min_value: 0, max_value: 100, disabled: !hasTilt },
           events: hasTilt
             ? {
                 on_release: `then:\n  - homeassistant.action:\n      action: cover.set_cover_tilt_position\n      data:\n        entity_id: ${ent}\n        tilt_position: !lambda return (int)x;`,
@@ -869,7 +869,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: y + 98,
           w: 320,
           h: 46,
-          props: { min: 0, max: 100 },
+          props: { min_value: 0, max_value: 100 },
           events: {
             on_release: `then:\n  - homeassistant.action:\n      action: fan.set_percentage\n      data:\n        entity_id: ${ent}\n        percentage: !lambda return (int)x;`,
           },
@@ -1039,7 +1039,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             y: y + 132,
             w: 280,
             h: 46,
-            props: { min: 0, max: 100 },
+            props: { min_value: 0, max_value: 100 },
             events: {
               on_release: `then:
   - homeassistant.action:
@@ -1709,7 +1709,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           : [],
         widgets: [
           { id: uid("lbl_num_title"), type: "label", x, y, w: 260, h: 22, props: { text: label } },
-          { id: sldId, type: "slider", x, y: y + 28, w: 260, h: 38, props: { min: 0, max: 100 } },
+          { id: sldId, type: "slider", x, y: y + 28, w: 260, h: 38, props: { min_value: 0, max_value: 100 } },
           { id: lblId, type: "label", x, y: y + 70, w: 260, h: 22, props: { text: "0" } },
           {
             id: uid("btn_num_set"),
@@ -1774,7 +1774,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           : [],
         widgets: [
           { id: uid("lbl_in_num_title"), type: "label", x, y, w: 260, h: 22, props: { text: label } },
-          { id: sldId, type: "slider", x, y: y + 28, w: 260, h: 38, props: { min: 0, max: 100 } },
+          { id: sldId, type: "slider", x, y: y + 28, w: 260, h: 38, props: { min_value: 0, max_value: 100 } },
           { id: lblId, type: "label", x, y: y + 70, w: 260, h: 22, props: { text: "0" } },
           {
             id: uid("btn_in_num_set"),
@@ -1992,8 +1992,8 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           w: arcSize,
           h: arcSize,
           props: {
-            min: minT,
-            max: maxT,
+            min_value: minT,
+            max_value: maxT,
             value: minT,
             bg_start_angle: 135,
             bg_end_angle: 45,
@@ -2223,14 +2223,14 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
         { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
         { id: btnId, type: "button", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 48, props: { text: label, checkable: true }, style: { bg_color: 0x333333, radius: 6 } },
-        { id: sldId, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 40, props: { min: 0, max: 255 } },
+        { id: sldId, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 40, props: { min_value: 0, max_value: 255 } },
         { id: lblBri, type: "label", x: x + cardW - pad - 48, y: y + 94, w: 48, h: 40, props: { text: "0" }, style: { text_color: 0x888888 } },
       ];
       if (hasColorTemp) {
         cardH = 208;
         widgets[0].h = cardH;
         widgets.push(
-          { id: sldCt, type: "slider", x: x + pad, y: y + 142, w: cardW - 2 * pad - 50, h: 40, props: { min: minMireds, max: maxMireds } },
+          { id: sldCt, type: "slider", x: x + pad, y: y + 142, w: cardW - 2 * pad - 50, h: 40, props: { min_value: minMireds, max_value: maxMireds } },
           { id: lblCt, type: "label", x: x + cardW - pad - 48, y: y + 142, w: 48, h: 40, props: { text: "—" }, style: { text_color: 0x888888 } }
         );
       }
@@ -2326,7 +2326,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       const widgets: any[] = [
         { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
         { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
-        { id: sldPos, type: "slider", x: x + pad, y: y + 40, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+        { id: sldPos, type: "slider", x: x + pad, y: y + 40, w: cardW - 2 * pad - 56, h: 36, props: { min_value: 0, max_value: 100 } },
         { id: lblPos, type: "label", x: x + cardW - pad - 54, y: y + 44, w: 54, h: 28, props: { text: "0%" }, style: { text_color: 0x888888 } },
         { id: btnOpen, type: "button", x: x + pad, y: y + 84, w: 96, h: 44, props: { text: "Open" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnStop, type: "button", x: x + pad + 102, y: y + 84, w: 96, h: 44, props: { text: "Stop" }, style: { bg_color: 0x333333, radius: 6 } },
@@ -2336,7 +2336,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         cardH = 246;
         widgets[0].h = cardH;
         widgets.push(
-          { id: sldTilt, type: "slider", x: x + pad, y: y + 136, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+          { id: sldTilt, type: "slider", x: x + pad, y: y + 136, w: cardW - 2 * pad - 56, h: 36, props: { min_value: 0, max_value: 100 } },
           { id: lblTilt, type: "label", x: x + cardW - pad - 54, y: y + 140, w: 54, h: 28, props: { text: "0%" }, style: { text_color: 0x888888 } }
         );
       }
@@ -2401,7 +2401,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: rootId, type: "container", x, y, w: cardW, h: cardH, props: {}, style: { bg_color: 0x1e1e1e, radius: 10 } },
         { id: lblTitle, type: "label", x: x + pad, y: y + 10, w: cardW - 2 * pad, h: 22, props: { text: label }, style: { text_color: 0xaaaaaa } },
         { id: btnId, type: "button", x: x + pad, y: y + 38, w: cardW - 2 * pad, h: 48, props: { text: "Toggle", checkable: true }, style: { bg_color: 0x333333, radius: 6 } },
-        { id: sldPct, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 36, props: { min: 0, max: 100 } },
+        { id: sldPct, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 36, props: { min_value: 0, max_value: 100 } },
         { id: lblPct, type: "label", x: x + cardW - pad - 48, y: y + 94, w: 48, h: 36, props: { text: "0" }, style: { text_color: 0x888888 } },
       ];
       let rowY = y + 138;
@@ -2561,7 +2561,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: btnPrev, type: "button", x: x + pad, y: y + 70, w: 92, h: 44, props: { text: "⏮" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnPlay, type: "button", x: x + pad + 100, y: y + 70, w: 92, h: 44, props: { text: "⏯" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnNext, type: "button", x: x + pad + 200, y: y + 70, w: 92, h: 44, props: { text: "⏭" }, style: { bg_color: 0x333333, radius: 6 } },
-        { id: sldVol, type: "slider", x: x + pad, y: y + 122, w: cardW - 2 * pad - 56, h: 36, props: { min: 0, max: 100 } },
+        { id: sldVol, type: "slider", x: x + pad, y: y + 122, w: cardW - 2 * pad - 56, h: 36, props: { min_value: 0, max_value: 100 } },
         { id: lblVol, type: "label", x: x + cardW - pad - 54, y: y + 122, w: 54, h: 36, props: { text: "0%" }, style: { text_color: 0x888888 } },
         { id: btnVolDn, type: "button", x: x + pad, y: y + 166, w: 92, h: 40, props: { text: "Vol -" }, style: { bg_color: 0x333333, radius: 6 } },
         { id: btnMute, type: "button", x: x + pad + 100, y: y + 166, w: 92, h: 40, props: { text: "Mute" }, style: { bg_color: 0x333333, radius: 6 } },
@@ -2733,7 +2733,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: cursorY,
           w: 240,
           h: 36,
-          props: { min: 0, max: 100 },
+          props: { min_value: 0, max_value: 100 },
           events: entity_id
             ? {
                 on_release: `- homeassistant.service:\n    service: media_player.volume_set\n    data:\n      entity_id: ${ent}\n      volume_level: !lambda 'return x / 100.0;'\n`,
@@ -2843,7 +2843,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         y: y + 40,
         w: 240,
         h: 40,
-        props: { min: 0, max: 100 },
+        props: { min_value: 0, max_value: 100 },
         events: entity_id
           ? {
               on_release: `- homeassistant.service:\n    service: cover.set_cover_position\n    data:\n      entity_id: ${ent}\n      position: !lambda 'return (int)x;'\n`,
@@ -2877,7 +2877,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
           y: cursorY,
           w: 240,
           h: 34,
-          props: { min: 0, max: 100 },
+          props: { min_value: 0, max_value: 100 },
           events: entity_id
             ? {
                 on_release: `- homeassistant.service:\n    service: cover.set_cover_tilt_position\n    data:\n      entity_id: ${ent}\n      tilt_position: !lambda 'return (int)x;'\n`,

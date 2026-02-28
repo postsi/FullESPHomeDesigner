@@ -12,7 +12,7 @@
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
       "group": "group",
-      "time": "time",
+      "spin_time": "spin_time",
       "arc_length": "arc_length"
     },
     "style": {
@@ -95,9 +95,9 @@
       "title": "Input group",
       "default": ""
     },
-    "time": {
+    "spin_time": {
       "type": "number",
-      "title": "Time ms",
+      "title": "Spin time (ms)",
       "default": 1000
     },
     "arc_length": {
@@ -148,7 +148,7 @@
     "Spinner": {
       "section": "props",
       "keys": [
-        "time",
+        "spin_time",
         "arc_length"
       ]
     },

@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.103
+
+- **Simulator**: New **Simulate** button (next to Physical screen) opens a live interactive simulator: same canvas at recipe resolution, click/drag to update widget state (slider, arc, switch, dropdown, checkbox, button). Action bindings show a toast (e.g. "Action: on_click → light.toggle"). Simulator modal has no grid, no selection, no layout edits.
+- **Right panel**: **Binding Builder** tab now appears before **HA Bindings** (order: Properties → Binding Builder → HA Bindings).
+- **Right panel**: Duplicate "Physical Pixels" block at the top of the property palette removed; "Physical screen" box above the canvas is unchanged.
+
 ## v0.70.102
 
 - **Binding Builder**: Entity list now appears when typing in the **Action** binding entity box (same type-to-search dropdown as Display bindings). **Delete** button added next to Edit YAML for each display link and action binding so individual bindings can be removed.
@@ -142,7 +148,7 @@
 ## v0.70.72
 
 - **Widgets (Prebuilt) tab**: Replaced the "Home Assistant" palette tab with a **Widgets** tab. Prebuilt widgets are drag-and-drop (or click-to-add) building blocks that insert directly onto the canvas without a wizard.
-- **Prebuilt widgets**: New module `prebuiltWidgets/index.ts` with 22 prebuilts: Battery (bar + %), WiFi strength, IP address, HA connection (LED + label), Clock, Date+time, Colour picker (colorwheel), Section title, Divider, Progress bar, LED indicator, Back button, Page indicator, **Navigation bar** (page −, Home ⌂, page +), Countdown/timer, Status badge, Spacer, Icon, Scrolling text, Numeric keypad, List/menu. Each returns standard LVGL widgets (label, button, bar, container, led, colorwheel, etc.) with unique IDs.
+- **Prebuilt widgets**: New module `prebuiltWidgets/index.ts` with 21 prebuilts: Battery (bar + %), WiFi strength, IP address, HA connection (LED + label), Clock, Date+time, Section title, Divider, Progress bar, LED indicator, Back button, Page indicator, **Navigation bar** (page −, Home ⌂, page +), Countdown/timer, Status badge, Spacer, Icon, Scrolling text, Numeric keypad, List/menu. Each returns standard LVGL widgets (label, button, bar, container, led, etc.) with unique IDs.
 - **Drop handling**: Canvas and App support `application/x-esphome-prebuilt-widget`; dropping a prebuilt inserts its widgets at the drop position; clicking a prebuilt in the Widgets tab adds it at (80, 80).
 
 ## v0.70.71
@@ -267,7 +273,7 @@
 
 ## v0.70.51
 
-- Canvas: LVGL-accurate previews for all widgets. Arc shows background arc, indicator arc, and knob (with rotation, angles, mode, knob_offset). Bar: track + indicator only; Slider: track + indicator + knob; both support vertical layout and range/symmetrical modes. Switch, LED (color + brightness), spinner (arc segment), line (points, width, color, rounded), roller (options + selected), dropdown, QR code (light/dark colors), chart (line/bar), tabview, tileview, buttonmatrix, keyboard, list, table, calendar, colorwheel, canvas, msgboxes all render to match LVGL structure.
+- Canvas: LVGL-accurate previews for all widgets. Arc shows background arc, indicator arc, and knob (with rotation, angles, mode, knob_offset). Bar: track + indicator only; Slider: track + indicator + knob; both support vertical layout and range/symmetrical modes. Switch, LED (color + brightness), spinner (arc segment), line (points, width, color, rounded), roller (options + selected), dropdown, QR code (light/dark colors), tabview, tileview, buttonmatrix, keyboard, canvas, msgboxes all render to match LVGL structure.
 
 ## v0.70.50
 
@@ -318,7 +324,7 @@
 
 ## v0.70.41
 
-- Canvas: LVGL-equivalent previews for all 32 Std LVGL palette widgets (switch, checkbox, dropdown, image, image_button, obj, textarea, roller, spinner, spinbox, qrcode, led, chart, line, tabview, tileview, buttonmatrix, keyboard, list, table, calendar, colorwheel, canvas, msgboxes).
+- Canvas: LVGL-equivalent previews for all 26 Std LVGL palette widgets (switch, checkbox, dropdown, image, obj, textarea, roller, spinner, spinbox, qrcode, led, line, tabview, tileview, buttonmatrix, keyboard, canvas, msgboxes).
 - Canvas: Fix slider/bar and arc/gauge positioning to use absolute coordinates (ax, ay) for correct rendering inside containers.
 
 ## v0.70.40
@@ -619,7 +625,7 @@
   - Compiler emits an `image:` section for widgets using `props.src: "asset:<filename>"`.
 
 ## v0.26.0 (2026-02-18)
-- Schemas: expanded common LVGL style coverage (padding, radius, shadow) for core widgets (container/button/label/image_button).
+- Schemas: expanded common LVGL style coverage (padding, radius, shadow) for core widgets (container/button/label).
 - Inspector: these now show with typed editors (numbers + colors) and compile to YAML style keys.
 
 ## v0.25.0 (2026-02-18)

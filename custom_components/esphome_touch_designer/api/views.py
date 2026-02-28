@@ -606,7 +606,7 @@ def _compile_assets(project: dict) -> str:
         for w in (pg.get("widgets") or []):
             if not isinstance(w, dict): 
                 continue
-            if str(w.get("type") or "") not in ("image","image_button"):
+            if str(w.get("type") or "") != "image":
                 continue
             props = w.get("props") or {}
             src = str(props.get("src") or "").strip()
@@ -911,6 +911,16 @@ def _get_storage(hass: HomeAssistant, entry_id: str):
 
 def _schemas_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "schemas" / "widgets"
+
+
+# Widget types that exist in ESPHome LVGL (esphome/components/lvgl/widgets/*.py).
+# Only these are shown in the Std LVGL palette.
+PALETTE_WIDGET_TYPES = frozenset({
+    "animimg", "arc", "bar", "button", "buttonmatrix", "canvas", "checkbox", "container",
+    "dropdown", "image", "keyboard", "label", "led", "line", "meter", "msgboxes", "obj",
+    "qrcode", "roller", "slider", "spinbox", "spinner", "switch", "tabview", "textarea",
+    "tileview",
+})
 
 
 def _common_extras_dir() -> Path:
@@ -1220,11 +1230,15 @@ def _emit_widget_from_schema(
         for k, field_def in fields.items():
             if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
                 continue  # align_to -> block below; width/height_override -> used in geometry
-            if k == "font_size":
-                continue  # ESPHome LVGL widgets use font: (id), not font_size; designer uses font_size for preview only
             yaml_key = mapping.get(k, k)
             if k in values and values[k] not in (None, ""):
-                out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, values[k])))
+                v = values[k]
+                if section == "props" and isinstance(field_def, dict) and field_def.get("type") == "yaml_block" and isinstance(v, str) and "\n" in v:
+                    out.append(f"{body_indent}{yaml_key}:\n")
+                    for line in v.strip().split("\n"):
+                        out.append(f"{body_indent}  {line}\n")
+                else:
+                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, v)))
             else:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
                     out.append(_emit_kv(body_indent, yaml_key, field_def.get("default")))
@@ -1253,10 +1267,17 @@ def _emit_widget_from_schema(
     for part_section, part_fields in (schema or {}).items():
         if part_section in _skip or not isinstance(part_fields, dict):
             continue
-        if not part_fields or not any(
-            isinstance(v, dict) and ("type" in v or "default" in v)
-            for v in part_fields.values()
-        ):
+        def _is_field_def(d):
+            return isinstance(d, dict) and ("type" in d or "default" in d)
+
+        def _has_field_defs(v):
+            if _is_field_def(v):
+                return True
+            if isinstance(v, dict):
+                return any(_is_field_def(x) or _has_field_defs(x) for x in v.values())
+            return False
+
+        if not part_fields or not any(_has_field_defs(v) for v in part_fields.values()):
             continue
         values = widget.get(part_section) or {}
         if not values:
@@ -1270,8 +1291,6 @@ def _emit_widget_from_schema(
         out.append(f"{body_indent}{part_section}:\n")
         for k, field_def in part_fields.items():
             v = values.get(k)
-            if v is None and part_section == "knob" and k == "pad_right":
-                v = values.get("padding")  # backwards compat: schema used to say "padding", ESPHome expects pad_right
             if v is None or v == "":
                 continue
             out.append(_emit_kv(body_indent + "  ", k, v))
@@ -1436,6 +1455,8 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
 
     def emit_widget(w: dict, indent: str, kids: dict[str, list[dict]], parent_w: int, parent_h: int) -> str:
         wtype = w.get("type")
+        if wtype not in PALETTE_WIDGET_TYPES:
+            return ""  # Non-ESPHome widget types are not emitted
         wid = str(w.get("id") or "")
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
@@ -1812,11 +1833,14 @@ class SchemasView(HomeAssistantView):
         schemas_path = _schemas_dir()
         items = []
         for p in sorted(schemas_path.glob("*.json")):
+            wtype = p.stem
+            if wtype not in PALETTE_WIDGET_TYPES:
+                continue
             try:
                 data = json.loads(p.read_text("utf-8"))
                 items.append({
-                    "type": data.get("type", p.stem),
-                    "title": data.get("title", p.stem),
+                    "type": data.get("type", wtype),
+                    "title": data.get("title", wtype),
                     "description": data.get("description", ""),
                 })
             except Exception:

@@ -23,11 +23,17 @@ type Props = {
   showGrid: boolean;
   /** LVGL disp_bg_color for preview (hex e.g. #1a1a2e). */
   dispBgColor?: string;
-  liveOverrides?: Record<string, { text?: string; value?: number; checked?: boolean }>;
+  liveOverrides?: Record<string, { text?: string; value?: number; checked?: boolean; selected_index?: number }>;
   onSelect: (id: string, additive: boolean) => void;
   onSelectNone: () => void;
   onDropCreate?: (type: string, x: number, y: number) => void;
   onChangeMany: (patches: { id: string; patch: Partial<Widget> }[], commit?: boolean) => void;
+  /** When true, widgets are interactive for simulation (click/drag update state, actions fire). */
+  simulationMode?: boolean;
+  /** Simulation state overrides (merged with liveOverrides when simulationMode). */
+  simOverrides?: Record<string, { text?: string; value?: number; checked?: boolean; selected_index?: number }>;
+  onSimulateUpdate?: (widgetId: string, updates: { value?: number; checked?: boolean; selected_index?: number; text?: string }) => void;
+  onSimulateAction?: (widgetId: string, event: string) => void;
 };
 
 function snap(n: number, grid: number) {
@@ -151,6 +157,10 @@ export default function Canvas({
   liveOverrides = {},
   onSelect,
   onSelectNone,
+  simulationMode = false,
+  simOverrides,
+  onSimulateUpdate,
+  onSimulateAction,
   onDropCreate,
   onChangeMany,
 }: Props) {
@@ -279,7 +289,7 @@ const stageRef = useRef<any>(null);
 
   const renderWidget = (w: Widget, isSel: boolean) => {
     const { ax, ay } = absPos(w);
-    const override = liveOverrides[w.id];
+    const override = simulationMode ? { ...liveOverrides[w.id], ...simOverrides?.[w.id] } : liveOverrides[w.id];
     // Simple, intentionally lightweight previews (not pixel-perfect LVGL).
     // The goal is to make layouts usable while we keep the runtime YAML generator authoritative.
     const p = w.props || {};
@@ -300,7 +310,7 @@ const stageRef = useRef<any>(null);
     const shadowCol = toFillColor(s.shadow_color, "#000000");
     const shadowOpa = Number(s.shadow_opa ?? 100) / 100;
     const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
-    const fontSize = Math.max(10, Math.min(28, Number(s.font_size ?? p.font_size ?? 16)));
+    const fontSize = Math.max(10, Math.min(28, 16)); // Canvas preview only; ESPHome uses text_font (id)
 
     const hasShadow = shadowW > 0 || shadowOfsX !== 0 || shadowOfsY !== 0;
     const outlineW = Math.max(0, Number(s.outline_width ?? 0));
@@ -309,6 +319,53 @@ const stageRef = useRef<any>(null);
     const outlineOpa = Number(s.outline_opa ?? 0) / 100;
     const transformAngle = Number(s.transform_angle ?? 0);
     const transformZoom = Number(s.transform_zoom ?? 100) / 100;
+    const isSliderOrArc = w.type === "slider" || w.type === "arc";
+    const simDraggable = simulationMode && isSliderOrArc;
+    const handleSimClick = () => {
+      if (!simulationMode || !onSimulateUpdate && !onSimulateAction) return;
+      if (w.type === "button" || w.type === "container" || w.type === "obj") {
+        onSimulateAction?.(w.id, "on_click");
+      } else if (w.type === "switch") {
+        const cur = override?.checked ?? (p as any).state ?? false;
+        onSimulateUpdate?.(w.id, { checked: !cur });
+      } else if (w.type === "dropdown" || w.type === "roller") {
+        const opts = Array.isArray(p.options) ? p.options : [];
+        const n = Math.max(1, opts.length);
+        const cur = override?.selected_index ?? (p as any).selected_index ?? 0;
+        const next = (cur + 1) % n;
+        onSimulateUpdate?.(w.id, { selected_index: next });
+      } else if (w.type === "checkbox") {
+        const cur = override?.checked ?? (p as any).checked ?? (p as any).state ?? false;
+        onSimulateUpdate?.(w.id, { checked: !cur });
+      }
+    };
+    const handleSimDragMove = (e: any) => {
+      if (!simulationMode || !onSimulateUpdate || !isSliderOrArc) return;
+      const stage = e.target.getStage();
+      const pos = stage?.getPointerPosition();
+      if (!pos) return;
+      const minVal = Number(p.min_value ?? 0);
+      const maxVal = Number(p.max_value ?? 100);
+      const curVal = override?.value ?? Number(p.value ?? (minVal + maxVal) / 2);
+      if (w.type === "slider") {
+        const pad = 8;
+        const trackLen = w.w - pad * 2;
+        const frac = Math.max(0, Math.min(1, (pos.x - ax - pad) / trackLen));
+        const val = minVal + frac * (maxVal - minVal);
+        onSimulateUpdate(w.id, { value: Math.round(val) });
+      } else if (w.type === "arc") {
+        const cx = ax + w.w / 2;
+        const cy = ay + w.h / 2;
+        const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI) + 90;
+        const startAngle = Number(p.start_angle ?? 135);
+        const endAngle = Number(p.end_angle ?? 45);
+        let sweep = (endAngle - startAngle + 360) % 360;
+        if (sweep <= 0) sweep += 360;
+        const norm = ((angle - startAngle + 360) % 360) / sweep;
+        const val = minVal + Math.max(0, Math.min(1, norm)) * (maxVal - minVal);
+        onSimulateUpdate(w.id, { value: Math.round(val) });
+      }
+    };
     // Base background (optional outline behind, then main rect)
     const base = (
       <>
@@ -337,10 +394,12 @@ const stageRef = useRef<any>(null);
           shadowOffset: { x: shadowOfsX, y: shadowOfsY },
           shadowOpacity: shadowOpa,
         })}
-        draggable
-        onClick={(e) => onSelect(w.id, !!e.evt.shiftKey)}
-        onTap={(e) => onSelect(w.id, !!(e.evt as any).shiftKey)}
-        onDragStart={() => {
+        draggable={!simulationMode || simDraggable}
+        dragBoundFunc={simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined}
+        onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!e.evt.shiftKey)}
+        onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!(e.evt as any).shiftKey)}
+        onDragMove={simDraggable ? handleSimDragMove : undefined}
+        onDragStart={!simulationMode ? () => {
           // snapshot selected positions
           const snap0: Record<string, { x: number; y: number }> = {};
           for (const id of selectedIds.length ? selectedIds : [w.id]) {
@@ -348,8 +407,9 @@ const stageRef = useRef<any>(null);
             if (ww) snap0[id] = { x: ww.x, y: ww.y };
           }
           dragStartRef.current = snap0;
-        }}
+        } : undefined}
         onDragEnd={(e) => {
+          if (simulationMode) return;
           const node = e.target;
           const alt = !!e.evt.altKey; // hold ALT to disable snapping
           const nx = alt ? node.x() : snap(node.x(), gridSize);
@@ -429,17 +489,6 @@ const stageRef = useRef<any>(null);
 
     // Type-specific adornments
     const type = w.type.toLowerCase();
-    if (type === "image_button") {
-      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
-      return (
-        <Group key={w.id}>
-          {base}
-          <Rect x={ax + 8} y={ay + 8} width={w.w - 16} height={w.h - 16} fill="#1f2937" stroke="#4b5563" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={String(p.text ?? "Img")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={12} fill={textColor} listening={false} />
-        </Group>
-      );
-    }
-
     if (type.includes("label")) {
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       const longMode = String(p.long_mode ?? s.long_mode ?? "CLIP").toUpperCase();
@@ -525,8 +574,8 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "bar") {
-      const barMin = Number(p.min ?? 0);
-      const barMax = Number(p.max ?? 100);
+      const barMin = Number(p.min_value ?? 0);
+      const barMax = Number(p.max_value ?? 100);
       const val = Number(p.value ?? (barMin + barMax) / 2);
       const startVal = Number(p.start_value ?? barMin);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
@@ -561,18 +610,16 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "slider") {
-      const barMin = Number(p.min ?? 0);
-      const barMax = Number(p.max ?? 100);
+      const barMin = Number(p.min_value ?? 0);
+      const barMax = Number(p.max_value ?? 100);
       const val = override?.value !== undefined ? override.value : Number(p.value ?? (barMin + barMax) / 2);
-      const startVal = Number(p.start_value ?? barMin);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       const isVert = w.h > w.w;
       const pad = 10;
       const trackLen = isVert ? w.h - pad * 2 : w.w - pad * 2;
       const thick = Math.min(isVert ? w.w - pad * 2 : w.h - pad * 2, 12);
       let norm = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
-      let normStart = barMax > barMin ? (startVal - barMin) / (barMax - barMin) : 0;
-      if (mode === "RANGE" && normStart > norm) [normStart, norm] = [norm, normStart];
+      const normStart = 0;
       const trackFill = String(s.bg_color ?? "#1f2937");
       const indFill = String((w.indicator || {}).bg_color ?? "#10b981");
       const sliderKnob = w.knob || {};
@@ -609,11 +656,11 @@ const stageRef = useRef<any>(null);
       const trackW = Math.max(4, Math.min(16, Math.min(w.w, w.h) / 8));
       const r = Math.max(14, Math.min(w.w, w.h) / 2 - trackW - 4);
       const rot = Number(p.rotation ?? 0);
-      const bgStart = Number(p.bg_start_angle ?? 0);
-      const bgEnd = Number(p.bg_end_angle ?? 270);
+      const bgStart = Number(p.start_angle ?? 135);
+      const bgEnd = Number(p.end_angle ?? 45);
       const sweep = (bgEnd - bgStart + 360) % 360 || 360;
-      const min = Number(p.min ?? 0);
-      const max = Number(p.max ?? 100);
+      const min = Number(p.min_value ?? 0);
+      const max = Number(p.max_value ?? 100);
       const val = override?.value !== undefined ? override.value : Number(p.value ?? (min + max) / 2);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       let indStart = bgStart;
@@ -631,8 +678,7 @@ const stageRef = useRef<any>(null);
           indSweep = t * (bgEnd - bgStart);
         }
       }
-      const knobOffset = Number(p.knob_offset ?? 0);
-      const endDeg = indStart + indSweep + knobOffset;
+      const endDeg = indStart + indSweep;
       const knobDef = w.knob || {};
       let knobRadiusFromProp = Number(knobDef.radius ?? 0);
       // LVGL uses 0x7FFF as "default" knob size; treat any very large value as default for a visible knob
@@ -655,18 +701,10 @@ const stageRef = useRef<any>(null);
           {base}
           <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={sweep} rotation={rot + bgStart} fill={bgStroke} clockwise listening={false} />
           {indSweep !== 0 && (
-            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg - knobOffset)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
+            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
           )}
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
-          {(() => {
-            const arcLayout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
-            const valueFontSize = Math.max(8, Math.min(48, Number(s.font_size ?? p.font_size ?? 14)));
-            const valueX = arcLayout.x + Number(p.value_label_offset_x ?? 0);
-            const valueY = arcLayout.y + Number(p.value_label_offset_y ?? 0);
-            return (
-              <Text text={String(val)} x={valueX} y={valueY} width={arcLayout.width} height={arcLayout.height} align={arcLayout.align} verticalAlign={arcLayout.verticalAlign} fontSize={valueFontSize} fill={textColor} listening={false} />
-            );
-          })()}
+          {/* ESPHome/LVGL arc has no built-in value label; device shows only arc + knob. A separate label widget is used if value text is needed. */}
         </Group>
       );
     }
@@ -690,7 +728,7 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "checkbox") {
-      const checked = !!(p.checked ?? p.state);
+      const checked = !!((w.state || {}).checked ?? p.checked ?? p.state);
       const size = Math.min(24, w.h - 8);
       const labelLeft = ax + 6 + size + 8;
       const labelW = w.w - 6 - size - 8;
@@ -720,10 +758,10 @@ const stageRef = useRef<any>(null);
         opts = ["Option 1", "Option 2"];
       }
       if (opts.length === 0) opts = ["Select…"];
-      const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
-      const displayText = override?.text !== undefined ? String(override.text) : String(opts[selIdx] ?? opts[0] ?? "Select…");
+      const selIdx = Math.min(Math.max(0, Number(override?.selected_index ?? p.selected_index ?? 0)), opts.length - 1);
+      const displayText = override?.text !== undefined ? String(override.text) : (p.selected_text && String(p.selected_text).trim() ? String(p.selected_text) : String(opts[selIdx] ?? opts[0] ?? "Select…"));
       const ddBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
-      const selectedPart = w.selected || {};
+      const selectedPart = (w as any).dropdown_list?.selected || (w as any).selected || {};
       const selText = toFillColor(selectedPart.text_color, textColor);
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       const textW = Math.max(20, layout.width - 24);
@@ -777,12 +815,13 @@ const stageRef = useRef<any>(null);
 
     if (type === "roller") {
       const opts = Array.isArray(p.options) ? p.options : ["Option 1", "Option 2", "Option 3"];
-      const selected = Math.min(Math.max(0, Number(p.selected ?? 0)), opts.length - 1);
-      const rowH = Math.min(24, (w.h - 16) / 3);
+      const selected = Math.min(Math.max(0, Number(override?.selected_index ?? (p as any).selected_index ?? (p as any).selected ?? 0)), opts.length - 1);
+      const visibleRows = Math.max(1, Math.min(20, Number((p as any).visible_row_count ?? 3)));
+      const rowH = (w.h - 16) / visibleRows;
       const visible = Math.max(1, Math.floor((w.h - 16) / rowH));
       const start = Math.max(0, selected - Math.floor(visible / 2));
       const rollBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
-      const itemsPart = w.items || {};
+      const itemsPart = (w as any).main || (w as any).items || {};
       const selectedPart = w.selected || {};
       const itemBg = toFillColor(itemsPart.bg_color, rollBg);
       const itemText = toFillColor(itemsPart.text_color, "#94a3b8");
@@ -874,28 +913,6 @@ const stageRef = useRef<any>(null);
       );
     }
 
-    if (type === "chart") {
-      const chartType = String(p.type ?? "line").toLowerCase();
-      const pad = 12;
-      const graphW = w.w - pad * 2;
-      const graphH = w.h - pad * 2 - 14;
-      const pts = [ax + pad, ay + w.h - pad - 10, ax + pad + graphW * 0.25, ay + pad + graphH * 0.6, ax + pad + graphW * 0.5, ay + pad + graphH * 0.25, ax + pad + graphW * 0.85, ay + pad + graphH * 0.5];
-      return (
-        <Group key={w.id}>
-          {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
-          {chartType === "bar" ? (
-            [0.3, 0.5, 0.7, 0.9].map((v, i) => (
-              <Rect key={i} x={ax + pad + (graphW / 5) * (i + 0.5)} y={ay + pad + graphH * (1 - v)} width={graphW / 6} height={graphH * v} fill="#10b981" cornerRadius={2} listening={false} />
-            ))
-          ) : (
-            <Line points={pts} stroke="#10b981" strokeWidth={2} lineCap="round" lineJoin="round" listening={false} />
-          )}
-          <Text text="Chart" x={ax} y={ay + 4} width={w.w} align="center" fontSize={11} fill="#9ca3af" listening={false} />
-        </Group>
-      );
-    }
-
     if (type === "line") {
       const pts = Array.isArray(p.points) && p.points.length >= 2
         ? p.points.flatMap((pt: string) => {
@@ -917,24 +934,35 @@ const stageRef = useRef<any>(null);
     if (type === "tabview") {
       const tabH = 24;
       const tabs = Array.isArray(p.tabs) ? p.tabs : ["Tab 1", "Tab 2"];
+      const position = String((p as any).position ?? "TOP").toUpperCase();
+      const atTop = position !== "BOTTOM";
       const tabW = Math.max(40, (w.w - 12 - (tabs.length - 1) * 4) / tabs.length);
+      const tabBarY = atTop ? ay + 6 : ay + w.h - 6 - tabH;
+      const contentY = atTop ? ay + 6 + tabH : ay + 6;
+      const contentH = w.h - 12 - tabH;
       return (
         <Group key={w.id}>
           {base}
           {tabs.slice(0, 6).map((t: string, i: number) => (
-            <Rect key={i} x={ax + 6 + i * (tabW + 4)} y={ay + 6} width={tabW} height={tabH} fill={String((w.tab_style || {}).bg_color ?? "#374151")} cornerRadius={4} listening={false} />
+            <Rect key={i} x={ax + 6 + i * (tabW + 4)} y={tabBarY} width={tabW} height={tabH} fill={String((w as any).tab_style?.bg_color ?? "#374151")} cornerRadius={4} listening={false} />
           ))}
-          <Rect x={ax + 6} y={ay + 6 + tabH} width={w.w - 12} height={w.h - 12 - tabH} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={0} listening={false} />
-          {tabs[0] && <Text text={String(tabs[0]).slice(0, 12)} x={ax + 12} y={ay + 10} width={tabW - 8} fontSize={11} fill={textColor} ellipsis listening={false} />}
+          <Rect x={ax + 6} y={contentY} width={w.w - 12} height={contentH} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={0} listening={false} />
+          {tabs[0] && <Text text={String(tabs[0]).slice(0, 12)} x={ax + 12} y={tabBarY + 4} width={tabW - 8} fontSize={11} fill={textColor} ellipsis listening={false} />}
         </Group>
       );
     }
     if (type === "tileview") {
+      const tiles = Array.isArray((p as any).tiles) ? (p as any).tiles : ["0,0", "1,0"];
+      const n = Math.min(Math.max(1, tiles.length), 6);
+      const cols = n <= 2 ? 2 : Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      const tw = (w.w - 8 * (cols + 1)) / cols;
+      const th = (w.h - 8 * (rows + 1)) / rows;
       return (
         <Group key={w.id}>
           {base}
-          {[0, 1].map((i) => (
-            <Rect key={i} x={ax + 8 + i * (w.w / 2 - 4)} y={ay + 8} width={w.w / 2 - 12} height={w.h / 2 - 12} fill="#374151" cornerRadius={4} listening={false} />
+          {Array.from({ length: n }, (_, i) => (
+            <Rect key={i} x={ax + 8 + (i % cols) * (tw + 8)} y={ay + 8 + Math.floor(i / cols) * (th + 8)} width={tw} height={th} fill="#374151" cornerRadius={4} listening={false} />
           ))}
           <Text text="Tile" x={ax} y={ay + (w.h - 12) / 2} width={w.w} align="center" fontSize={11} fill="#9ca3af" listening={false} />
         </Group>
@@ -993,101 +1021,6 @@ const stageRef = useRef<any>(null);
             <Rect key={i} x={ax + pad + (i % 10) * (keyW + pad)} y={ay + pad + Math.floor(i / 10) * (keyH + pad)} width={keyW} height={keyH} fill="#374151" cornerRadius={2} listening={false} />
           ))}
           <Text text="⌨" x={ax} y={ay + w.h - 20} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
-        </Group>
-      );
-    }
-
-    if (type === "list") {
-      const rowH = Math.max(16, Math.min(48, Number(p.item_height ?? 28)));
-      const items = Array.isArray(p.items) ? p.items : ["Item 1", "Item 2"];
-      const count = Math.min(items.length, Math.max(1, Math.floor((w.h - 12) / rowH)));
-      const itemsPart = w.items || {};
-      const selectedPart = w.selected || {};
-      const itemBg = toFillColor(itemsPart.bg_color, "#1f2937");
-      const itemTextCol = toFillColor(itemsPart.text_color, textColor);
-      const selBg = toFillColor(selectedPart.bg_color, "#374151");
-      const selTextCol = toFillColor(selectedPart.text_color, textColor);
-      return (
-        <Group key={w.id}>
-          {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={4} listening={false} />
-          {Array.from({ length: count }, (_, i) => {
-            const isSel = i === 0;
-            const rowFill = isSel ? selBg : itemBg;
-            const rowText = isSel ? selTextCol : itemTextCol;
-            return (
-              <Group key={i} listening={false}>
-                <Rect x={ax + 10} y={ay + 10 + i * rowH} width={w.w - 20} height={rowH - 4} fill={rowFill} cornerRadius={2} listening={false} />
-                <Text text={String(items[i] ?? "").slice(0, 24)} x={ax + 14} y={ay + 10 + i * rowH + (rowH - 4 - 12) / 2} width={w.w - 28} fontSize={Math.min(12, rowH - 8)} fill={rowText} ellipsis listening={false} />
-              </Group>
-            );
-          })}
-        </Group>
-      );
-    }
-    if (type === "table") {
-      const cols = Math.max(1, Math.min(12, Number(p.col_cnt ?? 3)));
-      const rows = Math.max(1, Math.min(20, Number(p.row_cnt ?? 3)));
-      const pad = Number(p.cell_padding ?? 4);
-      const colW = (w.w - 12 - pad * (cols + 1)) / cols;
-      const rowH = (w.h - 12 - pad * (rows + 1)) / rows;
-      return (
-        <Group key={w.id}>
-          {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
-          {Array.from({ length: rows }, (_, r) =>
-            Array.from({ length: cols }, (_, c) => (
-              <Rect key={`${r}-${c}`} x={ax + 8 + pad + c * (colW + pad)} y={ay + 8 + pad + r * (rowH + pad)} width={colW} height={rowH} fill={r === 0 ? "#374151" : "#1f2937"} cornerRadius={1} listening={false} />
-            ))
-          )}
-        </Group>
-      );
-    }
-
-    if (type === "calendar") {
-      const cellW = (w.w - 16) / 7;
-      const cellH = Math.min(20, (w.h - 24) / 6);
-      return (
-        <Group key={w.id}>
-          {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#111827")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
-          <Text text="S M T W T F S" x={ax + 8} y={ay + 8} width={w.w - 16} fontSize={10} fill="#9ca3af" listening={false} />
-          {Array.from({ length: 35 }, (_, i) => (
-            <Rect key={i} x={ax + 8 + (i % 7) * cellW} y={ay + 22 + Math.floor(i / 7) * cellH} width={cellW - 1} height={cellH - 1} fill={i === 15 ? "#374151" : "#1f2937"} cornerRadius={2} listening={false} />
-          ))}
-        </Group>
-      );
-    }
-
-    if (type === "colorwheel") {
-      const cx = ax + w.w / 2;
-      const cy = ay + w.h / 2;
-      const r = Math.min(w.w, w.h) / 2 - 4;
-      const innerR = r * 0.4;
-      const segments = 36;
-      const angleStep = 360 / segments;
-      return (
-        <Group key={w.id}>
-          {base}
-          <Circle x={cx} y={cy} radius={r} stroke="#6b7280" strokeWidth={2} listening={false} />
-          {Array.from({ length: segments }, (_, i) => {
-            const hue = i * angleStep;
-            const fill = `hsl(${hue}, 100%, 50%)`;
-            return (
-              <Arc
-                key={i}
-                x={cx}
-                y={cy}
-                innerRadius={innerR}
-                outerRadius={r}
-                angle={angleStep + 1}
-                rotation={-hue}
-                fill={fill}
-                listening={false}
-              />
-            );
-          })}
-          <Circle x={cx} y={cy} radius={innerR * 0.9} fill="#1f2937" stroke="#9ca3af" strokeWidth={1} listening={false} />
         </Group>
       );
     }
@@ -1181,6 +1114,7 @@ const stageRef = useRef<any>(null);
       ref={stageRef}
       style={{ background: /^#[0-9a-fA-F]{6}$/.test(dispBgColor || "") ? dispBgColor : "#0b0f14", borderRadius: 12, overflow: "hidden" }}
       onMouseDown={(e) => {
+        if (simulationMode) return;
         const clickedOnEmpty = e.target === e.target.getStage();
         if (clickedOnEmpty) {
           const pos = e.target.getStage()?.getPointerPosition();
@@ -1192,6 +1126,7 @@ const stageRef = useRef<any>(null);
         }
       }}
       onMouseMove={(e) => {
+        if (simulationMode) return;
         const pos = e.target.getStage()?.getPointerPosition();
         if (selectionBox && pos) {
           setSelectionBox((prev) => prev ? { ...prev, endX: pos.x, endY: pos.y } : null);
@@ -1210,6 +1145,7 @@ const stageRef = useRef<any>(null);
         }
       }}
       onMouseUp={(e) => {
+        if (simulationMode) return;
         if (e.target !== e.target.getStage()) return;
         if (selectionBox) {
           finishSelectionBox();
