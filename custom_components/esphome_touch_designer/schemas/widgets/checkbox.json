@@ -11,7 +11,9 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "text": "text",
+      "checked": "checked"
     },
     "style": {
       "bg_color": "bg_color",

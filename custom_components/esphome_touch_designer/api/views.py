@@ -941,6 +941,15 @@ def _merge_common_extras(schema: dict) -> dict:
     for k, v in (extras.get("style_extras") or {}).items():
         if k not in (schema.get("style") or {}):
             schema.setdefault("style", {})[k] = v
+    # Merge state (state-based styling)
+    for k, v in (extras.get("state_extras") or {}).items():
+        if k not in (schema.get("state") or {}):
+            schema.setdefault("state", {})[k] = v
+    # Merge parts (e.g. scrollbar for scrollable widgets)
+    for part_name, part_fields in (extras.get("parts_extras") or {}).items():
+        for fk, fv in part_fields.items():
+            if fk not in (schema.get(part_name) or {}):
+                schema.setdefault(part_name, {})[fk] = fv
     # Merge esphome props mapping
     esphome = schema.get("esphome") or {}
     esphome = dict(esphome)
@@ -1133,8 +1142,19 @@ def _emit_widget_from_schema(
         elif align == "BOTTOM_RIGHT":
             x_val = x_val + w_val - parent_w
             y_val = y_val + h_val - parent_h
-    for geom_key, yaml_key, val in [("x", "x", x_val), ("y", "y", y_val), ("w", "width", w_val), ("h", "height", h_val)]:
-        if geom_key in widget:
+    props_geom = widget.get("props") or {}
+    w_emit = props_geom.get("width_override") or w_val
+    h_emit = props_geom.get("height_override") or h_val
+    for geom_key, yaml_key, val in [("x", "x", x_val), ("y", "y", y_val), ("w", "width", w_emit), ("h", "height", h_emit)]:
+        if geom_key not in widget and yaml_key not in ("width", "height"):
+            continue
+        if yaml_key == "width" and not props_geom.get("width_override") and geom_key not in widget:
+            continue
+        if yaml_key == "height" and not props_geom.get("height_override") and geom_key not in widget:
+            continue
+        if yaml_key in ("width", "height") and isinstance(val, str):
+            out.append(f'{body_indent}{yaml_key}: "{val}"\n')
+        else:
             out.append(f"{body_indent}{yaml_key}: {int(val)}\n")
 
     action_by_event = {}
@@ -1198,6 +1218,8 @@ def _emit_widget_from_schema(
                     values[event_key] = _action_binding_call_to_yaml(ab["call"])
                 # else keep widget.events[event_key] if present
         for k, field_def in fields.items():
+            if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
+                continue  # align_to -> block below; width/height_override -> used in geometry
             yaml_key = mapping.get(k, k)
             if k in values and values[k] not in (None, ""):
                 out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, values[k])))
@@ -1215,6 +1237,15 @@ def _emit_widget_from_schema(
                 elif ab.get("call"):
                     out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(ab["call"]))))
 
+    # align_to: position relative to another widget (from props align_to_*)
+    props = widget.get("props") or {}
+    if props.get("align_to_id"):
+        out.append(f"{body_indent}align_to:\n")
+        out.append(f"{body_indent}  - id: {props.get('align_to_id')}\n")
+        out.append(f"{body_indent}    align: {props.get('align_to_align') or 'OUT_TOP_LEFT'}\n")
+        out.append(f"{body_indent}    x: {props.get('align_to_x', 0)}\n")
+        out.append(f"{body_indent}    y: {props.get('align_to_y', 0)}\n")
+
     # Style parts and nested blocks: any schema section that is a dict of field defs (not props/style/events)
     _skip = {"props", "style", "events", "type", "title", "esphome", "groups"}
     for part_section, part_fields in (schema or {}).items():
@@ -1227,6 +1258,12 @@ def _emit_widget_from_schema(
             continue
         values = widget.get(part_section) or {}
         if not values:
+            continue
+        # state section with _yaml: emit raw YAML block (pressed/checked/etc.)
+        if part_section == "state" and isinstance(values.get("_yaml"), str) and values.get("_yaml").strip():
+            out.append(f"{body_indent}state:\n")
+            for line in values["_yaml"].strip().split("\n"):
+                out.append(f"{body_indent}  {line}\n")
             continue
         out.append(f"{body_indent}{part_section}:\n")
         for k, field_def in part_fields.items():

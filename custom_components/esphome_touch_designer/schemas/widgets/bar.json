@@ -25,7 +25,10 @@
       "border_color": "border_color",
       "radius": "radius"
     },
-    "events": {}
+    "events": {
+      "on_value": "on_value",
+      "on_release": "on_release"
+    }
   },
   "props": {
     "align": {
@@ -207,7 +210,18 @@
       "default": 0
     }
   },
-  "events": {},
+  "events": {
+    "on_value": {
+      "type": "yaml_block",
+      "title": "on_value",
+      "default": ""
+    },
+    "on_release": {
+      "type": "yaml_block",
+      "title": "on_release",
+      "default": ""
+    }
+  },
   "groups": {
     "Value & range": {
       "section": "props",
@@ -258,6 +272,10 @@
         "text_color",
         "border_width"
       ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": ["on_value", "on_release"]
     }
   }
 }

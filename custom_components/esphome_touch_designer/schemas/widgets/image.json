@@ -22,7 +22,9 @@
       "border_color": "border_color",
       "radius": "radius"
     },
-    "events": {}
+    "events": {
+      "on_click": "on_click"
+    }
   },
   "props": {
     "align": {
@@ -137,7 +139,13 @@
       "default": 0
     }
   },
-  "events": {},
+  "events": {
+    "on_click": {
+      "type": "yaml_block",
+      "title": "on_click",
+      "default": ""
+    }
+  },
   "groups": {
     "Image": {
       "section": "props",
@@ -168,6 +176,10 @@
         "border_color",
         "text_color"
       ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": ["on_click"]
     }
   }
 }

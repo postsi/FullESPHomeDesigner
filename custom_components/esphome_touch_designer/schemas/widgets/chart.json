@@ -2,7 +2,29 @@
   "type": "chart",
   "title": "Chart",
   "esphome": {
-    "widget": "chart"
+    "root_key": "chart",
+    "props": {
+      "align": "align",
+      "hidden": "hidden",
+      "clickable": "clickable",
+      "opacity": "opacity",
+      "group": "group",
+      "type": "type",
+      "point_count": "point_count",
+      "range_min": "range_min",
+      "range_max": "range_max"
+    },
+    "style": {
+      "bg_color": "bg_color",
+      "bg_opa": "bg_opa",
+      "text_color": "text_color",
+      "border_width": "border_width",
+      "border_color": "border_color",
+      "radius": "radius"
+    },
+    "events": {
+      "on_value_changed": "on_value_changed"
+    }
   },
   "props": {
     "align": {

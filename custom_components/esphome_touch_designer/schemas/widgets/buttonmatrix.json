@@ -11,7 +11,10 @@
       "scrollbar_mode": "scrollbar_mode",
       "scroll_dir": "scroll_dir",
       "opacity": "opacity",
-      "group": "group"
+      "group": "group",
+      "map": "map",
+      "control": "control",
+      "width": "width"
     },
     "style": {
       "bg_color": "bg_color",
@@ -20,7 +23,9 @@
       "border_color": "border_color",
       "radius": "radius"
     },
-    "events": {}
+    "events": {
+      "on_button": "on_button"
+    }
   },
   "props": {
     "align": {
@@ -100,6 +105,18 @@
         "3",
         "4"
       ]
+    },
+    "control": {
+      "type": "string",
+      "title": "Control (YAML)",
+      "default": "",
+      "description": "Per-button flags: checkable, popover, disabled, recolor (row per line)"
+    },
+    "width": {
+      "type": "string",
+      "title": "Column widths",
+      "default": "",
+      "description": "Space-separated weights, e.g. 1 1 1"
     }
   },
   "style": {
@@ -157,7 +174,9 @@
     "Props": {
       "section": "props",
       "keys": [
-        "map"
+        "map",
+        "control",
+        "width"
       ]
     },
     "Style": {

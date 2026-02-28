@@ -2,7 +2,28 @@
   "type": "table",
   "title": "Table",
   "esphome": {
-    "widget": "table"
+    "root_key": "table",
+    "props": {
+      "align": "align",
+      "hidden": "hidden",
+      "clickable": "clickable",
+      "opacity": "opacity",
+      "group": "group",
+      "col_cnt": "col_cnt",
+      "row_cnt": "row_cnt",
+      "cell_padding": "cell_padding"
+    },
+    "style": {
+      "bg_color": "bg_color",
+      "bg_opa": "bg_opa",
+      "text_color": "text_color",
+      "border_width": "border_width",
+      "border_color": "border_color",
+      "radius": "radius"
+    },
+    "events": {
+      "on_cell_clicked": "on_cell_clicked"
+    }
   },
   "props": {
     "align": {

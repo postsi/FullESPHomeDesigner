@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.101
+
+- **Widget events**: Full event set for remaining widgets. **Tabview** and **tileview**: Events group with `on_value` (tab/tile changed). **Keyboard**: `on_key` in esphome.events, events section, and Events group. **Spinner**: `on_click` in esphome.events, events section, and Events group. **Textarea**: `on_focus` and `on_defocus` added alongside `on_ready` (esphome.events, events section, Events group). WIDGET_SCHEMA_AUDIT.md updated with full event set summary.
+
 ## v0.70.100
 
 - **LVGL settings**: New **LVGL settings** button in the main nav opens a mini-editor for top-level LVGL config. **Main** tab: display background color and buffer size (emitted as `disp_bg_color`, `buffer_size` under `lvgl:`). **Style definitions** tab: named reusable styles (id + props), emitted as `lvgl: style_definitions:`; widgets can reference them via `styles: id`. **Theme** tab: default styles per widget type (button, label, arc, etc.), emitted as `lvgl: theme:`. **Gradients** tab: gradient definitions (id, direction, stops) for use in styles via `bg_grad: id`, emitted as `lvgl: gradients:`.

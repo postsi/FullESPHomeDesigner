@@ -217,14 +217,24 @@ All should be checked against ESPHome LVGL widget-specific schemas in `esphome/c
 - **Page options:** Backend emits `layout` and `skip` per page when set in the page object. Frontend can add these to page metadata when we add a page-settings UI.
 - **top_layer:** `project.lvgl_config.top_layer.widgets` is emitted as `lvgl: top_layer: - id: top_layer widgets: ...`. Adding widgets to top_layer will require UI (e.g. a separate "Always on top" page or a checkbox on widgets).
 
+### Implemented (schema + backend)
+
+- **Common schema:** Missing style props and object flags; canvas uses `text_align`, padding; align_to, width/height override, state section.
+- **align_to:** Props `align_to_id`, `align_to_align`, `align_to_x`, `align_to_y` in common_extras; backend emits `align_to:` block.
+- **State-based styling:** Common_extras `state_extras` with `_yaml` (YAML block); backend emits `state:` with raw YAML; "State styles" group in inspector.
+- **Layouts:** Container has `layout` (NONE/FLEX/GRID) in schema and emit; page `layout` and `skip` emitted per page.
+- **SIZE_CONTENT / % width height:** Props `width_override`, `height_override` (e.g. SIZE_CONTENT, 50%); backend uses them in geometry emit; "Size override" group.
+- **Widget schemas (remaining 27):** All widget schemas have full `esphome` (root_key, props, style, events) where needed; switch/checkbox/spinner/buttonmatrix/textarea have widget-specific props and events mapped; chart, image_button, list, table, calendar, colorwheel use `root_key` and full esphome blocks. Canvas uses schema props for list (items, item_height), table (col_cnt, row_cnt, cell_padding), tabview (tabs), buttonmatrix (map), and checkbox label (p.text).
+- **Parts (items/selected):** Roller, dropdown, list have `items` and `selected` style parts (bg_color, text_color); backend emits them; canvas uses them for selected-row and item colors.
+- **Parts (cursor):** Spinbox and textarea have `cursor` part (color, width); backend emits; canvas draws cursor line.
+- **Parts (scrollbar):** common_extras `parts_extras.scrollbar` (bg_color, bg_opa) merged into all widget schemas; backend emits when set; "Scrollbar" group in inspector.
+- **Buttonmatrix:** Props `control` (YAML) and `width` (column weights); canvas uses `width` for column widths.
+- **Label in canvas:** `long_mode` (WRAP/CLIP/DOT/SCROLL) for wrap vs ellipsis; `recolor` strips inline #RRGGBB for preview.
+- **Image in canvas:** `clip_corner` applies cornerRadius to placeholder rect.
+- **Outline and transform in canvas:** Base rect uses `outline_width`, `outline_pad`, `outline_color`, `outline_opa` for an optional outline rect; `transform_angle` and `transform_zoom` apply to the base rect (rotation and scale around center).
+
 ### Still to do (schema + canvas + backend)
 
-- **Common schema:** All missing style props and object flags (see §§1–2); canvas to use `text_align`, padding, shadow offset, etc.
-- **Widget schemas:** Full props/parts for every widget (§§5–6); canvas to use new props when drawing.
-- **align_to:** Widget-relative positioning (id, align, x, y) in schema and emit.
-- **State-based styling:** Per-widget or per-part state blocks (pressed, focused, checked, etc.) in schema and emit; optional canvas preview.
-- **Layouts:** `layout:` on containers/pages in schema and emit; canvas can approximate or ignore.
-- **SIZE_CONTENT / % width height:** Schema and editor support; backend emit.
-- **Font reference:** `text_font` options (built-in + custom id) in schema and emit.
-- **Full event set:** All widget triggers (on_value, on_short_click, on_long_press, etc.) in schema and bindable.
+- **Font reference:** (Hold off per user.) `text_font` options (built-in + custom id) in schema and emit.
+- **Full event set:** Per-widget events added: arc/bar (on_value, on_release), slider (on_value, on_release), image_button/image/label/obj/animimg (on_click, on_release where applicable), tabview/tileview (on_value), keyboard (on_key), spinner (on_click), textarea (on_ready, on_focus, on_defocus). Button has on_click, on_short_click, on_long_press.
 - **Animated transitions:** Where applicable (e.g. tabview select animated, page change animation) in schema and emit.

@@ -3896,7 +3896,7 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
     );
   };
 
-  const renderField = (section: "props"|"style"|"events", key: string, def: any) => {
+  const renderField = (section: string, key: string, def: any) => {
     const hasValue = Object.prototype.hasOwnProperty.call((widget[section] || {}), key);
     const value = hasValue ? (widget[section] || {})[key] : (def.default ?? "");
 
@@ -4145,10 +4145,10 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
       {groups && groupNames.length > 0
         ? groupNames.map((groupName) => {
             const gr = groups[groupName];
-            const section = (gr?.section || "props") as "props" | "style" | "events";
+            const section = gr?.section ?? "props";
             const keys = Array.isArray(gr?.keys) ? gr.keys : [];
             const fields = (schema as any)[section] || {};
-            const entriesAll = keys.map((k) => [k, fields[k]]).filter(([, def]) => def);
+            const entriesAll = keys.map((k) => [k, fields[k]]).filter(([, def]) => def != null);
             const entries = entriesAll.filter(([k, def]: any) => {
               const title = String(def?.title ?? k).toLowerCase();
               const keyLc = String(k).toLowerCase();

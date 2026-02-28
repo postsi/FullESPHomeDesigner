@@ -2,7 +2,19 @@
   "type": "image_button",
   "title": "Image Button",
   "esphome": {
-    "widget": "image_button",
+    "root_key": "image_button",
+    "props": {
+      "align": "align",
+      "hidden": "hidden",
+      "clickable": "clickable",
+      "scrollable": "scrollable",
+      "scrollbar_mode": "scrollbar_mode",
+      "scroll_dir": "scroll_dir",
+      "opacity": "opacity",
+      "group": "group",
+      "src": "src",
+      "toggled_src": "toggled_src"
+    },
     "style": {
       "pad_top": "pad_top",
       "pad_bottom": "pad_bottom",
@@ -11,6 +23,10 @@
       "radius": "radius",
       "shadow_width": "shadow_width",
       "shadow_color": "shadow_color"
+    },
+    "events": {
+      "on_click": "on_click",
+      "on_release": "on_release"
     }
   },
   "props": {
@@ -117,6 +133,12 @@
   "events": {
     "on_click": {
       "type": "yaml_block",
+      "title": "on_click",
+      "default": ""
+    },
+    "on_release": {
+      "type": "yaml_block",
+      "title": "on_release",
       "default": ""
     }
   },
@@ -158,7 +180,8 @@
     "Events": {
       "section": "events",
       "keys": [
-        "on_click"
+        "on_click",
+        "on_release"
       ]
     }
   }

@@ -2,7 +2,26 @@
   "type": "calendar",
   "title": "Calendar",
   "esphome": {
-    "widget": "calendar"
+    "root_key": "calendar",
+    "props": {
+      "align": "align",
+      "hidden": "hidden",
+      "clickable": "clickable",
+      "opacity": "opacity",
+      "group": "group",
+      "show_week_numbers": "show_week_numbers"
+    },
+    "style": {
+      "bg_color": "bg_color",
+      "bg_opa": "bg_opa",
+      "text_color": "text_color",
+      "border_width": "border_width",
+      "border_color": "border_color",
+      "radius": "radius"
+    },
+    "events": {
+      "on_date_clicked": "on_date_clicked"
+    }
   },
   "props": {
     "align": {

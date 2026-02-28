@@ -30,7 +30,9 @@
       "shadow_color": "shadow_color"
     },
     "events": {
-      "on_click": "on_click"
+      "on_click": "on_click",
+      "on_short_click": "on_short_click",
+      "on_long_press": "on_long_press"
     }
   },
   "props": {
@@ -177,6 +179,16 @@
       "type": "yaml_block",
       "title": "on_click",
       "default": ""
+    },
+    "on_short_click": {
+      "type": "yaml_block",
+      "title": "on_short_click",
+      "default": ""
+    },
+    "on_long_press": {
+      "type": "yaml_block",
+      "title": "on_long_press",
+      "default": ""
     }
   },
   "groups": {
@@ -220,7 +232,9 @@
     "Events": {
       "section": "events",
       "keys": [
-        "on_click"
+        "on_click",
+        "on_short_click",
+        "on_long_press"
       ]
     }
   }

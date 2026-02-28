@@ -149,6 +149,20 @@
       "default": 0
     }
   },
+  "cursor": {
+    "color": {
+      "type": "color",
+      "title": "Cursor color",
+      "default": ""
+    },
+    "width": {
+      "type": "number",
+      "title": "Cursor width (px)",
+      "min": 1,
+      "max": 20,
+      "default": 2
+    }
+  },
   "events": {
     "on_change": {
       "type": "yaml_block",
@@ -188,6 +202,11 @@
         "border_color",
         "text_color"
       ]
+    },
+    "Cursor": {
+      "section": "cursor",
+      "keys": ["color", "width"],
+      "defaultCollapsed": true
     },
     "Events": {
       "section": "events",

@@ -26,6 +26,7 @@
       "radius": "radius"
     },
     "events": {
+      "on_value": "on_value",
       "on_release": "on_release"
     }
   },
@@ -210,6 +211,11 @@
     }
   },
   "events": {
+    "on_value": {
+      "type": "yaml_block",
+      "title": "on_value",
+      "default": ""
+    },
     "on_release": {
       "type": "yaml_block",
       "title": "on_release",
@@ -270,6 +276,7 @@
     "Events": {
       "section": "events",
       "keys": [
+        "on_value",
         "on_release"
       ]
     }

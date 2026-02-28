@@ -29,7 +29,10 @@
       "border_color": "border_color",
       "radius": "radius"
     },
-    "events": {}
+    "events": {
+      "on_value": "on_value",
+      "on_release": "on_release"
+    }
   },
   "props": {
     "align": {
@@ -256,7 +259,18 @@
       "default": 0
     }
   },
-  "events": {},
+  "events": {
+    "on_value": {
+      "type": "yaml_block",
+      "title": "on_value",
+      "default": ""
+    },
+    "on_release": {
+      "type": "yaml_block",
+      "title": "on_release",
+      "default": ""
+    }
+  },
   "groups": {
     "Value & range": {
       "section": "props",
@@ -282,6 +296,12 @@
       "keys": [
         "value_label_offset_x",
         "value_label_offset_y"
+      ]
+    },
+    "Value label style": {
+      "section": "style",
+      "keys": [
+        "font_size"
       ]
     },
     "Knob": {
@@ -321,9 +341,12 @@
         "radius",
         "border_color",
         "text_color",
-        "border_width",
-        "font_size"
+        "border_width"
       ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": ["on_value", "on_release"]
     }
   }
 }

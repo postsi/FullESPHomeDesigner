@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc } from "react-konva";
 
 type Widget = {
@@ -161,6 +161,10 @@ const stageRef = useRef<any>(null);
 
   // Remember positions at drag start for multi-drag delta application
   const dragStartRef = useRef<Record<string, { x: number; y: number }>>({});
+  // Box selection: drag on empty space to select multiple widgets
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const boxSelectStartRef = useRef<{ x: number; y: number } | null>(null);
+  const BOX_SELECT_THRESHOLD = 5;
 
   React.useEffect(() => {
     if (!trRef.current) return;
@@ -170,6 +174,43 @@ const stageRef = useRef<any>(null);
     trRef.current.nodes(nodes);
     trRef.current.getLayer()?.batchDraw();
   }, [selectedIds]);
+
+  // When box-selecting, listen for mouseup globally so we catch release outside the stage
+  const finishSelectionBox = useCallback(() => {
+    if (!selectionBox) return;
+    const { startX, startY, endX, endY } = selectionBox;
+    const minX = Math.min(startX, endX);
+    const maxX = Math.max(startX, endX);
+    const minY = Math.min(startY, endY);
+    const maxY = Math.max(startY, endY);
+    const topLevel = widgets.filter((w) => !w.parent_id);
+    const idsInBox: string[] = [];
+    for (const w of topLevel) {
+      const { ax, ay } = absPos(w);
+      const ww = w.w || 100;
+      const hh = w.h || 50;
+      if (!(ax + ww < minX || ax > maxX || ay + hh < minY || ay > maxY)) {
+        idsInBox.push(w.id);
+      }
+    }
+    setSelectionBox(null);
+    if (idsInBox.length > 0) {
+      onSelectNone();
+      idsInBox.forEach((id) => onSelect(id, true));
+    } else {
+      onSelectNone();
+    }
+  }, [selectionBox, widgets, onSelect, onSelectNone]);
+
+  React.useEffect(() => {
+    if (!selectionBox) return;
+    const onUp = () => {
+      finishSelectionBox();
+      boxSelectStartRef.current = null;
+    };
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, [selectionBox, finishSelectionBox]);
 
   const selectedSet = new Set(selectedIds);
 
@@ -262,20 +303,35 @@ const stageRef = useRef<any>(null);
     const fontSize = Math.max(10, Math.min(28, Number(s.font_size ?? p.font_size ?? 16)));
 
     const hasShadow = shadowW > 0 || shadowOfsX !== 0 || shadowOfsY !== 0;
-    // Base background
+    const outlineW = Math.max(0, Number(s.outline_width ?? 0));
+    const outlinePad = Number(s.outline_pad ?? 0);
+    const outlineColor = toFillColor(s.outline_color, "#374151");
+    const outlineOpa = Number(s.outline_opa ?? 0) / 100;
+    const transformAngle = Number(s.transform_angle ?? 0);
+    const transformZoom = Number(s.transform_zoom ?? 100) / 100;
+    // Base background (optional outline behind, then main rect)
     const base = (
-      <Rect
-        id={w.id}
-        x={ax}
-        y={ay}
-        width={w.w}
-        height={w.h}
-        fill={bg}
-        stroke={border}
-        strokeWidth={borderWidth}
-        cornerRadius={radius}
-        opacity={opacity}
-        {...(hasShadow && {
+      <>
+        {outlineW > 0 && (
+          <Rect x={ax - outlinePad - outlineW} y={ay - outlinePad - outlineW} width={w.w + 2 * (outlinePad + outlineW)} height={w.h + 2 * (outlinePad + outlineW)} stroke={outlineColor} strokeWidth={outlineW} cornerRadius={radius + outlinePad + outlineW} fillEnabled={false} opacity={outlineOpa} listening={false} />
+        )}
+        <Rect
+          id={w.id}
+          x={transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax}
+          y={transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay}
+          width={w.w}
+          height={w.h}
+          offsetX={transformAngle !== 0 || transformZoom !== 1 ? w.w / 2 : 0}
+          offsetY={transformAngle !== 0 || transformZoom !== 1 ? w.h / 2 : 0}
+          rotation={transformAngle}
+          scaleX={transformZoom}
+          scaleY={transformZoom}
+          fill={bg}
+          stroke={border}
+          strokeWidth={borderWidth}
+          cornerRadius={radius}
+          opacity={opacity}
+          {...(hasShadow && {
           shadowColor: shadowCol,
           shadowBlur: shadowW || 4,
           shadowOffset: { x: shadowOfsX, y: shadowOfsY },
@@ -368,6 +424,7 @@ const stageRef = useRef<any>(null);
           }
         }}
       />
+      </>
     );
 
     // Type-specific adornments
@@ -385,11 +442,18 @@ const stageRef = useRef<any>(null);
 
     if (type.includes("label")) {
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+      const longMode = String(p.long_mode ?? s.long_mode ?? "CLIP").toUpperCase();
+      const wrap = longMode === "WRAP";
+      const ellipsisLabel = longMode !== "WRAP" && longMode !== "CLIP";
+      let labelText = String(title);
+      if (p.recolor || s.recolor) {
+        labelText = labelText.replace(/#[\dA-Fa-f]{6}\s*/g, "").trim() || labelText;
+      }
       return (
         <Group key={w.id}>
           {base}
           <Text
-            text={String(title)}
+            text={labelText}
             x={layout.x}
             y={layout.y}
             width={layout.width}
@@ -398,6 +462,8 @@ const stageRef = useRef<any>(null);
             verticalAlign={layout.verticalAlign}
             fontSize={Math.max(12, Math.min(22, fontSize ?? 18))}
             fill={textColor}
+            wrap={wrap ? "word" : undefined}
+            ellipsis={ellipsisLabel}
             listening={false}
           />
         </Group>
@@ -629,6 +695,7 @@ const stageRef = useRef<any>(null);
       const labelLeft = ax + 6 + size + 8;
       const labelW = w.w - 6 - size - 8;
       const layout = textLayoutFromWidget(labelLeft, ay, labelW, w.h, p, s);
+      const labelText = String(p.text ?? (title || "Checkbox"));
       return (
         <Group key={w.id}>
           {base}
@@ -636,7 +703,7 @@ const stageRef = useRef<any>(null);
           {checked && (
             <Text text="✓" x={ax + 6} y={ay + (w.h - size) / 2 - 2} width={size} height={size} align="center" fontSize={size - 4} fill="#10b981" listening={false} />
           )}
-          <Text text={String(title || "Checkbox")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
+          <Text text={labelText} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
         </Group>
       );
     }
@@ -656,23 +723,27 @@ const stageRef = useRef<any>(null);
       const selIdx = Math.min(Math.max(0, Number(p.selected_index ?? 0)), opts.length - 1);
       const displayText = override?.text !== undefined ? String(override.text) : String(opts[selIdx] ?? opts[0] ?? "Select…");
       const ddBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
+      const selectedPart = w.selected || {};
+      const selText = toFillColor(selectedPart.text_color, textColor);
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       const textW = Math.max(20, layout.width - 24);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={ddBg} stroke="#334155" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={displayText} x={layout.x} y={layout.y} width={textW} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
-          <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={textColor} listening={false} />
+          <Text text={displayText} x={layout.x} y={layout.y} width={textW} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={selText} ellipsis listening={false} />
+          <Text text="▼" x={ax + w.w - 24} y={ay + (w.h - 12) / 2} width={16} align="center" fontSize={10} fill={selText} listening={false} />
         </Group>
       );
     }
 
     if (type === "image" || type === "animimg") {
+      const clipCorner = !!(p.clip_corner ?? s.clip_corner);
+      const innerRadius = clipCorner ? Math.min(8, (Math.min(w.w, w.h) - 12) / 4) : 0;
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#1f2937" stroke="#4b5563" strokeWidth={1} listening={false} />
+          <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#1f2937" stroke="#4b5563" strokeWidth={1} cornerRadius={innerRadius} listening={false} />
           <Text text="🖼" x={ax} y={ay + (w.h - 20) / 2} width={w.w} align="center" fontSize={14} fill="#9ca3af" listening={false} />
         </Group>
       );
@@ -690,11 +761,16 @@ const stageRef = useRef<any>(null);
     if (type === "textarea") {
       const taBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
       const layout = textLayoutFromWidget(ax + 6, ay + 6, w.w - 12, w.h - 12, p, s);
+      const cursorPart = w.cursor || {};
+      const cursorColor = toFillColor(cursorPart.color, textColor);
+      const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
+      const cx = layout.x + 2;
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={taBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
           <Text text={String(p.text ?? "Text…")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
         </Group>
       );
     }
@@ -706,13 +782,25 @@ const stageRef = useRef<any>(null);
       const visible = Math.max(1, Math.floor((w.h - 16) / rowH));
       const start = Math.max(0, selected - Math.floor(visible / 2));
       const rollBg = toFillColor(s.bg_color ?? p.bg_color, "#1e293b");
+      const itemsPart = w.items || {};
+      const selectedPart = w.selected || {};
+      const itemBg = toFillColor(itemsPart.bg_color, rollBg);
+      const itemText = toFillColor(itemsPart.text_color, "#94a3b8");
+      const selBg = toFillColor(selectedPart.bg_color, rollBg);
+      const selText = toFillColor(selectedPart.text_color, textColor);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={rollBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
-          {opts.slice(start, start + visible).map((opt: string, i: number) => (
-            <Text key={i} text={String(opt).slice(0, 20)} x={ax + 12} y={ay + 8 + i * rowH} width={w.w - 24} fontSize={Math.min(12, rowH - 4)} fill={i + start === selected ? textColor : "#94a3b8"} ellipsis listening={false} />
-          ))}
+          {opts.slice(start, start + visible).map((opt: string, i: number) => {
+            const isSel = i + start === selected;
+            return (
+              <Group key={i} listening={false}>
+                {isSel && selBg !== rollBg && <Rect x={ax + 8} y={ay + 8 + i * rowH} width={w.w - 16} height={rowH - 2} fill={selBg} cornerRadius={2} listening={false} />}
+                <Text text={String(opt).slice(0, 20)} x={ax + 12} y={ay + 8 + i * rowH} width={w.w - 24} fontSize={Math.min(12, rowH - 4)} fill={isSel ? selText : itemText} ellipsis listening={false} />
+              </Group>
+            );
+          })}
         </Group>
       );
     }
@@ -733,11 +821,16 @@ const stageRef = useRef<any>(null);
 
     if (type === "spinbox") {
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+      const cursorPart = w.cursor || {};
+      const cursorColor = toFillColor(cursorPart.color, textColor);
+      const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
+      const cx = layout.x + 4;
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
           <Text text={String(p.value ?? "0")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
+          <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
           <Text text="-" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
         </Group>
@@ -823,12 +916,16 @@ const stageRef = useRef<any>(null);
 
     if (type === "tabview") {
       const tabH = 24;
+      const tabs = Array.isArray(p.tabs) ? p.tabs : ["Tab 1", "Tab 2"];
+      const tabW = Math.max(40, (w.w - 12 - (tabs.length - 1) * 4) / tabs.length);
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + 6} y={ay + 6} width={56} height={tabH} fill={String((w.tab_style || {}).bg_color ?? "#374151")} cornerRadius={4} listening={false} />
+          {tabs.slice(0, 6).map((t: string, i: number) => (
+            <Rect key={i} x={ax + 6 + i * (tabW + 4)} y={ay + 6} width={tabW} height={tabH} fill={String((w.tab_style || {}).bg_color ?? "#374151")} cornerRadius={4} listening={false} />
+          ))}
           <Rect x={ax + 6} y={ay + 6 + tabH} width={w.w - 12} height={w.h - 12 - tabH} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={0} listening={false} />
-          <Text text="Tab1" x={ax + 12} y={ay + 10} fontSize={11} fill={textColor} listening={false} />
+          {tabs[0] && <Text text={String(tabs[0]).slice(0, 12)} x={ax + 12} y={ay + 10} width={tabW - 8} fontSize={11} fill={textColor} ellipsis listening={false} />}
         </Group>
       );
     }
@@ -846,16 +943,41 @@ const stageRef = useRef<any>(null);
 
     if (type === "buttonmatrix") {
       const pad = 6;
-      const cols = 3;
-      const rows = 2;
-      const bw = (w.w - pad * (cols + 1)) / cols;
+      const mapRows = Array.isArray(p.map) ? p.map : ["1", "2", "3", "4"];
+      const rows = mapRows.length;
+      const cols = Math.max(1, mapRows.reduce((m: number, row: string) => {
+        const n = typeof row === "string" ? row.split(/[\s,]+/).filter(Boolean).length : 0;
+        return Math.max(m, n);
+      }, 1));
+      const widthWeights = typeof p.width === "string" && p.width.trim()
+        ? p.width.trim().split(/\s+/).map((x: string) => Math.max(0.1, Number(x) || 1)).slice(0, cols)
+        : null;
+      const totalWeight = widthWeights ? widthWeights.reduce((a: number, b: number) => a + b, 0) : cols;
+      const bwPerCol = widthWeights
+        ? (w.w - pad * (cols + 1)) / totalWeight
+        : (w.w - pad * (cols + 1)) / cols;
       const bh = Math.min(28, (w.h - pad * (rows + 1)) / rows);
+      const labels = mapRows.flatMap((row: string) => (typeof row === "string" ? row.split(/[\s,]+/).filter(Boolean) : []));
+      const colX = (c: number) => widthWeights
+        ? ax + pad + widthWeights.slice(0, c).reduce((a: number, b: number) => a + bwPerCol * b, 0) + c * pad
+        : ax + pad + c * (bwPerCol + pad);
+      const cellW = (c: number) => (widthWeights && widthWeights[c] != null ? widthWeights[c] * bwPerCol : bwPerCol);
       return (
         <Group key={w.id}>
           {base}
-          {Array.from({ length: rows * cols }, (_, i) => (
-            <Rect key={i} x={ax + pad + (i % cols) * (bw + pad)} y={ay + pad + Math.floor(i / cols) * (bh + pad)} width={bw} height={bh} fill="#374151" cornerRadius={4} listening={false} />
-          ))}
+          {Array.from({ length: Math.min(rows * cols, 24) }, (_, i) => {
+            const c = i % cols;
+            const r = Math.floor(i / cols);
+            const bx = colX(c);
+            const by = ay + pad + r * (bh + pad);
+            const bw = cellW(c);
+            return (
+              <Group key={i}>
+                <Rect x={bx} y={by} width={bw} height={bh} fill="#374151" cornerRadius={4} listening={false} />
+                <Text text={String(labels[i] ?? "").slice(0, 4)} x={bx} y={by + (bh - 10) / 2} width={bw} align="center" fontSize={Math.min(10, bh - 4)} fill={textColor} listening={false} />
+              </Group>
+            );
+          })}
         </Group>
       );
     }
@@ -876,28 +998,46 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "list") {
-      const rowH = 28;
-      const count = Math.max(1, Math.floor((w.h - 12) / rowH));
+      const rowH = Math.max(16, Math.min(48, Number(p.item_height ?? 28)));
+      const items = Array.isArray(p.items) ? p.items : ["Item 1", "Item 2"];
+      const count = Math.min(items.length, Math.max(1, Math.floor((w.h - 12) / rowH)));
+      const itemsPart = w.items || {};
+      const selectedPart = w.selected || {};
+      const itemBg = toFillColor(itemsPart.bg_color, "#1f2937");
+      const itemTextCol = toFillColor(itemsPart.text_color, textColor);
+      const selBg = toFillColor(selectedPart.bg_color, "#374151");
+      const selTextCol = toFillColor(selectedPart.text_color, textColor);
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} cornerRadius={4} listening={false} />
-          {Array.from({ length: count }, (_, i) => (
-            <Rect key={i} x={ax + 10} y={ay + 10 + i * rowH} width={w.w - 20} height={rowH - 4} fill="#1f2937" cornerRadius={2} listening={false} />
-          ))}
+          {Array.from({ length: count }, (_, i) => {
+            const isSel = i === 0;
+            const rowFill = isSel ? selBg : itemBg;
+            const rowText = isSel ? selTextCol : itemTextCol;
+            return (
+              <Group key={i} listening={false}>
+                <Rect x={ax + 10} y={ay + 10 + i * rowH} width={w.w - 20} height={rowH - 4} fill={rowFill} cornerRadius={2} listening={false} />
+                <Text text={String(items[i] ?? "").slice(0, 24)} x={ax + 14} y={ay + 10 + i * rowH + (rowH - 4 - 12) / 2} width={w.w - 28} fontSize={Math.min(12, rowH - 8)} fill={rowText} ellipsis listening={false} />
+              </Group>
+            );
+          })}
         </Group>
       );
     }
     if (type === "table") {
-      const rowH = 22;
-      const colW = (w.w - 16) / 3;
+      const cols = Math.max(1, Math.min(12, Number(p.col_cnt ?? 3)));
+      const rows = Math.max(1, Math.min(20, Number(p.row_cnt ?? 3)));
+      const pad = Number(p.cell_padding ?? 4);
+      const colW = (w.w - 12 - pad * (cols + 1)) / cols;
+      const rowH = (w.h - 12 - pad * (rows + 1)) / rows;
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={String(s.bg_color ?? "#0b1220")} stroke="#374151" strokeWidth={1} cornerRadius={4} listening={false} />
-          {[0, 1, 2].map((r) =>
-            [0, 1, 2].map((c) => (
-              <Rect key={`${r}-${c}`} x={ax + 8 + c * colW} y={ay + 8 + r * rowH} width={colW - 2} height={rowH - 2} fill={r === 0 ? "#374151" : "#1f2937"} cornerRadius={1} listening={false} />
+          {Array.from({ length: rows }, (_, r) =>
+            Array.from({ length: cols }, (_, c) => (
+              <Rect key={`${r}-${c}`} x={ax + 8 + pad + c * (colW + pad)} y={ay + 8 + pad + r * (rowH + pad)} width={colW} height={rowH} fill={r === 0 ? "#374151" : "#1f2937"} cornerRadius={1} listening={false} />
             ))
           )}
         </Group>
@@ -1041,9 +1181,42 @@ const stageRef = useRef<any>(null);
       ref={stageRef}
       style={{ background: /^#[0-9a-fA-F]{6}$/.test(dispBgColor || "") ? dispBgColor : "#0b0f14", borderRadius: 12, overflow: "hidden" }}
       onMouseDown={(e) => {
-        // click on empty space clears selection
         const clickedOnEmpty = e.target === e.target.getStage();
-        if (clickedOnEmpty) onSelectNone();
+        if (clickedOnEmpty) {
+          const pos = e.target.getStage()?.getPointerPosition();
+          if (pos) {
+            boxSelectStartRef.current = { x: pos.x, y: pos.y };
+          } else {
+            onSelectNone();
+          }
+        }
+      }}
+      onMouseMove={(e) => {
+        const pos = e.target.getStage()?.getPointerPosition();
+        if (selectionBox && pos) {
+          setSelectionBox((prev) => prev ? { ...prev, endX: pos.x, endY: pos.y } : null);
+        } else if (boxSelectStartRef.current && pos) {
+          const dx = pos.x - boxSelectStartRef.current.x;
+          const dy = pos.y - boxSelectStartRef.current.y;
+          if (Math.sqrt(dx * dx + dy * dy) >= BOX_SELECT_THRESHOLD) {
+            setSelectionBox({
+              startX: boxSelectStartRef.current.x,
+              startY: boxSelectStartRef.current.y,
+              endX: pos.x,
+              endY: pos.y,
+            });
+            boxSelectStartRef.current = null;
+          }
+        }
+      }}
+      onMouseUp={(e) => {
+        if (e.target !== e.target.getStage()) return;
+        if (selectionBox) {
+          finishSelectionBox();
+        } else if (boxSelectStartRef.current) {
+          boxSelectStartRef.current = null;
+          onSelectNone();
+        }
       }}
     >
       <Layer>
@@ -1060,6 +1233,19 @@ const stageRef = useRef<any>(null);
             return newBox;
           }}
         />
+        {selectionBox && (
+          <Rect
+            x={Math.min(selectionBox.startX, selectionBox.endX)}
+            y={Math.min(selectionBox.startY, selectionBox.endY)}
+            width={Math.abs(selectionBox.endX - selectionBox.startX)}
+            height={Math.abs(selectionBox.endY - selectionBox.startY)}
+            stroke="#10b981"
+            strokeWidth={2}
+            dash={[6, 4]}
+            fill="rgba(16, 185, 129, 0.08)"
+            listening={false}
+          />
+        )}
       </Layer>
     </Stage>
     </div>

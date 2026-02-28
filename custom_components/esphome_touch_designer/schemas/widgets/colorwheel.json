@@ -2,7 +2,26 @@
   "type": "colorwheel",
   "title": "Color Wheel",
   "esphome": {
-    "widget": "colorwheel"
+    "root_key": "colorwheel",
+    "props": {
+      "align": "align",
+      "hidden": "hidden",
+      "clickable": "clickable",
+      "opacity": "opacity",
+      "group": "group",
+      "mode": "mode"
+    },
+    "style": {
+      "bg_color": "bg_color",
+      "bg_opa": "bg_opa",
+      "text_color": "text_color",
+      "border_width": "border_width",
+      "border_color": "border_color",
+      "radius": "radius"
+    },
+    "events": {
+      "on_color_changed": "on_color_changed"
+    }
   },
   "props": {
     "align": {

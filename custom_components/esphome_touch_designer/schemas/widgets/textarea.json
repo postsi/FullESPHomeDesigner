@@ -24,7 +24,11 @@
       "border_color": "border_color",
       "radius": "radius"
     },
-    "events": {}
+    "events": {
+      "on_ready": "on_ready",
+      "on_focus": "on_focus",
+      "on_defocus": "on_defocus"
+    }
   },
   "props": {
     "align": {
@@ -149,10 +153,34 @@
       "default": 0
     }
   },
+  "cursor": {
+    "color": {
+      "type": "color",
+      "title": "Cursor color",
+      "default": ""
+    },
+    "width": {
+      "type": "number",
+      "title": "Cursor width (px)",
+      "min": 1,
+      "max": 20,
+      "default": 2
+    }
+  },
   "events": {
     "on_ready": {
       "type": "yaml_block",
       "title": "on_ready",
+      "default": ""
+    },
+    "on_focus": {
+      "type": "yaml_block",
+      "title": "on_focus",
+      "default": ""
+    },
+    "on_defocus": {
+      "type": "yaml_block",
+      "title": "on_defocus",
       "default": ""
     }
   },
@@ -189,10 +217,17 @@
         "border_color"
       ]
     },
+    "Cursor": {
+      "section": "cursor",
+      "keys": ["color", "width"],
+      "defaultCollapsed": true
+    },
     "Events": {
       "section": "events",
       "keys": [
-        "on_ready"
+        "on_ready",
+        "on_focus",
+        "on_defocus"
       ]
     }
   }

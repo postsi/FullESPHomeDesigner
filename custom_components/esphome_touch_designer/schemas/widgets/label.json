@@ -30,7 +30,9 @@
       "shadow_width": "shadow_width",
       "shadow_color": "shadow_color"
     },
-    "events": {}
+    "events": {
+      "on_click": "on_click"
+    }
   },
   "props": {
     "align": {
@@ -178,7 +180,13 @@
       "default": "#000000"
     }
   },
-  "events": {},
+  "events": {
+    "on_click": {
+      "type": "yaml_block",
+      "title": "on_click",
+      "default": ""
+    }
+  },
   "groups": {
     "Label": {
       "section": "props",
@@ -217,6 +225,10 @@
         "pad_right",
         "pad_top"
       ]
+    },
+    "Events": {
+      "section": "events",
+      "keys": ["on_click"]
     }
   }
 }
