@@ -768,9 +768,10 @@ const stageRef = useRef<any>(null);
       return (
         <Group key={w.id}>
           {base}
-          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={bgSweep} rotation={rot + bgStart} fill={bgStroke} clockwise={bgClockwise} listening={false} />
+          {/* Konva Arc: clockwise prop is passed to Canvas anticlockwise, so invert to get LVGL direction (true = draw clockwise). */}
+          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={bgSweep} rotation={rot + bgStart} fill={bgStroke} clockwise={!bgClockwise} listening={false} />
           {indSweep !== 0 && (
-            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
+            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg)} fill={indStroke} clockwise={indSweep < 0} listening={false} />
           )}
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
           {simHandleArc}

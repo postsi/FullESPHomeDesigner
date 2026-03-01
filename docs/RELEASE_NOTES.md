@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.107
+
+- **Arc (Konva)**: Fixed arc drawing direction: Konva's `clockwise` prop maps to Canvas anticlockwise, so the flag is now inverted. Arcs (e.g. start 270°, end 0°) now render as the short quarter circle instead of the long arc.
+
 ## v0.70.106
 
 - **Arc (REVERSE / SYMMETRICAL)**: REVERSE and SYMMETRICAL modes now use the same short-arc logic as NORMAL so the track, indicator, and knob stay on the short path for spans &gt; 180°. SYMMETRICAL uses the midpoint of the short arc and grows the indicator from center toward end; REVERSE goes from end back to start along the short arc.
