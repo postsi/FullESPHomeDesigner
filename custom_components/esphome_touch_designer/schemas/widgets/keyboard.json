@@ -56,7 +56,7 @@
     "scrollable": {
       "type": "boolean",
       "title": "Scrollable",
-      "default": false
+      "default": true
     },
     "scrollbar_mode": {
       "type": "enum",

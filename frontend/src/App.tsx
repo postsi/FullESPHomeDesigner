@@ -255,7 +255,7 @@ export default function App() {
   const [bindEntity, setBindEntity] = useState<string>("");
   const [bindAttr, setBindAttr] = useState<string>("");
   const [bindAction, setBindAction] = useState<string>("label_text");
-  const [bindFormat, setBindFormat] = useState<string>("");
+  const [bindFormat, setBindFormat] = useState<string>("%.1f");
   const [bindScale, setBindScale] = useState<number>(1);
   const [builderMode, setBuilderMode] = useState<"display" | "action">("display");
   const [bindingsListExpanded, setBindingsListExpanded] = useState<Record<string, boolean>>({});
@@ -1181,7 +1181,7 @@ if (baseId.startsWith("glance_card")) {
       const kind = src?.kind || "state";
       const attr = src?.attribute ?? "";
       const action = tgt?.action || "";
-      const fmt = tgt?.format ?? "%.1f";
+      const fmt = (tgt?.format != null && String(tgt.format).trim() !== "") ? String(tgt.format).trim() : "%.1f";
       const scale = typeof tgt?.scale === "number" ? tgt.scale : 1;
       if (!widgetId || !entityId) continue;
       const data = liveEntityStates[entityId];
@@ -3612,7 +3612,7 @@ function deleteSelected() {
                             if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
                             if (!attr && act === "label_text") kind = "state";
                             (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
-                            (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id: wid, action: act, format: bindFormat, scale: bindScale } });
+                            (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id: wid, action: act, format: (bindFormat != null && String(bindFormat).trim() !== "") ? String(bindFormat).trim() : "%.1f", scale: bindScale } });
                             const pageWidgets = (p2 as any).pages?.[safePageIndex]?.widgets || [];
                             const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
                             const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);
@@ -4086,12 +4086,13 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
       const max = def.max;
       const step = def.step ?? 1;
       const useSlider = typeof min === "number" && typeof max === "number" && max - min <= 255;
+      const numDisplay = value !== undefined && value !== null && value !== "" ? Number(value) : (typeof def.default === "number" ? def.default : (typeof min === "number" ? min : ""));
       return (
         <div style={{ display: "flex", alignItems: "center" }}>
           {useSlider ? (
             <input
               type="range"
-              value={Number(value ?? min)}
+              value={Number(numDisplay ?? min)}
               min={min}
               max={max}
               step={step}
@@ -4101,9 +4102,10 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
           ) : null}
           <input
             type="number"
-            value={value}
+            value={numDisplay}
             min={min}
             max={max}
+            placeholder={def.default != null && numDisplay === "" ? String(def.default) : undefined}
             onChange={(e) => {
               const raw = e.target.value;
               if (raw === "") return onChange(section, key, undefined);

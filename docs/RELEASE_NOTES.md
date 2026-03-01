@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.111
+
+- **Binding Builder • Format**: Empty format for numeric display bindings (e.g. climate temperature → label) now defaults to **%.1f** so the value is shown. Format field defaults to `%.1f` in the UI and when saving a link; live overrides treat blank format as `%.1f`.
+- **Property editor**: Number fields show schema default (or min) when unset; placeholder shows default when applicable. **Reset to default** and **clear** unchanged.
+- **LVGL schema defaults**: Widget schemas align with ESPHome LVGL docs: **scrollable** default is now `true` for all widgets that define it (meter, keyboard, buttonmatrix, tabview, spinner, textarea, tileview, animimg, obj, image, qrcode, msgboxes, line, led, container, canvas).
+
 ## v0.70.110
 
 - **HA Bindings tab**: Totals (Entities • Links • Actions) now update correctly after deleting bindings; counts are derived from `project` via `useMemo` so they stay in sync. First count is labeled **Entities** (HA sensors from Add recommended) with a tooltip to distinguish from Links/Actions (Binding Builder).
