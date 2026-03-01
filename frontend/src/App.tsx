@@ -183,6 +183,14 @@ export default function App() {
   const projectHist = useHistory<ProjectModel | null>(null);
   const project = projectHist.present;
   const setProject = projectHist.set;
+  const haBindingCounts = useMemo(() => {
+    const p = project;
+    return {
+      entities: ((p as any)?.bindings || []).length,
+      links: ((p as any)?.links || []).length,
+      actions: ((p as any)?.action_bindings || []).length,
+    };
+  }, [project]);
   const [projectDirty, setProjectDirty] = useState(false);
 
   const [schemaIndex, setSchemaIndex] = useState<WidgetSchemaIndexItem[]>([]);
@@ -1181,7 +1189,9 @@ if (baseId.startsWith("glance_card")) {
       let raw: any = data.state;
       if (kind === "attribute_number" && attr) {
         const v = data.attributes?.[attr];
-        raw = typeof v === "number" ? v : (typeof v === "string" ? parseFloat(v) : NaN);
+        if (v != null && typeof v === "number" && !Number.isNaN(v)) raw = v;
+        else if (v != null && typeof v === "string") raw = parseFloat(v);
+        else raw = NaN;
         if (Number.isNaN(raw) && typeof data.state === "string") raw = parseFloat(data.state);
       } else if (kind === "attribute_text" && attr) {
         raw = data.attributes?.[attr] ?? "";
@@ -1195,7 +1205,9 @@ if (baseId.startsWith("glance_card")) {
           const s = fmt.replace("%.2f", n.toFixed(2)).replace("%.1f", n.toFixed(1)).replace("%.0f", String(Math.round(n)));
           overrides[widgetId] = { ...overrides[widgetId], text: s };
         } else {
-          overrides[widgetId] = { ...overrides[widgetId], text: String(raw ?? "") };
+          const fallback = kind === "attribute_number" ? "--" : String(raw ?? "");
+          const existing = overrides[widgetId]?.text ?? "";
+          if (fallback !== "" || existing === "") overrides[widgetId] = { ...overrides[widgetId], text: fallback || existing || "" };
         }
       } else if (action === "label_number") {
         if (typeof raw === "number" && !Number.isNaN(raw)) {
@@ -3334,7 +3346,7 @@ function deleteSelected() {
                   const actionBindings = (project as any)?.action_bindings || [];
                   return (
                     <>
-                <div className="muted" style={{ marginTop: 8 }}>Bindings: {bindings.length} • Links: {links.length} • Actions: {actionBindings.length}</div>
+                <div className="muted" style={{ marginTop: 8 }} title="Entities = HA sensors from Add recommended; Links/Actions = per-widget bindings from Binding Builder">Entities: {haBindingCounts.entities} • Links: {haBindingCounts.links} • Actions: {haBindingCounts.actions}</div>
                 {(() => {
                   const widgetType = (wid: string) => widgets.find((w: any) => w?.id === wid)?.type || "container";
                   const byType: Record<string, { links: { index: number; ln: any }[]; actions: { index: number; ab: any }[] }> = {};

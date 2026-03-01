@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.110
+
+- **HA Bindings tab**: Totals (Entities • Links • Actions) now update correctly after deleting bindings; counts are derived from `project` via `useMemo` so they stay in sync. First count is labeled **Entities** (HA sensors from Add recommended) with a tooltip to distinguish from Links/Actions (Binding Builder).
+- **Label + numeric binding**: Binding a number (e.g. climate `current_temperature`) to a label now shows the value in the live preview. Robust handling for `attribute_number` (null/string coercion), placeholder `"--"` when the value is missing, and empty text no longer overwrites non-empty text when multiple links target the same label.
+
 ## v0.70.109
 
 - **Arc (LVGL)**: Arc now draws from start_angle to end_angle in the **clockwise** direction (LVGL convention). No "short arc" — e.g. start 90°, end 0° gives a 270° arc (6→9→12→3 o'clock). Knob position includes widget rotation.
