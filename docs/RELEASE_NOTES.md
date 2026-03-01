@@ -1,9 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
-## v0.70.105
+## v0.70.106
 
 - **Arc (REVERSE / SYMMETRICAL)**: REVERSE and SYMMETRICAL modes now use the same short-arc logic as NORMAL so the track, indicator, and knob stay on the short path for spans &gt; 180°. SYMMETRICAL uses the midpoint of the short arc and grows the indicator from center toward end; REVERSE goes from end back to start along the short arc.
 - **Simulator (arc)**: Arc drag-to-set value is mode-aware: NORMAL (start→end), REVERSE (end→start), SYMMETRICAL (mid→end).
+
+## v0.70.105
+
+- **Binding Builder**: Display and Action styled as tabs (panelTabs). Font id dropdown (Built-in + uploaded asset fonts). Compile copy fallback. Simulator: arc/slider hit areas; HA Bindings count. Arc angles: LVGL convention and short path.
 
 ## v0.70.104
 
