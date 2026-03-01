@@ -361,6 +361,7 @@ const stageRef = useRef<any>(null);
         const a = angle < 0 ? angle + 360 : angle;
         const startAngle = Number(p.start_angle ?? 135);
         const endAngle = Number(p.end_angle ?? 45);
+        const arcMode = String(p.mode ?? "NORMAL").toUpperCase();
         const sweepCw = (endAngle - startAngle + 360) % 360 || 360;
         const shortSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
         let norm: number;
@@ -369,7 +370,23 @@ const stageRef = useRef<any>(null);
         } else {
           norm = ((startAngle - a + 360) % 360) / shortSweep;
         }
-        const val = minVal + Math.max(0, Math.min(1, norm)) * (maxVal - minVal);
+        norm = Math.max(0, Math.min(1, norm));
+        let val: number;
+        if (arcMode === "REVERSE") {
+          val = minVal + (1 - norm) * (maxVal - minVal);
+        } else if (arcMode === "SYMMETRICAL") {
+          const midAngle = sweepCw <= 180 ? startAngle + shortSweep / 2 : startAngle - shortSweep / 2;
+          let normSym: number;
+          if (sweepCw <= 180) {
+            normSym = ((a - midAngle + 360) % 360) / (shortSweep / 2);
+          } else {
+            normSym = ((midAngle - a + 360) % 360) / (shortSweep / 2);
+          }
+          normSym = Math.max(0, Math.min(1, normSym));
+          val = minVal + normSym * (maxVal - minVal);
+        } else {
+          val = minVal + norm * (maxVal - minVal);
+        }
         onSimulateUpdate(w.id, { value: Math.round(val) });
       }
     };
@@ -697,14 +714,29 @@ const stageRef = useRef<any>(null);
       if (max > min) {
         const t = (val - min) / (max - min);
         if (mode === "SYMMETRICAL") {
-          const mid = (bgStart + bgEnd) / 2;
+          // Midpoint of short arc; indicator grows from mid toward end (min → mid, max → end)
+          const mid = sweepCw <= 180 ? bgStart + bgSweep / 2 : bgStart - bgSweep / 2;
           indStart = mid;
-          indSweep = (val - min) / (max - min) * (bgEnd - bgStart) / 2;
+          if (sweepCw <= 180) {
+            indSweep = t * (bgSweep / 2);
+          } else {
+            indSweep = -t * (bgSweep / 2);
+          }
         } else if (mode === "REVERSE") {
+          // Knob at end when min, at start when max; follow short arc from end back to start
           indStart = bgEnd;
-          indSweep = -t * (bgEnd - bgStart);
+          if (sweepCw <= 180) {
+            indSweep = -t * bgSweep;
+          } else {
+            indSweep = t * bgSweep;
+          }
         } else {
-          indSweep = t * (bgEnd - bgStart);
+          // NORMAL: indicator follows the same short arc as the background (knob at start when min, at end when max)
+          if (sweepCw <= 180) {
+            indSweep = t * bgSweep;
+          } else {
+            indSweep = -t * bgSweep;
+          }
         }
       }
       const endDeg = indStart + indSweep;
@@ -1127,24 +1159,36 @@ const stageRef = useRef<any>(null);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const prebuilt = e.dataTransfer.getData('application/x-esphome-prebuilt-widget');
     const tmpl = e.dataTransfer.getData('application/x-esphome-control-template');
     const type = e.dataTransfer.getData('application/x-esphome-widget-type');
     const payload = prebuilt ? `prebuilt:${prebuilt}` : tmpl ? `tmpl:${tmpl}` : type;
     if (!payload || !onDropCreate) return;
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+    if (rect.width > 0 && rect.height > 0 && (rect.width !== width || rect.height !== height)) {
+      x = (x / rect.width) * width;
+      y = (y / rect.height) * height;
+    }
+    x = Math.max(0, Math.min(width, x));
+    y = Math.max(0, Math.min(height, y));
     onDropCreate(payload, snap(x, gridSize), snap(y, gridSize));
   };
 
   return (
     <div
       ref={containerRef}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      }}
       onDrop={handleDrop}
-      style={{ width, height }}
+      style={{ width, height, minWidth: width, minHeight: height }}
     >
     <Stage
       width={width}

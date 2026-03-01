@@ -3078,8 +3078,13 @@ function deleteSelected() {
                           }
                           setProject(p2, true);
                           setProjectDirty(true);
-                          setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
-                          setInspectorTab("properties");
+                          const firstId = widgets.length ? widgets[0].id : null;
+                          requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                              if (firstId) setSelectedWidgetIds([firstId]);
+                              setInspectorTab("properties");
+                            });
+                          });
                         }
                       }
                       return;
