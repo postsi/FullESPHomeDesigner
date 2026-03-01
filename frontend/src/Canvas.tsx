@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from "react";
-import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc } from "react-konva";
+import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
 
 type Widget = {
   id: string;
@@ -356,11 +356,17 @@ const stageRef = useRef<any>(null);
       } else if (w.type === "arc") {
         const cx = ax + w.w / 2;
         const cy = ay + w.h / 2;
-        // Same convention as LVGL: 0°=right, 90°=bottom (y down), 180°=left, 270°=top
+        // Same convention and short-arc logic as drawn arc; apply widget rotation so pointer→value matches the visible arc
         const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
-        const a = angle < 0 ? angle + 360 : angle;
-        const startAngle = Number(p.start_angle ?? 135);
-        const endAngle = Number(p.end_angle ?? 45);
+        const a = (angle < 0 ? angle + 360 : angle);
+        const rot = Number(p.rotation ?? 0);
+        const bgStart = Number(p.start_angle ?? 135);
+        const bgEnd = Number(p.end_angle ?? 45);
+        const sweepCwRaw = (bgEnd - bgStart + 360) % 360 || 360;
+        const bgSweep = sweepCwRaw <= 180 ? sweepCwRaw : 360 - sweepCwRaw;
+        const bgClockwise = sweepCwRaw <= 180;
+        const startAngle = (rot + bgStart + 720) % 360;
+        const endAngle = (rot + bgStart + (bgClockwise ? bgSweep : -bgSweep) + 720) % 360;
         const arcMode = String(p.mode ?? "NORMAL").toUpperCase();
         const sweepCw = (endAngle - startAngle + 360) % 360 || 360;
         const shortSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
@@ -757,6 +763,12 @@ const stageRef = useRef<any>(null);
       const knobFill = toFillColor(knobDef.bg_color ?? s.bg_color, "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
+      // Draw arc with explicit start/end angles (Konva Arc + rotation was unreliable). LVGL: 0=right, 90=bottom; Canvas same.
+      const toRad = (deg: number) => ((deg % 360 + 360) % 360) * (Math.PI / 180);
+      const bgStartDeg = (rot + bgStart + 720) % 360;
+      const bgEndDeg = (rot + bgStart + (bgClockwise ? bgSweep : -bgSweep) + 720) % 360;
+      const bgStartRad = toRad(bgStartDeg);
+      const bgEndRad = bgEndDeg === 0 ? 2 * Math.PI : toRad(bgEndDeg);
       const simHandleArc = simulationMode && simDraggable ? (
         <Circle x={cx} y={cy} radius={outerR + knobSize} fill="transparent" listening={true} draggable={true}
           dragBoundFunc={(pos) => ({ x: cx, y: cy })}
@@ -765,13 +777,42 @@ const stageRef = useRef<any>(null);
           onDragEnd={() => {}}
         />
       ) : null;
+      // Indicator arc: from start to end of the filled segment (direction matches sweep sign)
+      const indFromDeg = (rot + (indSweep >= 0 ? indStart : endDeg) + 720) % 360;
+      const indToDeg = (rot + (indSweep >= 0 ? endDeg : indStart) + 720) % 360;
+      const indStartRad = toRad(indFromDeg);
+      const indEndRad = indToDeg === 0 ? 2 * Math.PI : toRad(indToDeg);
+      const indClockwise = indSweep >= 0;
       return (
         <Group key={w.id}>
           {base}
-          {/* Konva Arc: clockwise prop is passed to Canvas anticlockwise, so invert to get LVGL direction (true = draw clockwise). */}
-          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={bgSweep} rotation={rot + bgStart} fill={bgStroke} clockwise={!bgClockwise} listening={false} />
+          <Shape
+            x={cx}
+            y={cy}
+            sceneFunc={(ctx, shape) => {
+              ctx.beginPath();
+              ctx.arc(0, 0, outerR, bgStartRad, bgEndRad, !bgClockwise);
+              ctx.arc(0, 0, innerR, bgEndRad, bgStartRad, bgClockwise);
+              ctx.closePath();
+              ctx.fillStrokeShape(shape);
+            }}
+            fill={bgStroke}
+            listening={false}
+          />
           {indSweep !== 0 && (
-            <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg)} fill={indStroke} clockwise={indSweep < 0} listening={false} />
+            <Shape
+              x={cx}
+              y={cy}
+              sceneFunc={(ctx, shape) => {
+                ctx.beginPath();
+                ctx.arc(0, 0, outerR, indStartRad, indEndRad, !indClockwise);
+                ctx.arc(0, 0, innerR, indEndRad, indStartRad, indClockwise);
+                ctx.closePath();
+                ctx.fillStrokeShape(shape);
+              }}
+              fill={indStroke}
+              listening={false}
+            />
           )}
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
           {simHandleArc}

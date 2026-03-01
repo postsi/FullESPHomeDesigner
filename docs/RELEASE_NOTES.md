@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.108
+
+- **Arc**: Arc is now drawn with a custom Shape and Canvas `arc()` using explicit start/end angles instead of Konva's Arc, so the short arc (e.g. 270°→0° = quarter circle, 270°→180° = 90° left side) renders correctly for any span.
+- **Simulator (arc)**: Arc drag-to-set uses the same short-arc logic and widget rotation as the drawn arc so pointer position matches the visible track.
+
 ## v0.70.107
 
 - **Arc (Konva)**: Fixed arc drawing direction: Konva's `clockwise` prop maps to Canvas anticlockwise, so the flag is now inverted. Arcs (e.g. start 270°, end 0°) now render as the short quarter circle instead of the long arc.
