@@ -1,5 +1,14 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.104
+
+- **Binding Builder**: Display and Action are now styled as tabs (panelTabs) instead of plain buttons.
+- **Font id**: Style property **Font id** (text_font) is a dropdown: Built-in (Montserrat 8px–48px) and uploaded asset fonts with size; optional text field for custom ids.
+- **Compile**: Copy button fallback when clipboard API fails: uses a temporary textarea and `document.execCommand('copy')` so copy works in more contexts.
+- **Simulator**: Arc and slider only respond when the pointer is over the track/knob (transparent hit areas); base widget rect no longer captures drag.
+- **HA Bindings tab**: Bindings / Links / Actions count at the bottom is derived from the same data as the list so it updates correctly after adding or deleting bindings.
+- **Arc angles**: Canvas uses LVGL convention (0°=right, 90°=bottom, 180°=left, 270°=top; clockwise). Background arc draws the short path from start to end so the track matches the knob; simulator pointer angle and value use the same convention and short-arc logic.
+
 ## v0.70.103
 
 - **Simulator**: New **Simulate** button (next to Physical screen) opens a live interactive simulator: same canvas at recipe resolution, click/drag to update widget state (slider, arc, switch, dropdown, checkbox, button). Action bindings show a toast (e.g. "Action: on_click → light.toggle"). Simulator modal has no grid, no selection, no layout edits.

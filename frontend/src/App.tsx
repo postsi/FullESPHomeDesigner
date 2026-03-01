@@ -2721,11 +2721,29 @@ function deleteSelected() {
                       <button className="secondary" disabled={!compiledYaml} onClick={async () => {
                           if (!compiledYaml) return;
                           try {
-                            await navigator.clipboard.writeText(compiledYaml);
-                            setToast({ type: "ok", msg: "Copied to clipboard" });
+                            if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+                              await navigator.clipboard.writeText(compiledYaml);
+                              setToast({ type: "ok", msg: "Copied to clipboard" });
+                              return;
+                            }
+                          } catch {}
+                          const textarea = document.createElement("textarea");
+                          textarea.value = compiledYaml;
+                          textarea.style.position = "fixed";
+                          textarea.style.left = "-9999px";
+                          textarea.setAttribute("readonly", "");
+                          document.body.appendChild(textarea);
+                          textarea.select();
+                          try {
+                            if (document.execCommand("copy")) {
+                              setToast({ type: "ok", msg: "Copied to clipboard" });
+                            } else {
+                              setToast({ type: "error", msg: "Copy failed (check permissions)" });
+                            }
                           } catch {
                             setToast({ type: "error", msg: "Copy failed (check permissions)" });
                           }
+                          document.body.removeChild(textarea);
                         }}>Copy</button>
                       <button
                         disabled={exportBusy || !entryId || !selectedDevice}
@@ -3305,10 +3323,14 @@ function deleteSelected() {
                     setProject(p2);
                   }}>Add recommended</button>
                 </div>
-                <div className="muted" style={{ marginTop: 8 }}>Bindings: {(project as any)?.bindings?.length || 0} • Links: {(project as any)?.links?.length || 0} • Actions: {(project as any)?.action_bindings?.length || 0}</div>
                 {(() => {
+                  const bindings = (project as any)?.bindings || [];
                   const links = (project as any)?.links || [];
                   const actionBindings = (project as any)?.action_bindings || [];
+                  return (
+                    <>
+                <div className="muted" style={{ marginTop: 8 }}>Bindings: {bindings.length} • Links: {links.length} • Actions: {actionBindings.length}</div>
+                {(() => {
                   const widgetType = (wid: string) => widgets.find((w: any) => w?.id === wid)?.type || "container";
                   const byType: Record<string, { links: { index: number; ln: any }[]; actions: { index: number; ab: any }[] }> = {};
                   links.forEach((ln: any, idx: number) => {
@@ -3399,6 +3421,9 @@ function deleteSelected() {
                     </div>
                   );
                 })()}
+                    </>
+                  );
+                })()}
               </div>
             )}
             {inspectorTab === "builder" && (
@@ -3427,9 +3452,9 @@ function deleteSelected() {
                   const selectedEntityAttrs = bindEntity ? (entities.find((x) => x && x.entity_id === bindEntity)?.attributes ? Object.keys(entities.find((x) => x && x.entity_id === bindEntity)!.attributes!).sort() : []) : [];
                   return (
                     <>
-                      <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
-                        <button type="button" className={builderMode === "display" ? "active" : ""} style={{ flex: 1, padding: "6px 8px", fontSize: 12 }} onClick={() => setBuilderMode("display")}>Display</button>
-                        <button type="button" className={builderMode === "action" ? "active" : ""} style={{ flex: 1, padding: "6px 8px", fontSize: 12 }} onClick={() => setBuilderMode("action")}>Action</button>
+                      <div className="panelTabs" style={{ marginTop: 10, padding: "8px 8px 0", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,.2)" }}>
+                        <button type="button" className={`panelTab ${builderMode === "display" ? "active" : ""}`} style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => setBuilderMode("display")}>Display</button>
+                        <button type="button" className={`panelTab ${builderMode === "action" ? "active" : ""}`} style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => setBuilderMode("action")}>Action</button>
                       </div>
                       <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
                         <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
@@ -4102,7 +4127,61 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
         </div>
       );
     }
-    // v0.46: font picker helper.
+    // Font id (style.text_font): list of available fonts meaningful to the user.
+    if (key === "text_font") {
+      const raw = String(value ?? "").trim();
+      const isBuiltin = BUILTIN_LVGL_FONTS.includes(raw);
+      const isAsset = raw.startsWith("asset:");
+      let curFile = "";
+      let curSize = 16;
+      if (isAsset) {
+        try {
+          const rest = raw.slice("asset:".length);
+          const parts = rest.split(":");
+          curFile = parts.slice(0, -1).join(":") || "";
+          curSize = parseInt(parts[parts.length - 1] || "16", 10) || 16;
+        } catch {}
+      }
+      const assetOptions = fontFiles.flatMap((fn) => fontSizes.map((size) => ({ id: `asset:${fn}:${size}`, label: `${fn} (${size}px)` })));
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <select
+            value={isBuiltin ? raw : (isAsset ? raw : "")}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return onChange(section, key, undefined);
+              onChange(section, key, v);
+            }}
+            style={{ width: "100%", maxWidth: 220 }}
+          >
+            <option value="">(default)</option>
+            <optgroup label="Built-in (Montserrat)">
+              {BUILTIN_LVGL_FONTS.map((f) => (
+                <option key={f} value={f}>{f.replace("montserrat_", "Montserrat ")}px</option>
+              ))}
+            </optgroup>
+            {assetOptions.length > 0 && (
+              <optgroup label="Uploaded assets">
+                {assetOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          {!isBuiltin && !isAsset && (
+            <input
+              type="text"
+              value={raw}
+              onChange={(e) => onChange(section, key, e.target.value.trim() || undefined)}
+              placeholder="Or type custom font id (e.g. roboto_16)"
+              style={{ width: "100%", fontSize: 12, boxSizing: "border-box" }}
+            />
+          )}
+          <div style={{ display: "flex", gap: 8 }}>{resetBtn}{clearBtn}</div>
+        </div>
+      );
+    }
+    // v0.46: font picker helper (props.font).
     // Value can be: built-in id (montserrat_16), asset descriptor (asset:file.ttf:24), or custom id.
     if (key === "font") {
       const raw = String(value ?? "").trim();

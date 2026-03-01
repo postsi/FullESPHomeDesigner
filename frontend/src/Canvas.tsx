@@ -356,12 +356,19 @@ const stageRef = useRef<any>(null);
       } else if (w.type === "arc") {
         const cx = ax + w.w / 2;
         const cy = ay + w.h / 2;
-        const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI) + 90;
+        // Same convention as LVGL: 0°=right, 90°=bottom (y down), 180°=left, 270°=top
+        const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
+        const a = angle < 0 ? angle + 360 : angle;
         const startAngle = Number(p.start_angle ?? 135);
         const endAngle = Number(p.end_angle ?? 45);
-        let sweep = (endAngle - startAngle + 360) % 360;
-        if (sweep <= 0) sweep += 360;
-        const norm = ((angle - startAngle + 360) % 360) / sweep;
+        const sweepCw = (endAngle - startAngle + 360) % 360 || 360;
+        const shortSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
+        let norm: number;
+        if (sweepCw <= 180) {
+          norm = ((a - startAngle + 360) % 360) / shortSweep;
+        } else {
+          norm = ((startAngle - a + 360) % 360) / shortSweep;
+        }
         const val = minVal + Math.max(0, Math.min(1, norm)) * (maxVal - minVal);
         onSimulateUpdate(w.id, { value: Math.round(val) });
       }
@@ -394,7 +401,7 @@ const stageRef = useRef<any>(null);
           shadowOffset: { x: shadowOfsX, y: shadowOfsY },
           shadowOpacity: shadowOpa,
         })}
-        draggable={!simulationMode || simDraggable}
+        draggable={!simulationMode || !simDraggable}
         dragBoundFunc={simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined}
         onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!e.evt.shiftKey)}
         onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!(e.evt as any).shiftKey)}
@@ -630,27 +637,46 @@ const stageRef = useRef<any>(null);
         const tx = ax + w.w / 2;
         const ty = ay + pad;
         const knobY = ty + trackLen * (1 - norm);
+        const simHandle = simulationMode && simDraggable ? (
+          <Rect x={ax} y={ay + pad} width={w.w} height={trackLen} fill="transparent" listening={true} draggable={true}
+            dragBoundFunc={(pos) => ({ x: ax, y: ay + pad })}
+            onDragMove={handleSimDragMove}
+            onDragStart={() => {}}
+            onDragEnd={() => {}}
+          />
+        ) : null;
         return (
           <Group key={w.id}>
             {base}
             <Rect x={tx - thick / 2} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={thick / 2} listening={false} />
             <Rect x={tx - thick / 2} y={knobY} width={thick} height={trackLen * norm} fill={indFill} cornerRadius={thick / 2} listening={false} />
             <Circle x={tx} y={knobY} radius={knobR} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+            {simHandle}
           </Group>
         );
       }
       const knobX = ax + pad + trackLen * norm;
+      const simHandleH = simulationMode && simDraggable ? (
+        <Rect x={ax + pad} y={ay} width={trackLen} height={w.h} fill="transparent" listening={true} draggable={true}
+          dragBoundFunc={(pos) => ({ x: ax + pad, y: ay })}
+          onDragMove={handleSimDragMove}
+          onDragStart={() => {}}
+          onDragEnd={() => {}}
+        />
+      ) : null;
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={thick / 2} listening={false} />
           <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen * norm} height={thick} fill={indFill} cornerRadius={thick / 2} listening={false} />
           <Circle x={knobX} y={ay + w.h / 2} radius={knobR} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          {simHandleH}
         </Group>
       );
     }
 
     if (type.includes("arc") || type.includes("gauge") || type === "meter") {
+      // LVGL/Canvas convention: 0°=right, 90°=bottom, 180°=left, 270°=top; angles increase clockwise.
       const cx = ax + w.w / 2;
       const cy = ay + w.h / 2;
       const trackW = Math.max(4, Math.min(16, Math.min(w.w, w.h) / 8));
@@ -658,7 +684,10 @@ const stageRef = useRef<any>(null);
       const rot = Number(p.rotation ?? 0);
       const bgStart = Number(p.start_angle ?? 135);
       const bgEnd = Number(p.end_angle ?? 45);
-      const sweep = (bgEnd - bgStart + 360) % 360 || 360;
+      // Background track: draw the SHORT arc from start to end so it matches the indicator/knob path.
+      const sweepCw = (bgEnd - bgStart + 360) % 360 || 360;
+      const bgSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
+      const bgClockwise = sweepCw <= 180;
       const min = Number(p.min_value ?? 0);
       const max = Number(p.max_value ?? 100);
       const val = override?.value !== undefined ? override.value : Number(p.value ?? (min + max) / 2);
@@ -696,14 +725,23 @@ const stageRef = useRef<any>(null);
       const knobFill = toFillColor(knobDef.bg_color ?? s.bg_color, "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
+      const simHandleArc = simulationMode && simDraggable ? (
+        <Circle x={cx} y={cy} radius={outerR + knobSize} fill="transparent" listening={true} draggable={true}
+          dragBoundFunc={(pos) => ({ x: cx, y: cy })}
+          onDragMove={handleSimDragMove}
+          onDragStart={() => {}}
+          onDragEnd={() => {}}
+        />
+      ) : null;
       return (
         <Group key={w.id}>
           {base}
-          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={sweep} rotation={rot + bgStart} fill={bgStroke} clockwise listening={false} />
+          <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={bgSweep} rotation={rot + bgStart} fill={bgStroke} clockwise={bgClockwise} listening={false} />
           {indSweep !== 0 && (
             <Arc x={cx} y={cy} innerRadius={innerR} outerRadius={outerR} angle={Math.abs(indSweep)} rotation={rot + (indSweep >= 0 ? indStart : endDeg)} fill={indStroke} clockwise={indSweep >= 0} listening={false} />
           )}
           <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          {simHandleArc}
           {/* ESPHome/LVGL arc has no built-in value label; device shows only arc + knob. A separate label widget is used if value text is needed. */}
         </Group>
       );
