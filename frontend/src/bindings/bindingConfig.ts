@@ -3,7 +3,7 @@
  * Services listed per domain for action bindings (user sees only relevant options).
  */
 
-export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "widget_checked";
+export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked";
 
 /** Display target actions allowed per widget type (what property of the widget gets the HA value). */
 export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
@@ -17,10 +17,12 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   checkbox: ["widget_checked", "label_text"],
   led: [],
   image: [],
-  bar: ["label_text"],
+  bar: ["bar_value", "label_text"],
   spinner: [],
   roller: ["label_text"],
   spinbox: ["label_text"],
+  textarea: ["label_text"],
+  qrcode: ["label_text"],
 };
 
 /** Human-readable labels for display actions. */
@@ -28,6 +30,7 @@ export const DISPLAY_ACTION_LABELS: Record<DisplayAction, string> = {
   label_text: "Show as text",
   slider_value: "Set slider position",
   arc_value: "Set arc value",
+  bar_value: "Set bar value",
   widget_checked: "Set on/off state",
 };
 
@@ -43,10 +46,12 @@ export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   label: [],
   led: [],
   image: [],
-  bar: [],
+  bar: ["on_release", "on_value"],
   spinner: [],
   roller: ["on_change"],
   spinbox: ["on_change"],
+  textarea: ["on_value", "on_ready", "on_focus", "on_defocus"],
+  qrcode: [],
 };
 
 /** Event key -> human label. */
@@ -55,6 +60,9 @@ export const EVENT_LABELS: Record<string, string> = {
   on_release: "On release",
   on_value: "On value change",
   on_change: "On change",
+  on_ready: "On ready",
+  on_focus: "On focus",
+  on_defocus: "On defocus",
 };
 
 /** Services relevant to each HA domain (for action binding service dropdown). */

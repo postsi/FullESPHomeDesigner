@@ -188,6 +188,23 @@ export async function fetchStateBatch(entity_ids: string[]): Promise<Record<stri
   return (data?.states && typeof data.states === "object") ? data.states : {};
 }
 
+/** Call a Home Assistant service (simulator: widget action → HA). */
+export async function callService(
+  domain: string,
+  service: string,
+  data: Record<string, unknown> = {}
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/call_service`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ domain, service, data }),
+  });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: out?.error || `HTTP ${res.status}` };
+  return out?.ok === true ? { ok: true } : { ok: false, error: out?.error || "unknown" };
+}
+
 export async function exportDeviceYaml(device_id: string) {
   return apiPost(`${API_BASE}/devices/${encodeURIComponent(device_id)}/export`, {});
 }

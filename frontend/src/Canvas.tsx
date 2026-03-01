@@ -344,15 +344,18 @@ const stageRef = useRef<any>(null);
       } else if (w.type === "switch") {
         const cur = override?.checked ?? (p as any).state ?? false;
         onSimulateUpdate?.(w.id, { checked: !cur });
+        onSimulateAction?.(w.id, "on_change");
       } else if (w.type === "dropdown" || w.type === "roller") {
         const opts = Array.isArray(p.options) ? p.options : [];
         const n = Math.max(1, opts.length);
         const cur = override?.selected_index ?? (p as any).selected_index ?? 0;
         const next = (cur + 1) % n;
         onSimulateUpdate?.(w.id, { selected_index: next });
+        onSimulateAction?.(w.id, "on_change");
       } else if (w.type === "checkbox") {
         const cur = override?.checked ?? (p as any).checked ?? (p as any).state ?? false;
         onSimulateUpdate?.(w.id, { checked: !cur });
+        onSimulateAction?.(w.id, "on_change");
       }
     };
     const handleSimDragMove = (e: any) => {
@@ -425,7 +428,10 @@ const stageRef = useRef<any>(null);
           dragStartRef.current = snap0;
         } : undefined}
         onDragEnd={(e) => {
-          if (simulationMode) return;
+          if (simulationMode) {
+            if (onSimulateAction && (w.type === "slider" || w.type === "arc")) onSimulateAction(w.id, "on_release");
+            return;
+          }
           const node = e.target;
           const alt = !!e.evt.altKey; // hold ALT to disable snapping
           const nx = alt ? node.x() : snap(node.x(), gridSize);
@@ -881,11 +887,12 @@ const stageRef = useRef<any>(null);
       const cursorColor = toFillColor(cursorPart.color, textColor);
       const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
       const cx = layout.x + 2;
+      const displayText = override?.text !== undefined ? String(override.text) : String(p.text ?? "Text…");
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill={taBg} stroke="#334155" strokeWidth={1} cornerRadius={4} listening={false} />
-          <Text text={String(p.text ?? "Text…")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
+          <Text text={displayText} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} ellipsis listening={false} />
           <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
         </Group>
       );
@@ -937,16 +944,20 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "spinbox") {
-      const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
+      const btnW = 28;
+      const valueLeft = ax + btnW;
+      const valueWidth = Math.max(20, w.w - btnW * 2);
+      const valueLayout = { x: valueLeft, y: ay, width: valueWidth, height: w.h, align: "center" as const, verticalAlign: "middle" as const };
       const cursorPart = w.cursor || {};
       const cursorColor = toFillColor(cursorPart.color, textColor);
       const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
-      const cx = layout.x + 4;
+      const cx = valueLeft + 4;
+      const displayVal = override?.text !== undefined ? String(override.text) : String(p.value ?? "0");
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
-          <Text text={String(p.value ?? "0")} x={layout.x} y={layout.y} width={layout.width} height={layout.height} align={layout.align} verticalAlign={layout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
+          <Text text={displayVal} x={valueLayout.x} y={valueLayout.y} width={valueLayout.width} height={valueLayout.height} align={valueLayout.align} verticalAlign={valueLayout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
           <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
           <Text text="-" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />

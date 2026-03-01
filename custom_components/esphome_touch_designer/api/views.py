@@ -167,7 +167,7 @@ def _compile_ha_bindings(project: dict) -> str:
     Link format (project.links[]):
       {
         "source": { "entity_id": "light.kitchen", "kind": "binary|state|attribute_number|attribute_text", "attribute": "brightness" },
-        "target": { "widget_id": "btn1", "action": "widget_checked|slider_value|arc_value|label_text", "format": "%.0f", "scale": 1.0 }
+        "target": { "widget_id": "btn1", "action": "widget_checked|slider_value|arc_value|bar_value|label_text", "format": "%.0f", "scale": 1.0 }
       }
     """
     bindings = project.get("bindings") or []
@@ -232,8 +232,30 @@ def _compile_ha_bindings(project: dict) -> str:
                 _collect_dropdown_options(page.get("widgets") or [], m)
         return m
 
+    def _collect_roller_options(widgets: list, m: dict[str, list[str]]) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            if w.get("type") == "roller" and w.get("id"):
+                props = w.get("props") or {}
+                opts = props.get("options") or ["Option A", "Option B"]
+                if isinstance(opts, str):
+                    opts = [s.strip() for s in opts.replace("\\n", "\n").split("\n") if s.strip()]
+                else:
+                    opts = [str(o).strip() for o in opts if str(o).strip()]
+                m[str(w["id"])] = opts if opts else ["(none)"]
+            _collect_roller_options(w.get("widgets") or [], m)
+
+    def _roller_options_map() -> dict[str, list[str]]:
+        m: dict[str, list[str]] = {}
+        for page in project.get("pages") or []:
+            if isinstance(page, dict):
+                _collect_roller_options(page.get("widgets") or [], m)
+        return m
+
     widget_type_by_id = _widget_type_map()
     dropdown_options_by_id = _dropdown_options_map()
+    roller_options_by_id = _roller_options_map()
 
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
         # After caller adds "  ": "- if:" at 8, condition/then at 12, lambda/- lvgl at 14, id/text at 18 (2 under lvgl key)
@@ -281,6 +303,13 @@ def _compile_ha_bindings(project: dict) -> str:
                     outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
                 else:
                     outs.append(f"{i3}value: !lambda return x;\n")
+            elif action == "bar_value":
+                outs.append(f"{i2}- lvgl.bar.update:\n")
+                outs.append(f"{i3}id: {wid}\n")
+                if isinstance(scale, (int, float)) and float(scale) != 1.0:
+                    outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
+                else:
+                    outs.append(f"{i3}value: !lambda return x;\n")
             elif action == "label_text":
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype == "button":
@@ -305,6 +334,55 @@ def _compile_ha_bindings(project: dict) -> str:
                     parts.append("return 0;")
                     lambda_body = " ".join(parts)
                     outs.append(f"{i3}selected_index: !lambda '{lambda_body}'\n")
+                elif wtype == "spinbox":
+                    # Spinbox expects value (float). HA sends number or string; scale applied.
+                    outs.append(f"{i2}- lvgl.spinbox.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if kind in ("attribute_number", "state") or (kind in ("attribute_text",) and attr):
+                        if isinstance(scale, (int, float)) and float(scale) != 1.0:
+                            outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
+                        else:
+                            outs.append(f"{i3}value: !lambda return x;\n")
+                    else:
+                        outs.append(f"{i3}value: !lambda return x;\n")
+                elif wtype == "bar":
+                    # Bar expects value (int). HA sends number; scale applied.
+                    outs.append(f"{i2}- lvgl.bar.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if isinstance(scale, (int, float)) and float(scale) != 1.0:
+                        outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
+                    else:
+                        outs.append(f"{i3}value: !lambda return x;\n")
+                elif wtype == "roller" and kind in ("state", "attribute_text"):
+                    # Roller expects selected_index (int); HA sends text. Map text -> index from widget options.
+                    opts = roller_options_by_id.get(wid) or []
+                    outs.append(f"{i2}- lvgl.roller.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    parts = []
+                    for idx, opt in enumerate(opts):
+                        esc = str(opt).replace("\\", "\\\\").replace('"', '\\"')
+                        parts.append(f'if (x == "{esc}") return {idx};')
+                    parts.append("return 0;")
+                    lambda_body = " ".join(parts)
+                    outs.append(f"{i3}selected_index: !lambda '{lambda_body}'\n")
+                elif wtype == "textarea":
+                    outs.append(f"{i2}- lvgl.textarea.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if kind in ("state", "attribute_text"):
+                        outs.append(f"{i3}text: !lambda return x;\n")
+                    else:
+                        outs.append(f"{i3}text:\n")
+                        outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
+                        outs.append(f"{i3}  args: [ 'x' ]\n")
+                elif wtype == "qrcode":
+                    outs.append(f"{i2}- lvgl.qrcode.update:\n")
+                    outs.append(f"{i3}id: {wid}\n")
+                    if kind in ("state", "attribute_text"):
+                        outs.append(f"{i3}text: !lambda return x;\n")
+                    else:
+                        outs.append(f"{i3}text:\n")
+                        outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
+                        outs.append(f"{i3}  args: [ 'x' ]\n")
                 else:
                     outs.append(f"{i2}- lvgl.label.update:\n")
                     outs.append(f"{i3}id: {wid}\n")
@@ -1072,29 +1150,59 @@ def _emit_kv(indent: str, key: str, value) -> str:
     return f"{indent}{key}: {_yaml_quote(value)}\n"
 
 
-def _action_binding_call_to_yaml(call: dict) -> str:
-    """Generate ESPHome YAML for homeassistant.action from action_binding call (domain, service, entity_id, data)."""
+# Sentinel in action_binding data: compiler replaces with lambda mapping selected index x -> option text (for dropdown/roller).
+SELECT_OPTION_TEXT_SENTINEL = "!lambda SELECT_OPTION_TEXT"
+
+
+def _action_binding_call_to_yaml(
+    call: dict,
+    widget_id: str | None = None,
+    wtype: str | None = None,
+    option_maps: dict[str, list[str]] | None = None,
+) -> str:
+    """Generate ESPHome YAML for homeassistant.action from action_binding call (domain, service, entity_id, data).
+    If option_maps and widget_id are set, data values equal to SELECT_OPTION_TEXT_SENTINEL are expanded
+    to a lambda that maps selected index x to the option string (for dropdown/roller -> set_hvac_mode etc).
+    """
     if not isinstance(call, dict):
         return ""
     domain = str(call.get("domain") or "").strip()
     service = str(call.get("service") or "").strip()
     if not domain or not service:
         return ""
-    entity_id = call.get("entity_id")
+    # entity_id can be at call root (UI stores it there) or inside call.data
     data = call.get("data") or {}
+    entity_id = call.get("entity_id") or data.get("entity_id")
+    if entity_id is not None:
+        entity_id = str(entity_id).strip() or None
+    opts = []
+    if option_maps and widget_id:
+        opts = option_maps.get(widget_id) or []
     lines = [
         "then:",
         "  - homeassistant.action:",
         f"      action: {domain}.{service}",
         "      data:",
     ]
+    # Always emit entity_id first so the service call targets the specific entity (e.g. climate.living_rm)
     if entity_id:
         lines.append(f"        entity_id: {json.dumps(str(entity_id))}")
     for k, v in data.items():
         if v is None:
             continue
+        if k == "entity_id" and entity_id:
+            continue  # already emitted above
         vstr = str(v).strip()
-        if vstr.startswith("!lambda"):
+        if vstr == SELECT_OPTION_TEXT_SENTINEL and opts:
+            # Map selected index x to option string for dropdown/roller
+            parts = []
+            for idx, opt in enumerate(opts):
+                esc = str(opt).replace("\\", "\\\\").replace('"', '\\"')
+                parts.append(f'if (x == {idx}) return "{esc}";')
+            parts.append('return "";')
+            lambda_body = " ".join(parts)
+            lines.append(f"        {k}: !lambda '{lambda_body}'")
+        elif vstr.startswith("!lambda"):
             lines.append(f"        {k}: {vstr}")
         else:
             lines.append(f"        {k}: {json.dumps(v)}")
@@ -1109,6 +1217,7 @@ def _emit_widget_from_schema(
     action_bindings_for_widget: list | None = None,
     parent_w: int | None = None,
     parent_h: int | None = None,
+    option_maps: dict[str, list[str]] | None = None,
 ) -> str:
     wtype = widget.get("type") or schema.get("type")
     esphome = schema.get("esphome", {})
@@ -1225,7 +1334,9 @@ def _emit_widget_from_schema(
                 if ab.get("yaml_override"):
                     values[event_key] = ab.get("yaml_override")
                 elif ab.get("call"):
-                    values[event_key] = _action_binding_call_to_yaml(ab["call"])
+                    values[event_key] = _action_binding_call_to_yaml(
+                        ab["call"], widget_id=wid, wtype=wtype, option_maps=option_maps
+                    )
                 # else keep widget.events[event_key] if present
         for k, field_def in fields.items():
             if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
@@ -1251,7 +1362,9 @@ def _emit_widget_from_schema(
                 if ab.get("yaml_override"):
                     out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, ab["yaml_override"])))
                 elif ab.get("call"):
-                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(ab["call"]))))
+                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(
+                        ab["call"], widget_id=wid, wtype=wtype, option_maps=option_maps
+                    ))))
 
     # align_to: position relative to another widget (from props align_to_*)
     props = widget.get("props") or {}
@@ -1444,6 +1557,26 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
             continue
         action_bindings_by_widget.setdefault(wid, []).append(ab)
 
+    def _collect_options(widgets: list, m: dict[str, list[str]]) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            t = w.get("type")
+            if t in ("dropdown", "roller") and w.get("id"):
+                props = w.get("props") or {}
+                opts = props.get("options") or ["Option A", "Option B"]
+                if isinstance(opts, str):
+                    opts = [s.strip() for s in opts.replace("\\n", "\n").split("\n") if s.strip()]
+                else:
+                    opts = [str(o).strip() for o in opts if str(o).strip()]
+                m[str(w["id"])] = opts if opts else ["(none)"]
+            _collect_options(w.get("widgets") or [], m)
+
+    option_maps: dict[str, list[str]] = {}
+    for page in pages:
+        if isinstance(page, dict):
+            _collect_options(page.get("widgets") or [], option_maps)
+
     def children_map(all_widgets: list[dict]) -> dict[str, list[dict]]:
         m: dict[str, list[dict]] = {}
         for w in all_widgets:
@@ -1461,7 +1594,7 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
-            raw = _emit_widget_from_schema(w, schema, ab_list, parent_w, parent_h)
+            raw = _emit_widget_from_schema(w, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)
             out_lines = []
             for ln in lines:
@@ -2381,6 +2514,32 @@ class StateBatchView(HomeAssistantView):
         return self.json({"states": states})
 
 
+class CallServiceView(HomeAssistantView):
+    """Call a Home Assistant service (simulator: device action → HA)."""
+
+    url = f"/api/{DOMAIN}/call_service"
+    name = f"api:{DOMAIN}:call_service"
+    requires_auth = False
+
+    async def post(self, request):
+        body = await request.json() if request.can_read_body else {}
+        if not isinstance(body, dict):
+            return self.json({"ok": False, "error": "body must be JSON object"}, status=400)
+        domain = str(body.get("domain") or "").strip()
+        service = str(body.get("service") or "").strip()
+        data = body.get("data")
+        if not domain or not service:
+            return self.json({"ok": False, "error": "domain and service required"}, status=400)
+        if not isinstance(data, dict):
+            data = {}
+        hass: HomeAssistant = request.app["hass"]
+        try:
+            await hass.services.async_call(domain, service, data, blocking=True)
+            return self.json({"ok": True})
+        except Exception as e:
+            return self.json({"ok": False, "error": str(e)}, status=500)
+
+
 class StateWebSocketView(HomeAssistantView):
     """WebSocket endpoint for live state updates (design-time preview)."""
 
@@ -2684,6 +2843,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(EntitiesView)
     hass.http.register_view(EntityView)
     hass.http.register_view(StateBatchView)
+    hass.http.register_view(CallServiceView)
     hass.http.register_view(StateWebSocketView)
     hass.http.register_view(EntityCapabilitiesView)
 

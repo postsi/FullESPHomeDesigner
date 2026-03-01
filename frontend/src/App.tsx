@@ -12,11 +12,13 @@ import {
   DISPLAY_ACTION_LABELS,
   EVENT_LABELS,
 } from "./bindings/bindingConfig";
+import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYPES } from "./bindings/matchingActions";
 import {
   deleteDevice,
   deploy,
   exportDeviceYamlPreview,
   exportDeviceYamlWithExpectedHash,
+  callService,
   fetchStateBatch,
   getContext,
   getProject,
@@ -256,6 +258,7 @@ export default function App() {
   const [bindAttr, setBindAttr] = useState<string>("");
   const [bindAction, setBindAction] = useState<string>("label_text");
   const [bindFormat, setBindFormat] = useState<string>("%.1f");
+  const [createMatchingActions, setCreateMatchingActions] = useState<boolean>(false);
   const [bindScale, setBindScale] = useState<number>(1);
   const [builderMode, setBuilderMode] = useState<"display" | "action">("display");
   const [bindingsListExpanded, setBindingsListExpanded] = useState<Record<string, boolean>>({});
@@ -1214,7 +1217,7 @@ if (baseId.startsWith("glance_card")) {
           const n = raw * scale;
           overrides[widgetId] = { ...overrides[widgetId], text: String(Math.round(n)) };
         }
-      } else if (action === "arc_value" || action === "slider_value") {
+      } else if (action === "arc_value" || action === "slider_value" || action === "bar_value") {
         const num = typeof raw === "number" ? raw : parseFloat(String(raw));
         if (!Number.isNaN(num)) overrides[widgetId] = { ...overrides[widgetId], value: num * scale };
       } else if (action === "widget_checked") {
@@ -2807,11 +2810,30 @@ function deleteSelected() {
                     const actionBindings = (project as any)?.action_bindings || [];
                     const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
                     const call = ab?.call;
-                    if (call?.domain && call?.service) {
-                      setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
-                    } else {
+                    if (!call?.domain || !call?.service) {
                       setToast({ type: "ok", msg: `Action: ${event} (${widgetId})` });
+                      return;
                     }
+                    const cur = simOverrides[widgetId];
+                    const entityId = call.entity_id || (call.data && (call.data as any).entity_id);
+                    const serviceData: Record<string, unknown> = entityId ? { entity_id: entityId } : {};
+                    const data = call.data || {};
+                    for (const [k, v] of Object.entries(data)) {
+                      if (k === "entity_id") continue;
+                      const isLambda = typeof v === "string" && (String(v).startsWith("!lambda") || String(v).includes("return"));
+                      if (isLambda) {
+                        if (k === "volume_level" && (cur?.value != null || cur?.value === 0)) serviceData[k] = Number(cur.value) / 100;
+                        else if (typeof cur?.value === "number") serviceData[k] = cur.value;
+                        else if (typeof cur?.checked === "boolean") serviceData[k] = cur.checked;
+                        else serviceData[k] = cur?.value ?? 0;
+                      } else {
+                        serviceData[k] = v;
+                      }
+                    }
+                    callService(call.domain, call.service, serviceData).then((res) => {
+                      if (res.ok) setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
+                      else setToast({ type: "error", msg: res.error || "Service call failed" });
+                    }).catch((err) => setToast({ type: "error", msg: String(err?.message || err) }));
                   }}
                   onSelect={() => {}}
                   onSelectNone={() => {}}
@@ -2858,7 +2880,7 @@ function deleteSelected() {
         className="designerLayout"
         style={
           selectedDevice && project
-            ? { gridTemplateColumns: `200px ${12 + 36 + screenSize.width + 12}px 260px`, gap: 20 }
+            ? { gridTemplateColumns: `200px ${12 + 36 + screenSize.width + 12}px minmax(260px, 1fr)`, gap: 20 }
             : undefined
         }
       >
@@ -3346,23 +3368,24 @@ function deleteSelected() {
                   const actionBindings = (project as any)?.action_bindings || [];
                   return (
                     <>
-                <div className="muted" style={{ marginTop: 8 }} title="Entities = HA sensors from Add recommended; Links/Actions = per-widget bindings from Binding Builder">Entities: {haBindingCounts.entities} • Links: {haBindingCounts.links} • Actions: {haBindingCounts.actions}</div>
+                <div className="muted" style={{ marginTop: 8 }} title="Entities = HA sensors from Add recommended; Links = display bindings; Actions = action bindings from Binding Builder">Entities: {haBindingCounts.entities} • Links: {haBindingCounts.links} • Actions: {haBindingCounts.actions}</div>
                 {(() => {
                   const widgetType = (wid: string) => widgets.find((w: any) => w?.id === wid)?.type || "container";
-                  const byType: Record<string, { links: { index: number; ln: any }[]; actions: { index: number; ab: any }[] }> = {};
+                  const byTypeLinks: Record<string, { index: number; ln: any }[]> = {};
+                  const byTypeActions: Record<string, { index: number; ab: any }[]> = {};
                   links.forEach((ln: any, idx: number) => {
                     const wid = String(ln?.target?.widget_id || "").trim();
                     const type = widgetType(wid) || "other";
-                    if (!byType[type]) byType[type] = { links: [], actions: [] };
-                    byType[type].links.push({ index: idx, ln });
+                    if (!byTypeLinks[type]) byTypeLinks[type] = [];
+                    byTypeLinks[type].push({ index: idx, ln });
                   });
                   actionBindings.forEach((ab: any, idx: number) => {
                     const type = widgetType(String(ab?.widget_id || "")) || "other";
-                    if (!byType[type]) byType[type] = { links: [], actions: [] };
-                    byType[type].actions.push({ index: idx, ab });
+                    if (!byTypeActions[type]) byTypeActions[type] = [];
+                    byTypeActions[type].push({ index: idx, ab });
                   });
                   const typeOrder = ["label", "button", "arc", "slider", "dropdown", "switch", "checkbox", "container", "other"];
-                  const sortedTypes = Object.keys(byType).sort((a, b) => {
+                  const sortTypes = (keys: string[]) => keys.sort((a, b) => {
                     const ia = typeOrder.indexOf(a);
                     const ib = typeOrder.indexOf(b);
                     if (ia >= 0 && ib >= 0) return ia - ib;
@@ -3370,60 +3393,60 @@ function deleteSelected() {
                     if (ib >= 0) return 1;
                     return a.localeCompare(b);
                   });
-                  if (sortedTypes.length === 0) return <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>No links or action bindings yet.</div>;
+                  const linkTypes = sortTypes(Object.keys(byTypeLinks));
+                  const actionTypes = sortTypes(Object.keys(byTypeActions));
+                  if (linkTypes.length === 0 && actionTypes.length === 0) return <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>No display or action bindings yet.</div>;
                   return (
-                    <div style={{ marginTop: 12, maxHeight: 360, overflowY: "auto", overflowX: "hidden" }}>
-                      <div className="sectionTitle" style={{ fontSize: 13 }}>By widget type</div>
-                      {sortedTypes.map((type) => {
-                        const group = byType[type];
-                        const count = (group.links.length + group.actions.length);
-                        const expanded = bindingsListExpanded[type] ?? false;
+                    <div style={{ marginTop: 12, maxHeight: 400, overflowY: "auto", overflowX: "hidden" }}>
+                      <div className="sectionTitle" style={{ fontSize: 13 }}>Display bindings (links)</div>
+                      {linkTypes.length === 0 ? <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>None. Add via Binding Builder → Display.</div> : linkTypes.map((type) => {
+                        const group = byTypeLinks[type];
+                        const expanded = bindingsListExpanded[`links:${type}`] ?? false;
                         return (
-                          <div key={type} style={{ marginBottom: 6, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))", borderRadius: 6, overflow: "hidden" }}>
-                            <button
-                              type="button"
-                              onClick={() => setBindingsListExpanded((prev) => ({ ...prev, [type]: !prev[type] }))}
-                              style={{ width: "100%", padding: "8px 10px", textAlign: "left", background: "rgba(255,255,255,.04)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                            >
+                          <div key={`l-${type}`} style={{ marginBottom: 6, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))", borderRadius: 6, overflow: "hidden" }}>
+                            <button type="button" onClick={() => setBindingsListExpanded((prev) => ({ ...prev, [`links:${type}`]: !prev[`links:${type}`] }))} style={{ width: "100%", padding: "8px 10px", textAlign: "left", background: "rgba(255,255,255,.04)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span>{type}</span>
-                              <span className="muted" style={{ fontSize: 11 }}>{count} binding{count !== 1 ? "s" : ""}</span>
+                              <span className="muted" style={{ fontSize: 11 }}>{group.length} link{group.length !== 1 ? "s" : ""}</span>
                               <span style={{ transform: expanded ? "rotate(180deg)" : "none" }}>▼</span>
                             </button>
                             {expanded && (
                               <ul style={{ margin: 0, padding: "6px 10px 10px 22px", fontSize: 12, lineHeight: 1.6, listStyle: "disc" }}>
-                                {group.links.map(({ index, ln }) => {
-                                  const src = ln?.source || {};
-                                  const tgt = ln?.target || {};
-                                  const wid = String(tgt?.widget_id || "").trim();
-                                  const ent = String(src?.entity_id || "").trim();
-                                  const attr = String(src?.attribute || "").trim();
-                                  const action = String(tgt?.action || "").trim();
-                                  const isSelected = selectedWidgetIds.includes(wid);
-                                  const hasOverride = !!tgt?.yaml_override;
+                                {group.map(({ index, ln }) => {
+                                  const src = ln?.source || {}; const tgt = ln?.target || {}; const wid = String(tgt?.widget_id || "").trim();
+                                  const ent = String(src?.entity_id || "").trim(); const attr = String(src?.attribute || "").trim(); const action = String(tgt?.action || "").trim();
+                                  const isSelected = selectedWidgetIds.includes(wid); const hasOverride = !!tgt?.yaml_override;
                                   return (
                                     <li key={`l-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
                                       {hasOverride && <span title="Custom YAML">✎ </span>}
-                                      <code>{wid || "(no widget)"}</code>
-                                      {" → "}
-                                      {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"}
-                                      {action ? ` · ${action}` : ""}
+                                      <code>{wid || "(no widget)"}</code> {" → "} {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"} {action ? ` · ${action}` : ""}
                                     </li>
                                   );
                                 })}
-                                {group.actions.map(({ index, ab }) => {
-                                  const wid = String(ab?.widget_id || "").trim();
-                                  const call = ab?.call || {};
-                                  const isSelected = selectedWidgetIds.includes(wid);
-                                  const hasOverride = !!ab?.yaml_override;
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="sectionTitle" style={{ fontSize: 13, marginTop: 14 }}>Action bindings</div>
+                      {actionTypes.length === 0 ? <div className="muted" style={{ fontSize: 12 }}>None. Add via Binding Builder → Action.</div> : actionTypes.map((type) => {
+                        const group = byTypeActions[type];
+                        const expanded = bindingsListExpanded[`actions:${type}`] ?? false;
+                        return (
+                          <div key={`a-${type}`} style={{ marginBottom: 6, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))", borderRadius: 6, overflow: "hidden" }}>
+                            <button type="button" onClick={() => setBindingsListExpanded((prev) => ({ ...prev, [`actions:${type}`]: !prev[`actions:${type}`] }))} style={{ width: "100%", padding: "8px 10px", textAlign: "left", background: "rgba(255,255,255,.04)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span>{type}</span>
+                              <span className="muted" style={{ fontSize: 11 }}>{group.length} action{group.length !== 1 ? "s" : ""}</span>
+                              <span style={{ transform: expanded ? "rotate(180deg)" : "none" }}>▼</span>
+                            </button>
+                            {expanded && (
+                              <ul style={{ margin: 0, padding: "6px 10px 10px 22px", fontSize: 12, lineHeight: 1.6, listStyle: "disc" }}>
+                                {group.map(({ index, ab }) => {
+                                  const wid = String(ab?.widget_id || "").trim(); const call = ab?.call || {};
+                                  const isSelected = selectedWidgetIds.includes(wid); const hasOverride = !!ab?.yaml_override;
                                   return (
                                     <li key={`a-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
                                       {hasOverride && <span title="Custom YAML">✎ </span>}
-                                      <code>{wid}</code>
-                                      {" · "}
-                                      <span className="muted">{ab?.event || "?"}</span>
-                                      {" → "}
-                                      <code>{call?.domain || "?"}.{call?.service || "?"}</code>
-                                      {call?.entity_id ? ` (${call.entity_id})` : ""}
+                                      <code>{wid}</code> {" · "} <span className="muted">{ab?.event || "?"}</span> {" → "} <code>{call?.domain || "?"}.{call?.service || "?"}</code> {call?.entity_id ? ` (${call.entity_id})` : ""}
                                     </li>
                                   );
                                 })}
@@ -3474,9 +3497,9 @@ function deleteSelected() {
                         <button type="button" className={`panelTab ${builderMode === "action" ? "active" : ""}`} style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => setBuilderMode("action")}>Action</button>
                       </div>
                       <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
-                        <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>Current bindings for this widget</div>
-                        {linksForWidget.length === 0 && actionsForWidget.length === 0 ? (
-                          <div className="muted" style={{ fontSize: 12 }}>No bindings. Use the form below to add one.</div>
+                        <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>{builderMode === "display" ? "Display bindings for this widget" : "Action bindings for this widget"}</div>
+                        {builderMode === "display" ? (linksForWidget.length === 0 ? (
+                          <div className="muted" style={{ fontSize: 12 }}>No display bindings. Use the form below to add one.</div>
                         ) : (
                           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
                             {linksForWidget.map((ln: any, idx: number) => {
@@ -3496,6 +3519,11 @@ function deleteSelected() {
                                 </li>
                               );
                             })}
+                          </ul>
+                        )) : (actionsForWidget.length === 0 ? (
+                          <div className="muted" style={{ fontSize: 12 }}>No action bindings. Use the form below to add one.</div>
+                        ) : (
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6 }}>
                             {actionsForWidget.map((ab: any, idx: number) => {
                               const call = ab?.call || {};
                               const hasOverride = !!ab?.yaml_override;
@@ -3511,7 +3539,7 @@ function deleteSelected() {
                               );
                             })}
                           </ul>
-                        )}
+                        ))}
                         {(editingLinkOverride?.widgetId === widgetId || editingActionOverride?.widgetId === widgetId) && (
                           <div style={{ marginTop: 8, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 4 }}>
                             <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Custom YAML (used by compiler instead of generated). Leave empty to use generated.</div>
@@ -3583,7 +3611,7 @@ function deleteSelected() {
                               ))}
                             </select>
                           </div>
-                          {(bindAction === "label_text" || bindAction === "arc_value" || bindAction === "slider_value") && (
+                          {(bindAction === "label_text" || bindAction === "arc_value" || bindAction === "slider_value" || bindAction === "bar_value") && (
                             <>
                               <div>
                                 <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Format</div>
@@ -3596,6 +3624,12 @@ function deleteSelected() {
                                 <input type="number" value={bindScale} onChange={(e)=>setBindScale(Number(e.target.value || 1))} step="0.1" style={{ width: "100%", boxSizing: "border-box" }} />
                               </div>
                             </>
+                          )}
+                          {(INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any)) && (
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer" }}>
+                              <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
+                              <span className="muted" style={{ fontSize: 12 }}>Also create action bindings to send value to HA</span>
+                            </label>
                           )}
                           <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
                             if (!project) return;
@@ -3617,11 +3651,20 @@ function deleteSelected() {
                             const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
                             const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);
                             const renameResult = renameWidgetInProject(p2, safePageIndex, wid, friendlyId);
+                            const finalProject = renameResult.ok && renameResult.newId ? renameResult.project : p2;
+                            const finalWid = renameResult.newId ?? wid;
+                            if (createMatchingActions) {
+                              const actions = getMatchingActionBindings(widgetType, ent, kind, attr || "");
+                              (finalProject as any).action_bindings = (finalProject as any).action_bindings || [];
+                              for (const a of actions) {
+                                (finalProject as any).action_bindings.push({ widget_id: finalWid, event: a.event, call: a.call });
+                              }
+                            }
                             if (renameResult.ok && renameResult.newId) {
-                              setProject(renameResult.project, true);
+                              setProject(finalProject, true);
                               setSelectedWidgetIds([renameResult.newId]);
                             } else {
-                              setProject(p2, true);
+                              setProject(finalProject, true);
                             }
                             setProjectDirty(true);
                           }}>Add display binding</button>
@@ -3691,10 +3734,16 @@ function deleteSelected() {
                                 if (!domain || !service) return;
                                 const p2 = clone(project);
                                 (p2 as any).action_bindings = (p2 as any).action_bindings || [];
+                                const ent = String(actionEntity || "").trim();
                                 (p2 as any).action_bindings.push({
                                   widget_id: wid,
                                   event: eventOptions.includes(actionEvent) ? actionEvent : eventOptions[0],
-                                  call: { domain, service, entity_id: actionEntity },
+                                  call: {
+                                    domain,
+                                    service,
+                                    entity_id: ent,
+                                    data: { entity_id: ent },
+                                  },
                                 });
                                 setProject(p2, true);
                                 setProjectDirty(true);

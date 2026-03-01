@@ -1,5 +1,15 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.113
+
+- **Bar**: New **bar_value** display action (like slider/arc); compiler emits `lvgl.bar.update` for bar widgets. **Roller**: Display bindings (label_text) now emit `lvgl.roller.update` with `selected_index` (HA text → option index).
+- **Textarea & QR code**: Display bindings supported: **textarea** (label_text → `lvgl.textarea.update`), **qrcode** (label_text → `lvgl.qrcode.update`). Canvas textarea uses override text for live preview.
+- **Matching action bindings**: **media_player** volume (arc/slider/bar → `volume_set`, 0–100 → 0–1). **Dropdown/roller**: opt-in “Also create action bindings” for climate (set_hvac_mode, set_preset_mode, set_fan_mode), fan set_preset_mode; compiler expands selected index → option text for service data.
+- **Action binding entity_id**: Service calls now always target the selected entity: entity_id is read from call root or `call.data`, emitted first in the `data` block. New manual action bindings store `entity_id` in both call and `data`.
+- **HA Bindings tab**: **Display bindings (links)** and **Action bindings** are in separate panels; each lists only its type. **Binding Builder**: “Current bindings” shows only display links in Display mode and only action bindings in Action mode.
+- **Simulator**: Widget actions call Home Assistant: new `POST /api/.../call_service` and frontend `callService()`; button/container → on_click, switch/checkbox/dropdown/roller → on_change, slider/arc → on_release with current value; lambda data resolved from simulator state. Display bindings (HA → canvas) unchanged.
+- **Layout**: Right panel (Properties, Binding Builder, HA Bindings) now grows to fill available viewport width (`minmax(260px, 1fr)`); left panel and canvas size unchanged.
+
 ## v0.70.112
 
 - **Canvas • Font id**: Changing **Font id** (Style) now updates the canvas preview: text size is derived from the font id (e.g. `montserrat_14` → 14px, `montserrat_24` → 24px, `asset:file.ttf:16` → 16px) so the layout reflects the chosen size even when the exact font isn’t available in the browser.
