@@ -51,6 +51,20 @@ function toFillColor(val: any, fallback: string): string {
   return fallback;
 }
 
+/** Parse pixel size from font id for canvas preview (e.g. montserrat_14 → 14, asset:file.ttf:16 → 16). */
+function fontSizeFromFontId(fontId: any): number | null {
+  if (fontId == null || typeof fontId !== "string") return null;
+  const s = String(fontId).trim();
+  if (!s) return null;
+  // asset:filename:size
+  const assetMatch = /:(\d+)$/.exec(s);
+  if (assetMatch) return parseInt(assetMatch[1], 10) || null;
+  // montserrat_14, roboto_18, etc.
+  const underscoreMatch = /_(\d+)$/.exec(s);
+  if (underscoreMatch) return parseInt(underscoreMatch[1], 10) || null;
+  return null;
+}
+
 /** LVGL text_align (LEFT, CENTER, RIGHT, AUTO) + padding -> Konva Text position and align.
  * text_align controls text alignment within the widget; use it when set, else fall back to
  * align (widget position) for backward compatibility. */
@@ -311,7 +325,8 @@ const stageRef = useRef<any>(null);
     const shadowCol = toFillColor(s.shadow_color, "#000000");
     const shadowOpa = Number(s.shadow_opa ?? 100) / 100;
     const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
-    const fontSize = Math.max(10, Math.min(28, 16)); // Canvas preview only; ESPHome uses text_font (id)
+    const fontId = s.text_font ?? p.text_font;
+    const fontSize = Math.max(8, Math.min(48, fontSizeFromFontId(fontId) ?? 16)); // Canvas preview: mimic font id size
 
     const hasShadow = shadowW > 0 || shadowOfsX !== 0 || shadowOfsY !== 0;
     const outlineW = Math.max(0, Number(s.outline_width ?? 0));
@@ -510,7 +525,7 @@ const stageRef = useRef<any>(null);
             height={layout.height}
             align={layout.align}
             verticalAlign={layout.verticalAlign}
-            fontSize={Math.max(12, Math.min(22, fontSize ?? 18))}
+            fontSize={fontSize}
             fill={textColor}
             wrap={wrap ? "word" : undefined}
             ellipsis={ellipsisLabel}
@@ -545,7 +560,7 @@ const stageRef = useRef<any>(null);
             height={layout.height}
             align={layout.align}
             verticalAlign={layout.verticalAlign}
-            fontSize={Math.max(12, Math.min(20, fontSize ?? 16))}
+            fontSize={fontSize}
             fill={textColor}
             listening={false}
           />

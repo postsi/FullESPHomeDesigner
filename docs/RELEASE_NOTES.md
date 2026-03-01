@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.112
+
+- **Canvas • Font id**: Changing **Font id** (Style) now updates the canvas preview: text size is derived from the font id (e.g. `montserrat_14` → 14px, `montserrat_24` → 24px, `asset:file.ttf:16` → 16px) so the layout reflects the chosen size even when the exact font isn’t available in the browser.
+
 ## v0.70.111
 
 - **Binding Builder • Format**: Empty format for numeric display bindings (e.g. climate temperature → label) now defaults to **%.1f** so the value is shown. Format field defaults to `%.1f` in the UI and when saving a link; live overrides treat blank format as `%.1f`.
