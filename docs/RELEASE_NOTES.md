@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.114
+
+- **Simulator • Actions**: Arc/slider/bar **on_release** now pass the current value from the canvas (via ref) so the HA service call uses the correct value instead of stale simOverrides. Switch/checkbox **on_change** pass `checked` and dropdown/roller **on_change** pass `selected_index` in the action payload so HA receives the right state. App handler supports `selected_index` for lambda substitution (e.g. dropdown/roller → set_hvac_mode).
+- **Simulator • Bar**: Bar widget is now draggable in the simulator and fires **on_release** with value (same as slider/arc).
+- **Simulator • Display**: Switch, checkbox, and bar now use override (simOverrides + liveOverrides) for their visual state so toggling or dragging in the simulator updates the canvas immediately (previously they only read from widget props).
+
 ## v0.70.113
 
 - **Bar**: New **bar_value** display action (like slider/arc); compiler emits `lvgl.bar.update` for bar widgets. **Roller**: Display bindings (label_text) now emit `lvgl.roller.update` with `selected_index` (HA text → option index).

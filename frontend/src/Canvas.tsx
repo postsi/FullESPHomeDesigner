@@ -34,7 +34,7 @@ type Props = {
   /** Simulation state overrides (merged with liveOverrides when simulationMode). */
   simOverrides?: Record<string, { text?: string; value?: number; checked?: boolean; selected_index?: number }>;
   onSimulateUpdate?: (widgetId: string, updates: { value?: number; checked?: boolean; selected_index?: number; text?: string }) => void;
-  onSimulateAction?: (widgetId: string, event: string) => void;
+  onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number }) => void;
 };
 
 function snap(n: number, grid: number) {
@@ -186,6 +186,8 @@ const stageRef = useRef<any>(null);
 
   // Remember positions at drag start for multi-drag delta application
   const dragStartRef = useRef<Record<string, { x: number; y: number }>>({});
+  // Last value during sim drag (so on_release can send current value without relying on async setState)
+  const lastSimValueRef = useRef<Record<string, number>>({});
   // Box selection: drag on empty space to select multiple widgets
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const boxSelectStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -335,43 +337,57 @@ const stageRef = useRef<any>(null);
     const outlineOpa = Number(s.outline_opa ?? 0) / 100;
     const transformAngle = Number(s.transform_angle ?? 0);
     const transformZoom = Number(s.transform_zoom ?? 100) / 100;
-    const isSliderOrArc = w.type === "slider" || w.type === "arc";
-    const simDraggable = simulationMode && isSliderOrArc;
+    const isSliderOrArcOrBar = w.type === "slider" || w.type === "arc" || w.type === "bar";
+    const simDraggable = simulationMode && isSliderOrArcOrBar;
     const handleSimClick = () => {
       if (!simulationMode || !onSimulateUpdate && !onSimulateAction) return;
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
         onSimulateAction?.(w.id, "on_click");
       } else if (w.type === "switch") {
         const cur = override?.checked ?? (p as any).state ?? false;
-        onSimulateUpdate?.(w.id, { checked: !cur });
-        onSimulateAction?.(w.id, "on_change");
+        const nextChecked = !cur;
+        onSimulateUpdate?.(w.id, { checked: nextChecked });
+        onSimulateAction?.(w.id, "on_change", { checked: nextChecked });
       } else if (w.type === "dropdown" || w.type === "roller") {
         const opts = Array.isArray(p.options) ? p.options : [];
         const n = Math.max(1, opts.length);
         const cur = override?.selected_index ?? (p as any).selected_index ?? 0;
         const next = (cur + 1) % n;
         onSimulateUpdate?.(w.id, { selected_index: next });
-        onSimulateAction?.(w.id, "on_change");
+        onSimulateAction?.(w.id, "on_change", { selected_index: next });
       } else if (w.type === "checkbox") {
         const cur = override?.checked ?? (p as any).checked ?? (p as any).state ?? false;
-        onSimulateUpdate?.(w.id, { checked: !cur });
-        onSimulateAction?.(w.id, "on_change");
+        const nextChecked = !cur;
+        onSimulateUpdate?.(w.id, { checked: nextChecked });
+        onSimulateAction?.(w.id, "on_change", { checked: nextChecked });
       }
     };
     const handleSimDragMove = (e: any) => {
-      if (!simulationMode || !onSimulateUpdate || !isSliderOrArc) return;
+      if (!simulationMode || !onSimulateUpdate || !isSliderOrArcOrBar) return;
       const stage = e.target.getStage();
       const pos = stage?.getPointerPosition();
       if (!pos) return;
       const minVal = Number(p.min_value ?? 0);
       const maxVal = Number(p.max_value ?? 100);
-      const curVal = override?.value ?? Number(p.value ?? (minVal + maxVal) / 2);
       if (w.type === "slider") {
         const pad = 8;
         const trackLen = w.w - pad * 2;
         const frac = Math.max(0, Math.min(1, (pos.x - ax - pad) / trackLen));
         const val = minVal + frac * (maxVal - minVal);
-        onSimulateUpdate(w.id, { value: Math.round(val) });
+        const rounded = Math.round(val);
+        lastSimValueRef.current[w.id] = rounded;
+        onSimulateUpdate(w.id, { value: rounded });
+      } else if (w.type === "bar") {
+        const pad = 8;
+        const isVert = w.h > w.w;
+        const trackLen = isVert ? w.h - pad * 2 : w.w - pad * 2;
+        const frac = isVert
+          ? Math.max(0, Math.min(1, (pos.y - ay - pad) / trackLen))
+          : Math.max(0, Math.min(1, (pos.x - ax - pad) / trackLen));
+        const val = minVal + frac * (maxVal - minVal);
+        const rounded = Math.round(val);
+        lastSimValueRef.current[w.id] = rounded;
+        onSimulateUpdate(w.id, { value: rounded });
       } else if (w.type === "arc") {
         const cx = ax + w.w / 2;
         const cy = ay + w.h / 2;
@@ -382,7 +398,9 @@ const stageRef = useRef<any>(null);
         const endAngle = Number(p.end_angle ?? 45);
         const mode = String(p.mode ?? "NORMAL").toUpperCase() as "NORMAL" | "REVERSE" | "SYMMETRICAL";
         const val = pointerAngleToValue(rot, startAngle, endAngle, mode, minVal, maxVal, pointerDeg);
-        onSimulateUpdate(w.id, { value: Math.round(val) });
+        const rounded = Math.round(val);
+        lastSimValueRef.current[w.id] = rounded;
+        onSimulateUpdate(w.id, { value: rounded });
       }
     };
     // Base background (optional outline behind, then main rect)
@@ -429,7 +447,10 @@ const stageRef = useRef<any>(null);
         } : undefined}
         onDragEnd={(e) => {
           if (simulationMode) {
-            if (onSimulateAction && (w.type === "slider" || w.type === "arc")) onSimulateAction(w.id, "on_release");
+            if (onSimulateAction && (w.type === "slider" || w.type === "arc" || w.type === "bar")) {
+              const value = lastSimValueRef.current[w.id];
+              onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+            }
             return;
           }
           const node = e.target;
@@ -598,7 +619,7 @@ const stageRef = useRef<any>(null);
     if (type === "bar") {
       const barMin = Number(p.min_value ?? 0);
       const barMax = Number(p.max_value ?? 100);
-      const val = Number(p.value ?? (barMin + barMax) / 2);
+      const val = override?.value !== undefined ? override.value : Number(p.value ?? (barMin + barMax) / 2);
       const startVal = Number(p.start_value ?? barMin);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       const isVert = w.h > w.w;
@@ -794,7 +815,7 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "switch") {
-      const checked = !!(p.checked ?? p.state);
+      const checked = !!(override?.checked ?? p.checked ?? p.state);
       const trackH = Math.max(14, w.h - 8);
       const switchKnob = w.knob || {};
       const thumbR = Math.max(4, Number(switchKnob.radius ?? 0) > 0 ? Number(switchKnob.radius) : (Number(switchKnob.width ?? 0) > 0 || Number(switchKnob.height ?? 0) > 0 ? Math.max(Number(switchKnob.width ?? 0), Number(switchKnob.height ?? 0)) / 2 : 8));
@@ -812,7 +833,7 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "checkbox") {
-      const checked = !!((w.state || {}).checked ?? p.checked ?? p.state);
+      const checked = !!(override?.checked ?? (w.state || {}).checked ?? p.checked ?? p.state);
       const size = Math.min(24, w.h - 8);
       const labelLeft = ax + 6 + size + 8;
       const labelW = w.w - 6 - size - 8;

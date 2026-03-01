@@ -12,7 +12,7 @@ import {
   DISPLAY_ACTION_LABELS,
   EVENT_LABELS,
 } from "./bindings/bindingConfig";
-import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYPES } from "./bindings/matchingActions";
+import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYPES, CLICK_TOGGLE_WIDGET_TYPES } from "./bindings/matchingActions";
 import {
   deleteDevice,
   deploy,
@@ -1171,6 +1171,19 @@ if (baseId.startsWith("glance_card")) {
       ),
     [pages, safePageIndex]
   );
+
+  const widgetsFlat = useMemo(() => {
+    const out: any[] = [];
+    function collect(list: any[]) {
+      for (const w of list || []) {
+        if (!w || typeof w !== "object" || w.id == null) continue;
+        out.push(w);
+        if (Array.isArray((w as any).widgets)) collect((w as any).widgets);
+      }
+    }
+    collect(pages?.[safePageIndex]?.widgets ?? []);
+    return out.length ? out : widgets;
+  }, [pages, safePageIndex, widgets]);
 
   // Live overrides for canvas: from links + liveEntityStates, compute per-widget display values.
   const liveOverrides = useMemo(() => {
@@ -2806,7 +2819,7 @@ function deleteSelected() {
                   simulationMode={true}
                   simOverrides={simOverrides}
                   onSimulateUpdate={(widgetId, updates) => setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], ...updates } }))}
-                  onSimulateAction={(widgetId, event) => {
+                  onSimulateAction={(widgetId, event, payload) => {
                     const actionBindings = (project as any)?.action_bindings || [];
                     const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
                     const call = ab?.call;
@@ -2815,6 +2828,10 @@ function deleteSelected() {
                       return;
                     }
                     const cur = simOverrides[widgetId];
+                    // Prefer payload from Canvas so we don't rely on stale simOverrides
+                    const value = payload?.value ?? cur?.value;
+                    const checked = payload?.checked ?? cur?.checked;
+                    const selected_index = payload?.selected_index ?? cur?.selected_index;
                     const entityId = call.entity_id || (call.data && (call.data as any).entity_id);
                     const serviceData: Record<string, unknown> = entityId ? { entity_id: entityId } : {};
                     const data = call.data || {};
@@ -2822,10 +2839,11 @@ function deleteSelected() {
                       if (k === "entity_id") continue;
                       const isLambda = typeof v === "string" && (String(v).startsWith("!lambda") || String(v).includes("return"));
                       if (isLambda) {
-                        if (k === "volume_level" && (cur?.value != null || cur?.value === 0)) serviceData[k] = Number(cur.value) / 100;
-                        else if (typeof cur?.value === "number") serviceData[k] = cur.value;
-                        else if (typeof cur?.checked === "boolean") serviceData[k] = cur.checked;
-                        else serviceData[k] = cur?.value ?? 0;
+                        if (k === "volume_level" && (value != null || value === 0)) serviceData[k] = Number(value) / 100;
+                        else if (typeof value === "number") serviceData[k] = value;
+                        else if (typeof checked === "boolean") serviceData[k] = checked;
+                        else if (typeof selected_index === "number") serviceData[k] = selected_index;
+                        else serviceData[k] = value ?? 0;
                       } else {
                         serviceData[k] = v;
                       }
@@ -3474,7 +3492,7 @@ function deleteSelected() {
                   <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Select a single widget on the canvas to see its bindings and add new ones.</div>
                 ) : (() => {
                   const widgetId = selectedWidgetIds[0];
-                  const selWidget = widgets.find((w: any) => w?.id === widgetId);
+                  const selWidget = widgetsFlat.find((w: any) => w?.id === widgetId) ?? widgets.find((w: any) => w?.id === widgetId);
                   const widgetType = selWidget?.type || "container";
                   const linksForWidget = ((project as any)?.links || []).filter(
                     (ln: any) => String(ln?.target?.widget_id || "").trim() === widgetId
@@ -3625,7 +3643,8 @@ function deleteSelected() {
                               </div>
                             </>
                           )}
-                          {(INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any)) && (
+                          {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
+                            ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
                             <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer" }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
                               <span className="muted" style={{ fontSize: 12 }}>Also create action bindings to send value to HA</span>
@@ -3654,7 +3673,10 @@ function deleteSelected() {
                             const finalProject = renameResult.ok && renameResult.newId ? renameResult.project : p2;
                             const finalWid = renameResult.newId ?? wid;
                             if (createMatchingActions) {
-                              const actions = getMatchingActionBindings(widgetType, ent, kind, attr || "");
+                              const effectiveType = (widgetType === "container" || !INPUT_WIDGET_TYPES.includes(widgetType as any) && !CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any))
+                                ? (act === "arc_value" ? "arc" : act === "slider_value" ? "slider" : act === "bar_value" ? "bar" : act === "widget_checked" ? "button" : widgetType)
+                                : widgetType;
+                              const actions = getMatchingActionBindings(effectiveType, ent, kind, attr || "");
                               (finalProject as any).action_bindings = (finalProject as any).action_bindings || [];
                               for (const a of actions) {
                                 (finalProject as any).action_bindings.push({ widget_id: finalWid, event: a.event, call: a.call });

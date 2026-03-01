@@ -18,6 +18,9 @@ export const INPUT_WIDGET_TYPES = ["arc", "slider", "bar", "spinbox", "switch", 
 /** Widgets that send selected option (index) and can have matching actions for text-based services (e.g. climate HVAC mode). */
 export const OPTION_SELECT_WIDGET_TYPES = ["dropdown", "roller"] as const;
 
+/** Widgets that act as a click/tap and can toggle binary entities (on_click → toggle). */
+export const CLICK_TOGGLE_WIDGET_TYPES = ["button", "container"] as const;
+
 export type MatchingActionBinding = {
   event: string;
   call: { domain: string; service: string; entity_id?: string; data?: Record<string, unknown> };
@@ -209,6 +212,19 @@ export function getMatchingActionBindings(
     }
     if (domain === "input_boolean") {
       return [{ event: "on_change", call: { domain: "input_boolean", service: "toggle", entity_id } }];
+    }
+  }
+
+  // Click widgets: button, container — on_click → toggle (e.g. show switch state on button, tap to toggle)
+  if ((type === "button" || type === "container") && kind === "binary") {
+    if (domain === "switch") {
+      return [{ event: "on_click", call: { domain: "switch", service: "toggle", entity_id } }];
+    }
+    if (domain === "light") {
+      return [{ event: "on_click", call: { domain: "light", service: "toggle", entity_id } }];
+    }
+    if (domain === "input_boolean") {
+      return [{ event: "on_click", call: { domain: "input_boolean", service: "toggle", entity_id } }];
     }
   }
 
