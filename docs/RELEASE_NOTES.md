@@ -1,9 +1,14 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.109
+
+- **Arc (LVGL)**: Arc now draws from start_angle to end_angle in the **clockwise** direction (LVGL convention). No "short arc" — e.g. start 90°, end 0° gives a 270° arc (6→9→12→3 o'clock). Knob position includes widget rotation.
+- **Simulator (arc)**: Uses tested `pointerAngleToValue`; NORMAL/REVERSE/SYMMETRICAL and rotation are covered by unit tests.
+- **Tests**: Vitest + `arcGeometry.test.ts` for arc background and simulator pointer→value (12 tests). Run `cd frontend && npm run test`.
+
 ## v0.70.108
 
-- **Arc**: Arc is now drawn with a custom Shape and Canvas `arc()` using explicit start/end angles instead of Konva's Arc, so the short arc (e.g. 270°→0° = quarter circle, 270°→180° = 90° left side) renders correctly for any span.
-- **Simulator (arc)**: Arc drag-to-set uses the same short-arc logic and widget rotation as the drawn arc so pointer position matches the visible track.
+- **Arc**: Custom Shape + Canvas `arc()` with explicit angles. Simulator arc aligned with drawn arc.
 
 ## v0.70.107
 

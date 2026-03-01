@@ -1,16 +1,18 @@
-# Arc widget – test examples (v0.70.106)
+# Arc widget – test examples
 
-Use these in the designer to check that the **short arc** and **simulator** behave correctly for all modes. Convention: **0° = right**, **90° = bottom**, **180° = left**, **270° = top**; angles increase **clockwise**.
+The arc is drawn **from start_angle to end_angle in the clockwise direction** (LVGL convention). Convention: **0° = right**, **90° = bottom**, **180° = left**, **270° = top**; angles increase **clockwise**. Use these in the designer to check behaviour and the simulator.
 
-## Shared arc (quarter circle, top → right)
+## Quarter circle (top → right)
 
-- **start_angle**: `270`
-- **end_angle**: `0`
-- **rotation**: `0`
-- **min_value**: `0`
-- **max_value**: `100`
+- **start_angle**: `270`, **end_angle**: `0`, **rotation**: `0`, **min_value**: `0`, **max_value**: `100`
 
-Expected: one quarter of a circle from top (270°) to right (0°). Grey track on that quarter only; green fill and knob on the same quarter.
+Expected: 90° arc from top (270°) to right (0°) clockwise. Grey track, green fill and knob on that quarter.
+
+## Three-quarter circle (6 o'clock → 3 o'clock, clockwise)
+
+- **start_angle**: `90`, **end_angle**: `0`, **rotation**: `0`, **min_value**: `0`, **max_value**: `100`
+
+Expected: 270° arc from 6 o'clock (90°) to 3 o'clock (0°) going clockwise (6→9→12→3). Grey track on that three-quarter arc; green fill and knob follow the same arc.
 
 ---
 

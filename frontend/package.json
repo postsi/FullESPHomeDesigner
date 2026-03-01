@@ -10,15 +10,18 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "typescript": "^5.5.4",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "vitest": "^2.1.9"
   },
   "name": "esphome-touch-designer-frontend",
   "private": true,
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "type": "module",
-  "version": "0.70.108"
+  "version": "0.70.109"
 }

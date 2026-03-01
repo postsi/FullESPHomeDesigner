@@ -1,5 +1,21 @@
 # Testing
 
+## Arc geometry (frontend)
+
+Arc drawing uses shared logic in `frontend/src/arcGeometry.ts` so we can verify behaviour without pushing releases.
+
+**Run arc tests (after `npm install` in `frontend/`):**
+```bash
+cd frontend && npm run test
+```
+
+Tests assert e.g.:
+- `rotation=0, start=270, end=0` → quarter circle top→right (90° clockwise)
+- `rotation=0, start=270, end=180` → quarter circle top→left (90° short arc)
+- `rotation=0, start=270, end=90` → semicircle top→bottom
+
+Before changing arc behaviour, run `npm run test` and fix any failures.
+
 ## Built-in self-check
 Use the UI self-check/diagnostics (where available) to validate:
 - recipe discovery

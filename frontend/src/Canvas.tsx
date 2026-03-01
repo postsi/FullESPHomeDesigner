@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
+import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
 
 type Widget = {
   id: string;
@@ -356,43 +357,13 @@ const stageRef = useRef<any>(null);
       } else if (w.type === "arc") {
         const cx = ax + w.w / 2;
         const cy = ay + w.h / 2;
-        // Same convention and short-arc logic as drawn arc; apply widget rotation so pointer→value matches the visible arc
         const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
-        const a = (angle < 0 ? angle + 360 : angle);
+        const pointerDeg = angle < 0 ? angle + 360 : angle;
         const rot = Number(p.rotation ?? 0);
-        const bgStart = Number(p.start_angle ?? 135);
-        const bgEnd = Number(p.end_angle ?? 45);
-        const sweepCwRaw = (bgEnd - bgStart + 360) % 360 || 360;
-        const bgSweep = sweepCwRaw <= 180 ? sweepCwRaw : 360 - sweepCwRaw;
-        const bgClockwise = sweepCwRaw <= 180;
-        const startAngle = (rot + bgStart + 720) % 360;
-        const endAngle = (rot + bgStart + (bgClockwise ? bgSweep : -bgSweep) + 720) % 360;
-        const arcMode = String(p.mode ?? "NORMAL").toUpperCase();
-        const sweepCw = (endAngle - startAngle + 360) % 360 || 360;
-        const shortSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
-        let norm: number;
-        if (sweepCw <= 180) {
-          norm = ((a - startAngle + 360) % 360) / shortSweep;
-        } else {
-          norm = ((startAngle - a + 360) % 360) / shortSweep;
-        }
-        norm = Math.max(0, Math.min(1, norm));
-        let val: number;
-        if (arcMode === "REVERSE") {
-          val = minVal + (1 - norm) * (maxVal - minVal);
-        } else if (arcMode === "SYMMETRICAL") {
-          const midAngle = sweepCw <= 180 ? startAngle + shortSweep / 2 : startAngle - shortSweep / 2;
-          let normSym: number;
-          if (sweepCw <= 180) {
-            normSym = ((a - midAngle + 360) % 360) / (shortSweep / 2);
-          } else {
-            normSym = ((midAngle - a + 360) % 360) / (shortSweep / 2);
-          }
-          normSym = Math.max(0, Math.min(1, normSym));
-          val = minVal + normSym * (maxVal - minVal);
-        } else {
-          val = minVal + norm * (maxVal - minVal);
-        }
+        const startAngle = Number(p.start_angle ?? 135);
+        const endAngle = Number(p.end_angle ?? 45);
+        const mode = String(p.mode ?? "NORMAL").toUpperCase() as "NORMAL" | "REVERSE" | "SYMMETRICAL";
+        const val = pointerAngleToValue(rot, startAngle, endAngle, mode, minVal, maxVal, pointerDeg);
         onSimulateUpdate(w.id, { value: Math.round(val) });
       }
     };
@@ -707,10 +678,9 @@ const stageRef = useRef<any>(null);
       const rot = Number(p.rotation ?? 0);
       const bgStart = Number(p.start_angle ?? 135);
       const bgEnd = Number(p.end_angle ?? 45);
-      // Background track: draw the SHORT arc from start to end so it matches the indicator/knob path.
-      const sweepCw = (bgEnd - bgStart + 360) % 360 || 360;
-      const bgSweep = sweepCw <= 180 ? sweepCw : 360 - sweepCw;
-      const bgClockwise = sweepCw <= 180;
+      // Background: draw from start to end clockwise (LVGL convention). See arcGeometry.test.ts.
+      const bg = computeArcBackground(rot, bgStart, bgEnd);
+      const { sweepCw } = bg;
       const min = Number(p.min_value ?? 0);
       const max = Number(p.max_value ?? 100);
       const val = override?.value !== undefined ? override.value : Number(p.value ?? (min + max) / 2);
@@ -720,32 +690,18 @@ const stageRef = useRef<any>(null);
       if (max > min) {
         const t = (val - min) / (max - min);
         if (mode === "SYMMETRICAL") {
-          // Midpoint of short arc; indicator grows from mid toward end (min → mid, max → end)
-          const mid = sweepCw <= 180 ? bgStart + bgSweep / 2 : bgStart - bgSweep / 2;
+          const mid = bgStart + sweepCw / 2;
           indStart = mid;
-          if (sweepCw <= 180) {
-            indSweep = t * (bgSweep / 2);
-          } else {
-            indSweep = -t * (bgSweep / 2);
-          }
+          indSweep = t * (sweepCw / 2);
         } else if (mode === "REVERSE") {
-          // Knob at end when min, at start when max; follow short arc from end back to start
           indStart = bgEnd;
-          if (sweepCw <= 180) {
-            indSweep = -t * bgSweep;
-          } else {
-            indSweep = t * bgSweep;
-          }
+          indSweep = -t * sweepCw;
         } else {
-          // NORMAL: indicator follows the same short arc as the background (knob at start when min, at end when max)
-          if (sweepCw <= 180) {
-            indSweep = t * bgSweep;
-          } else {
-            indSweep = -t * bgSweep;
-          }
+          indSweep = t * sweepCw;
         }
       }
       const endDeg = indStart + indSweep;
+      const knobAngleDeg = (rot + endDeg + 720) % 360;
       const knobDef = w.knob || {};
       let knobRadiusFromProp = Number(knobDef.radius ?? 0);
       // LVGL uses 0x7FFF as "default" knob size; treat any very large value as default for a visible knob
@@ -756,19 +712,14 @@ const stageRef = useRef<any>(null);
         ? Math.min(r - 2, knobRadiusFromProp)
         : (knobW > 0 || knobH > 0 ? Math.min(r - 2, Math.max(knobW, knobH) / 2) : Math.min(r - 2, 12));
       const knobSize = Math.max(6, knobR);
-      const knobX = cx + r * Math.cos((endDeg * Math.PI) / 180);
-      const knobY = cy + r * Math.sin((endDeg * Math.PI) / 180);
+      const knobX = cx + r * Math.cos((knobAngleDeg * Math.PI) / 180);
+      const knobY = cy + r * Math.sin((knobAngleDeg * Math.PI) / 180);
       const bgStroke = toFillColor(s.bg_color ?? p.bg_color, "#1f2937");
       const indStroke = toFillColor((w.indicator || {}).bg_color ?? s.bg_color, "#10b981");
       const knobFill = toFillColor(knobDef.bg_color ?? s.bg_color, "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
-      // Draw arc with explicit start/end angles (Konva Arc + rotation was unreliable). LVGL: 0=right, 90=bottom; Canvas same.
       const toRad = (deg: number) => ((deg % 360 + 360) % 360) * (Math.PI / 180);
-      const bgStartDeg = (rot + bgStart + 720) % 360;
-      const bgEndDeg = (rot + bgStart + (bgClockwise ? bgSweep : -bgSweep) + 720) % 360;
-      const bgStartRad = toRad(bgStartDeg);
-      const bgEndRad = bgEndDeg === 0 ? 2 * Math.PI : toRad(bgEndDeg);
       const simHandleArc = simulationMode && simDraggable ? (
         <Circle x={cx} y={cy} radius={outerR + knobSize} fill="transparent" listening={true} draggable={true}
           dragBoundFunc={(pos) => ({ x: cx, y: cy })}
@@ -791,8 +742,8 @@ const stageRef = useRef<any>(null);
             y={cy}
             sceneFunc={(ctx, shape) => {
               ctx.beginPath();
-              ctx.arc(0, 0, outerR, bgStartRad, bgEndRad, !bgClockwise);
-              ctx.arc(0, 0, innerR, bgEndRad, bgStartRad, bgClockwise);
+              ctx.arc(0, 0, outerR, bg.bgStartRad, bg.bgEndRad, bg.anticlockwise);
+              ctx.arc(0, 0, innerR, bg.bgEndRad, bg.bgStartRad, !bg.anticlockwise);
               ctx.closePath();
               ctx.fillStrokeShape(shape);
             }}
