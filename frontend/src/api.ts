@@ -194,13 +194,16 @@ export async function callService(
   service: string,
   data: Record<string, unknown> = {}
 ): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`${API_BASE}/call_service`, {
+  const url = `${API_BASE}/call_service`;
+  console.log("[Simulator] fetch", url, { domain, service, data });
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ domain, service, data }),
   });
   const out = await res.json().catch(() => ({}));
+  console.log("[Simulator] fetch response", res.status, out);
   if (!res.ok) return { ok: false, error: out?.error || `HTTP ${res.status}` };
   return out?.ok === true ? { ok: true } : { ok: false, error: out?.error || "unknown" };
 }

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.117
+
+- **Binding Builder**: “Also create action bindings to send value to HA” checkbox label is now explicitly white so it stays visible in all themes.
+- **Simulator**: Console logging added for debugging: `[Simulator] action`, `[Simulator] calling HA service`, and `[Simulator] fetch` / `fetch response` in the browser console when using the simulator so you can see whether actions fire and whether the HA service call is sent and what the response is.
+
 ## v0.70.116
 
 - **Z-order**: Toolbar **Front** and **Back** buttons (next to Align/Distribute) bring selected widgets forward or send them backward. Same as keyboard **Ctrl+]** (front) and **Ctrl+[** (back). List order is draw order; compiled YAML preserves it for LVGL.

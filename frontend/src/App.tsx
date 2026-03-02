@@ -2840,10 +2840,12 @@ function deleteSelected() {
                   simOverrides={simOverrides}
                   onSimulateUpdate={(widgetId, updates) => setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], ...updates } }))}
                   onSimulateAction={(widgetId, event, payload) => {
+                    console.log("[Simulator] action", { widgetId, event, payload });
                     const actionBindings = (project as any)?.action_bindings || [];
                     const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
                     const call = ab?.call;
                     if (!call?.domain || !call?.service) {
+                      console.log("[Simulator] no action binding for", widgetId, event, "bindings:", actionBindings?.length);
                       setToast({ type: "error", msg: `No action binding for ${event}. Add one in Binding Builder (Action tab) or add a display binding with "Also create action bindings" checked.` });
                       return;
                     }
@@ -2868,7 +2870,9 @@ function deleteSelected() {
                         serviceData[k] = v;
                       }
                     }
+                    console.log("[Simulator] calling HA service", call.domain, call.service, serviceData);
                     callService(call.domain, call.service, serviceData).then((res) => {
+                      console.log("[Simulator] call_service response", res);
                       if (res.ok) setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
                       else {
                         const errMsg = res.error || "Service call failed";
@@ -3681,7 +3685,7 @@ function deleteSelected() {
                           )}
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
-                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", color: "var(--text, #e5e7eb)", fontSize: 12 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", color: "#fff", fontSize: 12 }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
                               <span>Also create action bindings to send value to HA</span>
                             </label>
