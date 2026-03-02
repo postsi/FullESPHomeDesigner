@@ -117,11 +117,13 @@ export const SERVICES_BY_DOMAIN: Record<string, { service: string; label: string
 };
 
 export function getDisplayActionsForType(widgetType: string): DisplayAction[] {
-  return DISPLAY_ACTIONS_BY_WIDGET_TYPE[widgetType] ?? ["label_text"];
+  const t = String(widgetType ?? "").toLowerCase();
+  return DISPLAY_ACTIONS_BY_WIDGET_TYPE[t] ?? ["label_text"];
 }
 
 export function getEventsForType(widgetType: string): string[] {
-  return EVENTS_BY_WIDGET_TYPE[widgetType] ?? [];
+  const t = String(widgetType ?? "").toLowerCase();
+  return EVENTS_BY_WIDGET_TYPE[t] ?? [];
 }
 
 export function getServicesForDomain(domain: string): { service: string; label: string }[] {

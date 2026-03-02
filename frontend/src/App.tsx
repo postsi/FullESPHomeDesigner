@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -271,6 +271,8 @@ export default function App() {
   const [editingLinkOverride, setEditingLinkOverride] = useState<{ widgetId: string; entityId: string; attribute: string; action: string } | null>(null);
   const [editingActionOverride, setEditingActionOverride] = useState<{ widgetId: string; event: string } | null>(null);
   const [editingOverrideYaml, setEditingOverrideYaml] = useState<string>("");
+  /** Fetched entity details for Binding Builder attribute list (so dropdown has full attributes e.g. temperature, current_temperature). */
+  const [bindingEntityDetails, setBindingEntityDetails] = useState<{ entity_id: string; attributes?: Record<string, unknown> } | null>(null);
 
   // v0.35: Plugin controls (loaded from API)
   const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
@@ -458,6 +460,24 @@ useEffect(() => {
     .then((x) => setEntities(Array.isArray(x) ? x : []))
     .catch(() => setEntities([]));
 }, []);
+
+useEffect(() => {
+  // Binding Builder: when user selects an entity, fetch its full details so the Attribute dropdown has all keys (e.g. temperature, current_temperature).
+  if (!bindEntity || !bindEntity.includes(".")) {
+    setBindingEntityDetails(null);
+    return;
+  }
+  let cancelled = false;
+  getEntity(bindEntity)
+    .then((data: any) => {
+      if (!cancelled && data && data.entity_id === bindEntity)
+        setBindingEntityDetails({ entity_id: data.entity_id, attributes: data.attributes ?? {} });
+    })
+    .catch(() => {
+      if (!cancelled) setBindingEntityDetails(null);
+    });
+  return () => { cancelled = true; };
+}, [bindEntity]);
 
 useEffect(() => {
   // v0.35: load plugin controls (best-effort)
@@ -3507,7 +3527,13 @@ function deleteSelected() {
                   const filteredEntities = entities.filter(
                     (e) => !entityQuery || String(e.entity_id).toLowerCase().includes(entityQuery.toLowerCase()) || String(e.friendly_name || "").toLowerCase().includes(entityQuery.toLowerCase())
                   ).slice(0, 200);
-                  const selectedEntityAttrs = bindEntity ? (entities.find((x) => x && x.entity_id === bindEntity)?.attributes ? Object.keys(entities.find((x) => x && x.entity_id === bindEntity)!.attributes!).sort() : []) : [];
+                  const selectedEntityAttrs = (() => {
+                      if (!bindEntity) return [];
+                      const attrs = bindingEntityDetails?.entity_id === bindEntity
+                        ? bindingEntityDetails?.attributes
+                        : entities.find((x) => x && x.entity_id === bindEntity)?.attributes;
+                      return attrs ? Object.keys(attrs).sort() : [];
+                    })();
                   return (
                     <>
                       <div className="panelTabs" style={{ marginTop: 10, padding: "8px 8px 0", borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,.2)" }}>

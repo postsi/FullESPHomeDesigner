@@ -1005,6 +1005,16 @@ def _common_extras_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "schemas"
 
 
+# Widget types that do not display text (no label/caption); skip text-related style extras for these.
+_WIDGET_TYPES_WITHOUT_TEXT = frozenset({
+    "arc", "bar", "slider", "led", "line", "image", "animimg", "canvas", "spinner", "qrcode",
+})
+# Style keys that only affect text rendering; do not add to no-text widgets.
+_TEXT_STYLE_KEYS = frozenset({
+    "text_align", "text_decor", "text_letter_space", "text_line_space", "text_opa",
+})
+
+
 def _load_common_extras() -> dict:
     p = _common_extras_dir() / "common_extras.json"
     if not p.exists():
@@ -1015,18 +1025,23 @@ def _load_common_extras() -> dict:
         return {}
 
 
-def _merge_common_extras(schema: dict) -> dict:
-    """Merge common_extras (extra props/style/groups) into a widget schema."""
+def _merge_common_extras(schema: dict, widget_type: str | None = None) -> dict:
+    """Merge common_extras (extra props/style/groups) into a widget schema.
+    When widget_type is in _WIDGET_TYPES_WITHOUT_TEXT, text-related style extras and the
+    'Text Style' group are not added, so the Properties panel only shows relevant fields."""
     extras = _load_common_extras()
     if not extras:
         return schema
     schema = dict(schema)
+    skip_text_style = widget_type and widget_type.lower() in _WIDGET_TYPES_WITHOUT_TEXT
     # Merge props
     for k, v in (extras.get("props_extras") or {}).items():
         if k not in (schema.get("props") or {}):
             schema.setdefault("props", {})[k] = v
-    # Merge style
+    # Merge style (skip text-related keys for widgets that don't display text)
     for k, v in (extras.get("style_extras") or {}).items():
+        if skip_text_style and k in _TEXT_STYLE_KEYS:
+            continue
         if k not in (schema.get("style") or {}):
             schema.setdefault("style", {})[k] = v
     # Merge state (state-based styling)
@@ -1045,11 +1060,15 @@ def _merge_common_extras(schema: dict) -> dict:
         if k not in (esphome.get("props") or {}):
             esphome.setdefault("props", {})[k] = v
     for k, v in (extras.get("esphome_style_extras") or {}).items():
+        if skip_text_style and k in _TEXT_STYLE_KEYS:
+            continue
         if k not in (esphome.get("style") or {}):
             esphome.setdefault("style", {})[k] = v
     schema["esphome"] = esphome
-    # Merge groups (append new groups, don't overwrite)
+    # Merge groups (append new groups, don't overwrite; skip "Text Style" for no-text widgets)
     for name, grp in (extras.get("groups_extras") or {}).items():
+        if skip_text_style and name == "Text Style":
+            continue
         if name not in (schema.get("groups") or {}):
             schema.setdefault("groups", {})[name] = grp
     return schema
@@ -1061,7 +1080,7 @@ def _load_widget_schema(widget_type: str) -> dict | None:
     if not p.exists():
         return None
     schema = json.loads(p.read_text("utf-8"))
-    return _merge_common_extras(schema)
+    return _merge_common_extras(schema, widget_type)
 
 
 def _yaml_quote(v) -> str:
@@ -1991,7 +2010,7 @@ class SchemaDetailView(HomeAssistantView):
         if not schemas_path.exists():
             return self.json({"ok": False, "error": "schema_not_found"}, status_code=404)
         data = json.loads(schemas_path.read_text("utf-8"))
-        data = _merge_common_extras(data)
+        data = _merge_common_extras(data, widget_type)
         return self.json({"ok": True, "schema": data})
 
 

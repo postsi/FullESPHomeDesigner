@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.115
+
+- **Binding Builder**: Display actions and events now normalize widget type to lowercase so arc/Arc always get correct options. When you select an entity, the panel fetches that entity’s full details so the **Attribute** dropdown always lists all attributes (e.g. temperature, current_temperature for climate).
+- **Properties panel**: Arc, bar, and slider no longer show **Text color** or the **Text Style** group (text align, decor, letter/line space, opacity)—they don’t display text. Backend merge skips text-related common_extras for no-text widget types (arc, bar, slider, led, line, image, animimg, canvas, spinner, qrcode).
+
 ## v0.70.114
 
 - **Simulator • Actions**: Arc/slider/bar **on_release** now pass the current value from the canvas (via ref) so the HA service call uses the correct value instead of stale simOverrides. Switch/checkbox **on_change** pass `checked` and dropdown/roller **on_change** pass `selected_index` in the action payload so HA receives the right state. App handler supports `selected_index` for lambda substitution (e.g. dropdown/roller → set_hvac_mode).
