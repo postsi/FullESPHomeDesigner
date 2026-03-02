@@ -3685,10 +3685,16 @@ function deleteSelected() {
                           )}
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
-                            <label className="sectionTitle" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 4, cursor: "pointer", fontSize: 12, fontWeight: 400 }}>
-                              <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
-                              <span>Also create action bindings to send value to HA</span>
-                            </label>
+                            <div
+                              style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, marginBottom: 4, cursor: "pointer" }}
+                              onClick={() => setCreateMatchingActions((c) => !c)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCreateMatchingActions((c) => !c); } }}
+                            >
+                              <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} onClick={(e)=>e.stopPropagation()} aria-hidden />
+                              <div className="sectionTitle bindingBuilderCheckboxLabel" style={{ fontSize: 12, marginBottom: 0, fontWeight: 400 }}>Also create action bindings to send value to HA</div>
+                            </div>
                           )}
                           <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
                             if (!project) return;
