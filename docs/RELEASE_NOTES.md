@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.118
+
+- **Binding Builder**: "Also create action bindings to send value to HA" checkbox label now uses the same colour as "Display bindings for this widget" (#e5e7eb) so the text is visible.
+- **Simulator**: Console log at Canvas click handler (`[Simulator] Canvas handleSimClick`) to confirm clicks reach the simulator.
+
 ## v0.70.117
 
 - **Binding Builder**: “Also create action bindings to send value to HA” checkbox label is now explicitly white so it stays visible in all themes.

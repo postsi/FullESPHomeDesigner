@@ -3685,7 +3685,7 @@ function deleteSelected() {
                           )}
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
-                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", color: "#fff", fontSize: 12 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", color: "#e5e7eb", fontSize: 12 }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
                               <span>Also create action bindings to send value to HA</span>
                             </label>

@@ -340,6 +340,7 @@ const stageRef = useRef<any>(null);
     const isSliderOrArcOrBar = w.type === "slider" || w.type === "arc" || w.type === "bar";
     const simDraggable = simulationMode && isSliderOrArcOrBar;
     const handleSimClick = () => {
+      console.log("[Simulator] Canvas handleSimClick", w.id, w.type, { simulationMode, hasOnSimulateAction: !!onSimulateAction });
       if (!simulationMode || !onSimulateUpdate && !onSimulateAction) return;
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
         onSimulateAction?.(w.id, "on_click");
