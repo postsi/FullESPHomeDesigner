@@ -404,6 +404,15 @@ const stageRef = useRef<any>(null);
         onSimulateUpdate(w.id, { value: rounded });
       }
     };
+    const handleSimClickSetValue = (e: any) => {
+      if (!simulationMode || !isSliderOrArcOrBar) return;
+      e.cancelBubble = true;
+      handleSimDragMove(e);
+      if (onSimulateAction) {
+        const value = lastSimValueRef.current[w.id];
+        onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+      }
+    };
     // Base background (optional outline behind, then main rect)
     const base = (
       <>
@@ -636,19 +645,51 @@ const stageRef = useRef<any>(null);
       if (isVert) {
         const tx = ax + (w.w - thick) / 2;
         const ty = ay + pad;
+        const simHandleBarV = simulationMode && simDraggable ? (
+          <Rect x={ax} y={ay + pad} width={w.w} height={trackLen} fill="transparent" listening={true} draggable={true}
+            dragBoundFunc={(pos) => ({ x: ax, y: ay + pad })}
+            onClick={handleSimClickSetValue}
+            onTap={handleSimClickSetValue}
+            onDragMove={handleSimDragMove}
+            onDragStart={() => {}}
+            onDragEnd={() => {
+              if (onSimulateAction) {
+                const value = lastSimValueRef.current[w.id];
+                onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+              }
+            }}
+          />
+        ) : null;
         return (
           <Group key={w.id}>
             {base}
             <Rect x={tx} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={thick / 2} listening={false} />
             <Rect x={tx} y={ty + trackLen * (1 - normEnd)} width={thick} height={trackLen * (normEnd - normStart)} fill={indFill} cornerRadius={thick / 2} listening={false} />
+            {simHandleBarV}
           </Group>
         );
       }
+      const simHandleBarH = simulationMode && simDraggable ? (
+        <Rect x={ax + pad} y={ay} width={trackLen} height={w.h} fill="transparent" listening={true} draggable={true}
+          dragBoundFunc={(pos) => ({ x: ax + pad, y: ay })}
+          onClick={handleSimClickSetValue}
+          onTap={handleSimClickSetValue}
+          onDragMove={handleSimDragMove}
+          onDragStart={() => {}}
+          onDragEnd={() => {
+            if (onSimulateAction) {
+              const value = lastSimValueRef.current[w.id];
+              onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+            }
+          }}
+        />
+      ) : null;
       return (
         <Group key={w.id}>
           {base}
           <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={thick / 2} listening={false} />
           <Rect x={ax + pad + trackLen * normStart} y={ay + (w.h - thick) / 2} width={trackLen * (normEnd - normStart)} height={thick} fill={indFill} cornerRadius={thick / 2} listening={false} />
+          {simHandleBarH}
         </Group>
       );
     }
@@ -677,9 +718,16 @@ const stageRef = useRef<any>(null);
         const simHandle = simulationMode && simDraggable ? (
           <Rect x={ax} y={ay + pad} width={w.w} height={trackLen} fill="transparent" listening={true} draggable={true}
             dragBoundFunc={(pos) => ({ x: ax, y: ay + pad })}
+            onClick={handleSimClickSetValue}
+            onTap={handleSimClickSetValue}
             onDragMove={handleSimDragMove}
             onDragStart={() => {}}
-            onDragEnd={() => {}}
+            onDragEnd={() => {
+              if (onSimulateAction) {
+                const value = lastSimValueRef.current[w.id];
+                onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+              }
+            }}
           />
         ) : null;
         return (
@@ -696,9 +744,16 @@ const stageRef = useRef<any>(null);
       const simHandleH = simulationMode && simDraggable ? (
         <Rect x={ax + pad} y={ay} width={trackLen} height={w.h} fill="transparent" listening={true} draggable={true}
           dragBoundFunc={(pos) => ({ x: ax + pad, y: ay })}
+          onClick={handleSimClickSetValue}
+          onTap={handleSimClickSetValue}
           onDragMove={handleSimDragMove}
           onDragStart={() => {}}
-          onDragEnd={() => {}}
+          onDragEnd={() => {
+            if (onSimulateAction) {
+              const value = lastSimValueRef.current[w.id];
+              onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+            }
+          }}
         />
       ) : null;
       return (
@@ -766,9 +821,16 @@ const stageRef = useRef<any>(null);
       const simHandleArc = simulationMode && simDraggable ? (
         <Circle x={cx} y={cy} radius={outerR + knobSize} fill="transparent" listening={true} draggable={true}
           dragBoundFunc={(pos) => ({ x: cx, y: cy })}
+          onClick={handleSimClickSetValue}
+          onTap={handleSimClickSetValue}
           onDragMove={handleSimDragMove}
           onDragStart={() => {}}
-          onDragEnd={() => {}}
+          onDragEnd={() => {
+            if (onSimulateAction) {
+              const value = lastSimValueRef.current[w.id];
+              onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
+            }
+          }}
         />
       ) : null;
       // Indicator arc: from start to end of the filled segment (direction matches sweep sign)

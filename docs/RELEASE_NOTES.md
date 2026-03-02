@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.119
+
+- **Binding Builder**: "Also create action bindings to send value to HA" checkbox label uses `sectionTitle` class so it matches "Display bindings for this widget" and stays visible.
+- **Simulator • Arc / Slider / Bar**: Releasing a drag now correctly fires **on_release** and sends the value to HA (fixed empty `onDragEnd` on the drag handles).
+- **Simulator • Arc / Slider / Bar**: Click anywhere on the track or arc to set the value at that point and fire **on_release**, matching device behaviour.
+- **Simulator • Bar**: Bar now has drag/click handles so it is interactive in the simulator (same as slider/arc).
+
 ## v0.70.118
 
 - **Binding Builder**: "Also create action bindings to send value to HA" checkbox label now uses the same colour as "Display bindings for this widget" (#e5e7eb) so the text is visible.
