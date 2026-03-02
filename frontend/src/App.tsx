@@ -258,7 +258,7 @@ export default function App() {
   const [bindAttr, setBindAttr] = useState<string>("");
   const [bindAction, setBindAction] = useState<string>("label_text");
   const [bindFormat, setBindFormat] = useState<string>("%.1f");
-  const [createMatchingActions, setCreateMatchingActions] = useState<boolean>(false);
+  const [createMatchingActions, setCreateMatchingActions] = useState<boolean>(true);
   const [bindScale, setBindScale] = useState<number>(1);
   const [builderMode, setBuilderMode] = useState<"display" | "action">("display");
   const [bindingsListExpanded, setBindingsListExpanded] = useState<Record<string, boolean>>({});
@@ -2844,7 +2844,7 @@ function deleteSelected() {
                     const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
                     const call = ab?.call;
                     if (!call?.domain || !call?.service) {
-                      setToast({ type: "ok", msg: `Action: ${event} (${widgetId})` });
+                      setToast({ type: "error", msg: `No action binding for ${event}. Add one in Binding Builder (Action tab) or add a display binding with "Also create action bindings" checked.` });
                       return;
                     }
                     const cur = simOverrides[widgetId];
@@ -2870,8 +2870,15 @@ function deleteSelected() {
                     }
                     callService(call.domain, call.service, serviceData).then((res) => {
                       if (res.ok) setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
-                      else setToast({ type: "error", msg: res.error || "Service call failed" });
-                    }).catch((err) => setToast({ type: "error", msg: String(err?.message || err) }));
+                      else {
+                        const errMsg = res.error || "Service call failed";
+                        console.warn("[Simulator] call_service failed:", res.error, { domain: call.domain, service: call.service, data: serviceData });
+                        setToast({ type: "error", msg: errMsg });
+                      }
+                    }).catch((err) => {
+                      console.warn("[Simulator] call_service error:", err);
+                      setToast({ type: "error", msg: String(err?.message || err) });
+                    });
                   }}
                   onSelect={() => {}}
                   onSelectNone={() => {}}
@@ -3063,6 +3070,9 @@ function deleteSelected() {
                 <button className="secondary" disabled={selectedWidgetIds.length < 2} onClick={() => alignSelected("bottom")}>B</button>
                 <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("h")}>Dist H</button>
                 <button className="secondary" disabled={selectedWidgetIds.length < 3} onClick={() => distributeSelected("v")}>Dist V</button>
+                <span className="muted">|</span>
+                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={() => moveZ("front")} title="Bring forward (Ctrl+])">Front</button>
+                <button className="secondary" disabled={!selectedWidgetIds.length} onClick={() => moveZ("back")} title="Send backward (Ctrl+[)">Back</button>
                 <span className="muted">|</span>
                 <button className="secondary" disabled={!clipboard?.length} onClick={pasteClipboard}>Paste</button>
                 <button className="secondary" disabled={!selectedWidgetIds.length} onClick={copySelected}>Copy</button>
@@ -3671,9 +3681,9 @@ function deleteSelected() {
                           )}
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
-                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, cursor: "pointer", color: "var(--text, #e5e7eb)", fontSize: 12 }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
-                              <span className="muted" style={{ fontSize: 12 }}>Also create action bindings to send value to HA</span>
+                              <span>Also create action bindings to send value to HA</span>
                             </label>
                           )}
                           <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {

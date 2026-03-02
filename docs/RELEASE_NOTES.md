@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.116
+
+- **Z-order**: Toolbar **Front** and **Back** buttons (next to Align/Distribute) bring selected widgets forward or send them backward. Same as keyboard **Ctrl+]** (front) and **Ctrl+[** (back). List order is draw order; compiled YAML preserves it for LVGL.
+
 ## v0.70.115
 
 - **Binding Builder**: Display actions and events now normalize widget type to lowercase so arc/Arc always get correct options. When you select an entity, the panel fetches that entity’s full details so the **Attribute** dropdown always lists all attributes (e.g. temperature, current_temperature for climate).
