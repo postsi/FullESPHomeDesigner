@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.122
+
+- **Binding Builder**: "Also create action bindings to send value to HA" checkbox text: use same `fieldLabel` div pattern as "Scale"/"Entity" labels, inline color #b8bfc9, and `[data-binding-checkbox-label]` CSS with !important so the label stays visible in HA.
+
 ## v0.70.121
 
 - **Binding Builder**: "Also create action bindings to send value to HA" checkbox moved to **below** the "Add display binding" button and label text given the `muted` class (same as other helper text in the form) so it stays visible.

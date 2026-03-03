@@ -24,8 +24,8 @@ h1{margin:0;font-size:24px} h2{margin:0 0 12px 0;font-size:18px}
 /* Inspector legibility: ensure inputs and labels have clear contrast */
 .panelContent .fieldLabel,.panelContent .inspectorWidgetIdLabel{color:#b8bfc9;font-size:13px}
 .panelContent .sectionTitle{color:#e5e7eb}
-/* Checkbox row text: same as sectionTitle; ensure visible even if host overrides label/span */
-.panelContent .bindingBuilderCheckboxLabel{color:#e5e7eb !important;font-size:12px;font-weight:400}
+/* Checkbox row text: force visible (HA panel can override; this wins) */
+[data-binding-checkbox-label]{color:#b8bfc9 !important;font-size:12px !important;visibility:visible !important;opacity:1 !important}
 .panelContent input,.panelContent select,.panelContent textarea{background:#1e293b;color:#e5e7eb;border-color:#334155}
 .panelContent input::placeholder,.panelContent textarea::placeholder{color:#94a3b8}
 .panelContent .muted{color:#94a3b8}
