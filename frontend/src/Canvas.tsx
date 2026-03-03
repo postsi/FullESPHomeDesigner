@@ -1260,7 +1260,7 @@ const stageRef = useRef<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const applyDrop = (clientX: number, clientY: number, dataTransfer: DataTransfer | null) => {
+  const applyDrop = useCallback((clientX: number, clientY: number, dataTransfer: DataTransfer | null) => {
     if (!dataTransfer || !onDropCreate) return;
     const prebuilt = dataTransfer.getData('application/x-esphome-prebuilt-widget');
     const tmpl = dataTransfer.getData('application/x-esphome-control-template');
@@ -1279,25 +1279,34 @@ const stageRef = useRef<any>(null);
     x = Math.max(0, Math.min(width, x));
     y = Math.max(0, Math.min(height, y));
     onDropCreate(payload, snap(x, gridSize), snap(y, gridSize));
-  };
+  }, [onDropCreate, width, height, gridSize]);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    applyDrop(e.clientX, e.clientY, e.dataTransfer);
-  };
-
-  const handleStageDragOver = (e: any) => {
-    e.evt.preventDefault();
-    e.evt.stopPropagation();
-    if (e.evt.dataTransfer) e.evt.dataTransfer.dropEffect = "copy";
-  };
-
-  const handleStageDrop = (e: any) => {
-    e.evt.preventDefault();
-    e.evt.stopPropagation();
-    applyDrop(e.evt.clientX, e.evt.clientY, e.evt.dataTransfer);
-  };
+  // Konva Stage does NOT bind native HTML5 "drop" or "dragover" (only pointer/mouse/touch).
+  // When dropping over the canvas, the event target is Konva's inner div/canvas, so the
+  // wrapper div's bubble-phase onDrop never runs. Use capture-phase listeners so we handle
+  // drop regardless of which child received the event.
+  const applyDropRef = useRef(applyDrop);
+  applyDropRef.current = applyDrop;
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      applyDropRef.current(e.clientX, e.clientY, e.dataTransfer);
+    };
+    el.addEventListener("dragover", onDragOver, true);
+    el.addEventListener("drop", onDrop, true);
+    return () => {
+      el.removeEventListener("dragover", onDragOver, true);
+      el.removeEventListener("drop", onDrop, true);
+    };
+  }, []);
 
   return (
     <div
@@ -1307,7 +1316,11 @@ const stageRef = useRef<any>(null);
         e.stopPropagation();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       }}
-      onDrop={handleDrop}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applyDrop(e.clientX, e.clientY, e.dataTransfer);
+      }}
       style={{ width, height, minWidth: width, minHeight: height }}
     >
     <Stage
@@ -1315,8 +1328,6 @@ const stageRef = useRef<any>(null);
       height={height}
       ref={stageRef}
       style={{ background: /^#[0-9a-fA-F]{6}$/.test(dispBgColor || "") ? dispBgColor : "#0b0f14", borderRadius: 12, overflow: "hidden" }}
-      onDragOver={handleStageDragOver}
-      onDrop={handleStageDrop}
       onMouseDown={(e) => {
         if (simulationMode) return;
         const clickedOnEmpty = e.target === e.target.getStage();

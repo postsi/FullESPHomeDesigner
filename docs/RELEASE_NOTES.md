@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.126
+
+- **Prebuilt widgets (drop fix)**: Konva Stage does not bind native HTML5 `drop`/`dragover`; the drop target over the canvas was Konva’s inner div, so the wrapper’s bubble-phase onDrop never ran. Drop is now handled with **capture-phase** listeners on the canvas wrapper so drops over the canvas are received and widgets are placed and selected correctly.
+- **Prebuilt widgets**: When inserting a prebuilt, the current page is ensured to have a `widgets` array (defensive fix when the API omits it).
+
 ## v0.70.125
 
 - **Prebuilt widgets**: Dropping a prebuilt onto the device canvas now works. The Konva Stage handles `onDragOver` and `onDrop` so drops on the canvas are received and widgets are placed at the correct coordinates.

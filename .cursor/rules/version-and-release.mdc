@@ -7,10 +7,11 @@ alwaysApply: true
 
 When you have made any changes to this project, complete the full release workflow **after every change** unless the user explicitly says otherwise (e.g. “don’t release” or “skip release”). Do not wait to be asked.
 
-1. **Bump version** in both:
+1. **Bump version** in all of:
    - `custom_components/esphome_touch_designer/manifest.json`
    - `frontend/package.json`
-   (Also update `README.md` and `docs/RELEASE_NOTES.md` if they reference the version.)
+   - **`README.md`** — Update the title line (e.g. `# ESPHome Touch Designer (vX.YY.ZZ)`). This is the HACS description page; HACS renders the repo README when `render_readme` is true in `hacs.json`, so the version in the first line must match the release.
+   - `docs/RELEASE_NOTES.md` (add the new version heading in step 2; version number appears there too).
 
 2. **Add a release note** for the new version in `docs/RELEASE_NOTES.md`.
 

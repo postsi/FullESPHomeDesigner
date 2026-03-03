@@ -3150,7 +3150,8 @@ function deleteSelected() {
                       const pw = PREBUILT_WIDGETS.find((p) => p.id === prebuiltId);
                       if (pw) {
                         const pg = p2.pages?.[safePageIndex];
-                        if (pg?.widgets) {
+                        if (pg) {
+                          if (!Array.isArray(pg.widgets)) pg.widgets = [];
                           const built = pw.build({ x, y });
                           const widgets = built.widgets || [];
                           for (const w of widgets) pg.widgets.push(w);
