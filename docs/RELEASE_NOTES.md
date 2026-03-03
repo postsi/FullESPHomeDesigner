@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.121
+
+- **Binding Builder**: "Also create action bindings to send value to HA" checkbox moved to **below** the "Add display binding" button and label text given the `muted` class (same as other helper text in the form) so it stays visible.
+
 ## v0.70.120
 
 - **Binding Builder**: "Also create action bindings to send value to HA" checkbox text fixed: replaced label/span with a div (matching the visible "Display bindings for this widget" structure) and added `.bindingBuilderCheckboxLabel` CSS with explicit `color: #e5e7eb !important` so the text stays visible in HA.
