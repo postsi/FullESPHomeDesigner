@@ -1260,19 +1260,18 @@ const stageRef = useRef<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const prebuilt = e.dataTransfer.getData('application/x-esphome-prebuilt-widget');
-    const tmpl = e.dataTransfer.getData('application/x-esphome-control-template');
-    const type = e.dataTransfer.getData('application/x-esphome-widget-type');
+  const applyDrop = (clientX: number, clientY: number, dataTransfer: DataTransfer | null) => {
+    if (!dataTransfer || !onDropCreate) return;
+    const prebuilt = dataTransfer.getData('application/x-esphome-prebuilt-widget');
+    const tmpl = dataTransfer.getData('application/x-esphome-control-template');
+    const type = dataTransfer.getData('application/x-esphome-widget-type');
     const payload = prebuilt ? `prebuilt:${prebuilt}` : tmpl ? `tmpl:${tmpl}` : type;
-    if (!payload || !onDropCreate) return;
+    if (!payload) return;
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
+    let x = clientX - rect.left;
+    let y = clientY - rect.top;
     if (rect.width > 0 && rect.height > 0 && (rect.width !== width || rect.height !== height)) {
       x = (x / rect.width) * width;
       y = (y / rect.height) * height;
@@ -1280,6 +1279,24 @@ const stageRef = useRef<any>(null);
     x = Math.max(0, Math.min(width, x));
     y = Math.max(0, Math.min(height, y));
     onDropCreate(payload, snap(x, gridSize), snap(y, gridSize));
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    applyDrop(e.clientX, e.clientY, e.dataTransfer);
+  };
+
+  const handleStageDragOver = (e: any) => {
+    e.evt.preventDefault();
+    e.evt.stopPropagation();
+    if (e.evt.dataTransfer) e.evt.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleStageDrop = (e: any) => {
+    e.evt.preventDefault();
+    e.evt.stopPropagation();
+    applyDrop(e.evt.clientX, e.evt.clientY, e.evt.dataTransfer);
   };
 
   return (
@@ -1298,6 +1315,8 @@ const stageRef = useRef<any>(null);
       height={height}
       ref={stageRef}
       style={{ background: /^#[0-9a-fA-F]{6}$/.test(dispBgColor || "") ? dispBgColor : "#0b0f14", borderRadius: 12, overflow: "hidden" }}
+      onDragOver={handleStageDragOver}
+      onDrop={handleStageDrop}
       onMouseDown={(e) => {
         if (simulationMode) return;
         const clickedOnEmpty = e.target === e.target.getStage();

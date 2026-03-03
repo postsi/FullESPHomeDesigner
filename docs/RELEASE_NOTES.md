@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.125
+
+- **Prebuilt widgets**: Dropping a prebuilt onto the device canvas now works. The Konva Stage handles `onDragOver` and `onDrop` so drops on the canvas are received and widgets are placed at the correct coordinates.
+- **Prebuilt widgets**: After drop, the new widget is selected (selection is deferred with a short timeout so the Transformer can attach after the new nodes are in the tree).
+- **Prebuilt widgets**: Documented that only ESPHome palette widget types (container, label, button, bar, slider, led, dropdown, etc.) should be used in prebuilts.
+
 ## v0.70.124
 
 - **Binding Builder**: "Also create action bindings to send value to HA" checkbox label fixed. Root cause: global `input { width: 100% }` made the checkbox fill the row and hide the label. Checkboxes/radios now use `width: auto`; restored normal `<label>` with checkbox and text.

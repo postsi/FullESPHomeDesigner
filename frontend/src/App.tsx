@@ -3164,13 +3164,11 @@ function deleteSelected() {
                           }
                           setProject(p2, true);
                           setProjectDirty(true);
-                          const firstId = widgets.length ? widgets[0].id : null;
-                          requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                              if (firstId) setSelectedWidgetIds([firstId]);
-                              setInspectorTab("properties");
-                            });
-                          });
+                          const rootId = widgets.length ? widgets[0].id : null;
+                          setInspectorTab("properties");
+                          if (rootId) {
+                            setTimeout(() => setSelectedWidgetIds([rootId]), 50);
+                          }
                         }
                       }
                       return;

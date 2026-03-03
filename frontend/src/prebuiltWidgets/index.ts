@@ -3,6 +3,9 @@
  * Dropped directly onto the canvas (no wizard). Each build() returns { widgets }.
  * Multi-widget prebuilts are wrapped in a group (root container + parent_id) so they move en masse.
  * Optional scripts and action_bindings are merged into the project on insert (same mechanism as Card Library).
+ *
+ * Only use widget types that ESPHome LVGL supports (same as palette: container, label, button,
+ * bar, slider, led, dropdown, etc.). Do not use raw LVGL types that ESPHome does not render.
  */
 
 function uid(prefix: string) {
