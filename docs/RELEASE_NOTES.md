@@ -1,8 +1,8 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
-## v0.70.123
+## v0.70.124
 
-- **Binding Builder**: "Also create action bindings to send value to HA" label is now the text of a `<button>` (styled as plain text) so it renders reliably; click checkbox or text to toggle.
+- **Binding Builder**: "Also create action bindings to send value to HA" checkbox label fixed. Root cause: global `input { width: 100% }` made the checkbox fill the row and hide the label. Checkboxes/radios now use `width: auto`; restored normal `<label>` with checkbox and text.
 
 ## v0.70.122
 

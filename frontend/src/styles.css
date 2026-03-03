@@ -24,8 +24,6 @@ h1{margin:0;font-size:24px} h2{margin:0 0 12px 0;font-size:18px}
 /* Inspector legibility: ensure inputs and labels have clear contrast */
 .panelContent .fieldLabel,.panelContent .inspectorWidgetIdLabel{color:#b8bfc9;font-size:13px}
 .panelContent .sectionTitle{color:#e5e7eb}
-/* Checkbox row text: force visible (HA panel can override; this wins) */
-[data-binding-checkbox-label]{color:#b8bfc9 !important;font-size:12px !important;visibility:visible !important;opacity:1 !important}
 .panelContent input,.panelContent select,.panelContent textarea{background:#1e293b;color:#e5e7eb;border-color:#334155}
 .panelContent input::placeholder,.panelContent textarea::placeholder{color:#94a3b8}
 .panelContent .muted{color:#94a3b8}
@@ -36,6 +34,7 @@ h1{margin:0;font-size:24px} h2{margin:0 0 12px 0;font-size:18px}
 .card{border:1px solid var(--border);background:var(--card);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .label{display:block;margin-top:10px;margin-bottom:6px;font-size:13px;color:var(--muted)}
 input,textarea,select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text)}
+input[type=checkbox],input[type=radio]{width:auto;min-width:1em;flex-shrink:0}
 textarea{resize:vertical}
 button{margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);cursor:pointer}
 button:hover{background:rgba(255,255,255,.10)} button:disabled{opacity:.5;cursor:not-allowed}

@@ -3725,10 +3725,10 @@ function deleteSelected() {
                           }}>Add display binding</button>
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer", fontSize: 12, color: "#b8bfc9" }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
-                              <button type="button" className="ghost" data-binding-checkbox-label onClick={() => setCreateMatchingActions((c) => !c)} style={{ margin: 0, padding: 0, border: "none", background: "none", cursor: "pointer", fontSize: 12, color: "#b8bfc9", fontFamily: "inherit", flex: 1, textAlign: "left", minHeight: "auto" }}>Also create action bindings to send value to HA</button>
-                            </div>
+                              Also create action bindings to send value to HA
+                            </label>
                           )}
                         </div>
                       )}
