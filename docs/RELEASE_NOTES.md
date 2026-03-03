@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.127
+
+- **Revert**: Dropped the capture-phase drop handling that broke dragging of standard widgets and cards; canvas drop is back to the original wrapper-div only (bubble-phase).
+- **Prebuilt widgets**: Prebuilt palette rows have a YAML button; if the drag started on that button, the browser could use it as the drag source and the parent's `setData` never ran, so the drop had no prebuilt data. The YAML button now has `draggable={false}` so the row div is always the drag source.
+- **Diagnostics**: Comment in canvas drop handler notes that standard widgets, cards, and prebuilts share the same drop path; only the MIME type differs.
+
 ## v0.70.126
 
 - **Prebuilt widgets (drop fix)**: Konva Stage does not bind native HTML5 `drop`/`dragover`; the drop target over the canvas was Konva’s inner div, so the wrapper’s bubble-phase onDrop never ran. Drop is now handled with **capture-phase** listeners on the canvas wrapper so drops over the canvas are received and widgets are placed and selected correctly.

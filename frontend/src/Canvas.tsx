@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useCallback } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
 import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
 
@@ -1260,18 +1260,22 @@ const stageRef = useRef<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const applyDrop = useCallback((clientX: number, clientY: number, dataTransfer: DataTransfer | null) => {
-    if (!dataTransfer || !onDropCreate) return;
-    const prebuilt = dataTransfer.getData('application/x-esphome-prebuilt-widget');
-    const tmpl = dataTransfer.getData('application/x-esphome-control-template');
-    const type = dataTransfer.getData('application/x-esphome-widget-type');
+  // Standard widgets, cards, and prebuilts all use the same drop path; only the MIME type differs.
+  // If prebuilts don't drop but others do: (1) drop may be hitting Konva's inner content, not this div, or
+  // (2) getData('application/x-esphome-prebuilt-widget') may be empty (e.g. drag started from a child button).
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const prebuilt = e.dataTransfer.getData('application/x-esphome-prebuilt-widget');
+    const tmpl = e.dataTransfer.getData('application/x-esphome-control-template');
+    const type = e.dataTransfer.getData('application/x-esphome-widget-type');
     const payload = prebuilt ? `prebuilt:${prebuilt}` : tmpl ? `tmpl:${tmpl}` : type;
-    if (!payload) return;
+    if (!payload || !onDropCreate) return;
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    let x = clientX - rect.left;
-    let y = clientY - rect.top;
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
     if (rect.width > 0 && rect.height > 0 && (rect.width !== width || rect.height !== height)) {
       x = (x / rect.width) * width;
       y = (y / rect.height) * height;
@@ -1279,34 +1283,7 @@ const stageRef = useRef<any>(null);
     x = Math.max(0, Math.min(width, x));
     y = Math.max(0, Math.min(height, y));
     onDropCreate(payload, snap(x, gridSize), snap(y, gridSize));
-  }, [onDropCreate, width, height, gridSize]);
-
-  // Konva Stage does NOT bind native HTML5 "drop" or "dragover" (only pointer/mouse/touch).
-  // When dropping over the canvas, the event target is Konva's inner div/canvas, so the
-  // wrapper div's bubble-phase onDrop never runs. Use capture-phase listeners so we handle
-  // drop regardless of which child received the event.
-  const applyDropRef = useRef(applyDrop);
-  applyDropRef.current = applyDrop;
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-    };
-    const onDrop = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      applyDropRef.current(e.clientX, e.clientY, e.dataTransfer);
-    };
-    el.addEventListener("dragover", onDragOver, true);
-    el.addEventListener("drop", onDrop, true);
-    return () => {
-      el.removeEventListener("dragover", onDragOver, true);
-      el.removeEventListener("drop", onDrop, true);
-    };
-  }, []);
+  };
 
   return (
     <div
@@ -1316,11 +1293,7 @@ const stageRef = useRef<any>(null);
         e.stopPropagation();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        applyDrop(e.clientX, e.clientY, e.dataTransfer);
-      }}
+      onDrop={handleDrop}
       style={{ width, height, minWidth: width, minHeight: height }}
     >
     <Stage

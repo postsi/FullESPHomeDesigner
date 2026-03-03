@@ -3021,6 +3021,7 @@ function deleteSelected() {
                       <button
                         type="button"
                         className="secondary"
+                        draggable={false}
                         style={{ flexShrink: 0, padding: "2px 6px", fontSize: 10 }}
                         title="View YAML snippet"
                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSnippetModalPrebuilt(pw); }}
@@ -3150,8 +3151,7 @@ function deleteSelected() {
                       const pw = PREBUILT_WIDGETS.find((p) => p.id === prebuiltId);
                       if (pw) {
                         const pg = p2.pages?.[safePageIndex];
-                        if (pg) {
-                          if (!Array.isArray(pg.widgets)) pg.widgets = [];
+                        if (pg?.widgets) {
                           const built = pw.build({ x, y });
                           const widgets = built.widgets || [];
                           for (const w of widgets) pg.widgets.push(w);
@@ -3165,11 +3165,13 @@ function deleteSelected() {
                           }
                           setProject(p2, true);
                           setProjectDirty(true);
-                          const rootId = widgets.length ? widgets[0].id : null;
-                          setInspectorTab("properties");
-                          if (rootId) {
-                            setTimeout(() => setSelectedWidgetIds([rootId]), 50);
-                          }
+                          const firstId = widgets.length ? widgets[0].id : null;
+                          requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                              if (firstId) setSelectedWidgetIds([firstId]);
+                              setInspectorTab("properties");
+                            });
+                          });
                         }
                       }
                       return;
