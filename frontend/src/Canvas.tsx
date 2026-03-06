@@ -320,7 +320,8 @@ const stageRef = useRef<any>(null);
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacityRaw = s.opa ?? p.opacity ?? 100;
     const opacity = typeof opacityRaw === "number" ? opacityRaw / 100 : 1;
-    const radius = Math.min(12, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 8)));
+    const radiusRaw = Math.min(12, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 8)));
+    const radius = Math.min(radiusRaw, Math.floor(w.w / 2), Math.floor(w.h / 2));
     const shadowW = Number(s.shadow_width ?? 0);
     const shadowOfsX = Number(s.shadow_ofs_x ?? 0);
     const shadowOfsY = Number(s.shadow_ofs_y ?? 0);
@@ -586,7 +587,7 @@ const stageRef = useRef<any>(null);
             fill={String(checked ? (s.inner_bg_color ?? "#065f46") : (s.inner_bg_color ?? "#0b1220"))}
             stroke={String(s.inner_border_color ?? (isSel ? "#34d399" : "#1f2937"))}
             strokeWidth={Number(s.inner_border_width ?? 2)}
-            cornerRadius={Math.min(10, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 10)))}
+            cornerRadius={Math.min(10, Math.max(0, Number(s.radius ?? s.corner_radius ?? p.radius ?? p.corner_radius ?? 10)), Math.floor((w.w - 12) / 2), Math.floor((w.h - 12) / 2))}
             listening={false}
           />
           <Text

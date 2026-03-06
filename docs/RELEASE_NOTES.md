@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.130
+
+- **Fix**: Canvas corner radius bounds check. Prevents "IndexSizeError: The index is not in the allowed range" when a widget's cornerRadius exceeds half its width or height.
+
 ## v0.70.129
 
 - **Diagnostics**: Console logging added to track drag-and-drop events (`[ETD DragStart]`, `[ETD DragEnter]`, `[ETD Drop]`). Use browser Developer Console to see what's happening when dragging widgets, cards, and prebuilts onto the canvas.
