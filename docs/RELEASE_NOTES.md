@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.135
+
+- **Fix**: Prebuilt widget grouping. Clicking on any part of a grouped prebuilt now selects the root parent, and only the root is draggable so children can't be accidentally separated.
+
 ## v0.70.134
 
 - **Diagnostics**: Canvas render logging - shows how many widgets are passed to Canvas and which top-level widgets are being rendered.
