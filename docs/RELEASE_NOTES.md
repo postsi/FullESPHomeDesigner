@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.128
+
+- **Fix**: Restore `useCallback` in Canvas.tsx imports (used by `finishSelectionBox`); its removal had caused "Can't find variable: useCallback" and UI crash.
+
 ## v0.70.127
 
 - **Revert**: Dropped the capture-phase drop handling that broke dragging of standard widgets and cards; canvas drop is back to the original wrapper-div only (bubble-phase).

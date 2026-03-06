@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
 import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
 
