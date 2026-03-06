@@ -634,6 +634,51 @@ def _merge_scripts_into_rest(rest: str, scripts_yaml: str) -> str:
     return "".join(new_lines)
 
 
+def _compile_prebuilt_components(project: dict) -> str:
+    """Compile ESPHome components from prebuilt widgets (sensors, intervals, etc.).
+
+    project.esphome_components is an array of raw YAML strings (or dicts with 'yaml' key).
+    We deduplicate by checking for duplicate 'id:' lines to avoid emitting duplicate
+    sensors/intervals when multiple prebuilts use the same shared component.
+
+    v0.70.136: added for prebuilt widget native functionality.
+    """
+    components = project.get("esphome_components") or []
+    if not isinstance(components, list) or not components:
+        return ""
+
+    seen_ids: set[str] = set()
+    out_blocks: list[str] = []
+
+    for comp in components:
+        if not comp:
+            continue
+        # Support both raw YAML string and dict with 'yaml' key
+        if isinstance(comp, dict):
+            yaml_str = str(comp.get("yaml") or "")
+        else:
+            yaml_str = str(comp)
+        yaml_str = yaml_str.strip()
+        if not yaml_str:
+            continue
+
+        # Extract all 'id: xxx' from the block for deduplication
+        id_matches = re.findall(r"^\s*id:\s*(\S+)\s*$", yaml_str, re.MULTILINE)
+        # Skip if ALL ids in this block are already seen (avoid duplicate sensors)
+        if id_matches and all(mid in seen_ids for mid in id_matches):
+            continue
+        for mid in id_matches:
+            seen_ids.add(mid)
+
+        out_blocks.append(yaml_str)
+
+    if not out_blocks:
+        return ""
+
+    header = "# Prebuilt widget components (auto-generated)\n"
+    return header + "\n\n".join(out_blocks) + "\n"
+
+
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
     adv = project.get("advanced") or {}
     pre = str(adv.get("yaml_pre", "") or "")
@@ -788,6 +833,8 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
     assets_yaml = _compile_assets(project)
     ha_bindings_yaml = _compile_ha_bindings(project)
     scripts_yaml = _compile_scripts(project)
+    # v0.70.136: compile prebuilt esphome_components (sensors, intervals, etc.)
+    prebuilt_components_yaml = _compile_prebuilt_components(project)
     # v0.38: font extraction (first pass).
     fonts_yaml, font_id_map = _compile_fonts_from_project(project)
     if font_id_map:
@@ -885,6 +932,8 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         out += scripts_yaml.rstrip() + "\n\n"
     if fonts_yaml.strip():
         out += fonts_yaml.rstrip() + "\n\n"
+    if prebuilt_components_yaml.strip():
+        out += prebuilt_components_yaml.rstrip() + "\n\n"
     if assets_yaml.strip():
         out += assets_yaml.rstrip() + "\n"
     # Replace recipe placeholder with the device slug (YAML-quoted).

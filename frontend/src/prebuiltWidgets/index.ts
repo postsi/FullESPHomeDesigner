@@ -3,6 +3,8 @@
  * Dropped directly onto the canvas (no wizard). Each build() returns { widgets }.
  * Multi-widget prebuilts are wrapped in a group (root container + parent_id) so they move en masse.
  * Optional scripts and action_bindings are merged into the project on insert (same mechanism as Card Library).
+ * Optional esphome_components contains YAML snippets for ESPHome sensors/intervals that make
+ * prebuilts functional (e.g., wifi_signal sensor, time component).
  *
  * Only use widget types that ESPHome LVGL supports (same as palette: container, label, button,
  * bar, slider, led, dropdown, etc.). Do not use raw LVGL types that ESPHome does not render.
@@ -11,6 +13,38 @@
 function uid(prefix: string) {
   return prefix + "_" + Math.random().toString(16).slice(2, 8);
 }
+
+// ESPHome-native YAML snippets for prebuilt functionality.
+// These are deduplicated by the compiler (same id = same component).
+const ESPHOME_WIFI_SIGNAL = `
+sensor:
+  - platform: wifi_signal
+    id: etd_wifi_signal
+    name: "WiFi Signal"
+    update_interval: 10s
+`;
+
+const ESPHOME_WIFI_IP = `
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: etd_wifi_ip
+      name: "IP Address"
+`;
+
+const ESPHOME_API_STATUS = `
+binary_sensor:
+  - platform: status
+    id: etd_api_connected
+    name: "API Connected"
+`;
+
+const ESPHOME_TIME_SNTP = `
+time:
+  - platform: sntp
+    id: etd_time
+    timezone: "UTC"
+`;
 
 /** Wrap multiple widgets in a root container so they move together. Children get parent_id and relative positions. */
 function wrapInGroup(originX: number, originY: number, widgets: any[]): any[] {
@@ -49,6 +83,8 @@ export type PrebuiltWidget = {
     widgets: any[];
     scripts?: any[];
     action_bindings?: any[];
+    esphome_components?: string[];  // Raw YAML snippets to merge
+    intervals?: any[];  // Interval definitions for updating widgets
   };
 };
 
@@ -62,12 +98,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_battery",
     title: "Battery",
-    description: "Battery shape with fill level (0–100%). Bind value via link.",
-    yamlSnippet: `# Bind bar value to a sensor (e.g. battery level 0-100)
-# In Bindings: add display link → entity sensor.xxx, attribute "state" or "level"
-# → bar_value action for the battery fill bar widget.
-
-# Optional: update label text with percentage (add link → attribute_text → label_text)`,
+    description: "Battery indicator (0–100%). Bind to a battery sensor via Links.",
     build: ({ x, y }) => {
       const rootId = uid("battery");
       const bodyId = uid("battery_body");
@@ -93,18 +124,18 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_wifi",
     title: "WiFi strength",
-    description: "Classic fan-style WiFi bars (1–4 bars). Bind level 0–100% via link or one link per bar.",
-    yamlSnippet: `# Bind WiFi bars to a sensor (0-100). Use one link to the first bar (bar_value),
-# or bind each bar to a lambda that maps RSSI/level to 0 or 100.
-# Example: sensor providing 0-100 → bar_value on one bar; use scripts for stepped levels.`,
+    description: "Classic fan-style WiFi bars. Auto-updates from ESPHome wifi_signal sensor.",
     build: ({ x, y }) => {
       const barH = [8, 14, 20, 26];
       const barW = 6;
       const gap = 6;
+      const barIds: string[] = [];
       const raw: any[] = [];
       for (let i = 0; i < 4; i++) {
+        const bid = uid("wifi_bar");
+        barIds.push(bid);
         raw.push({
-          id: uid("wifi_bar"),
+          id: bid,
           type: "bar",
           x: i * (barW + gap),
           y: 26 - barH[i],
@@ -114,65 +145,162 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
           style: { bg_color: bgDark, radius: 2 },
         });
       }
-      return { widgets: wrapInGroup(x, y, raw) };
+      // Thresholds for bars: -80dBm=1bar, -70dBm=2bars, -60dBm=3bars, -50dBm=4bars
+      // WiFi signal ranges from ~-30dBm (excellent) to ~-90dBm (poor)
+      const intervalYaml = `
+interval:
+  - interval: 5s
+    then:
+      - lvgl.bar.update:
+          id: ${barIds[0]}
+          value: !lambda 'return id(etd_wifi_signal).state > -90 ? 100 : 0;'
+      - lvgl.bar.update:
+          id: ${barIds[1]}
+          value: !lambda 'return id(etd_wifi_signal).state > -75 ? 100 : 0;'
+      - lvgl.bar.update:
+          id: ${barIds[2]}
+          value: !lambda 'return id(etd_wifi_signal).state > -65 ? 100 : 0;'
+      - lvgl.bar.update:
+          id: ${barIds[3]}
+          value: !lambda 'return id(etd_wifi_signal).state > -55 ? 100 : 0;'
+`;
+      return {
+        widgets: wrapInGroup(x, y, raw),
+        esphome_components: [ESPHOME_WIFI_SIGNAL, intervalYaml],
+      };
     },
   },
   {
     id: "prebuilt_ip",
     title: "IP address",
-    description: "Label for device IP. Bind text via link or set in properties.",
+    description: "Displays device IP address. Auto-updates from ESPHome wifi_info.",
     build: ({ x, y }) => {
+      const lblId = uid("ip");
+      const intervalYaml = `
+interval:
+  - interval: 30s
+    then:
+      - lvgl.label.update:
+          id: ${lblId}
+          text: !lambda 'return id(etd_wifi_ip).state;'
+`;
       return {
         widgets: [
-          { id: uid("ip"), type: "label", x, y, w: 160, h: 24, props: { text: "192.168.1.x" }, style: { text_color: textMuted } },
+          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted } },
         ],
+        esphome_components: [ESPHOME_WIFI_IP, intervalYaml],
       };
     },
   },
   {
     id: "prebuilt_ha_connection",
     title: "HA connection",
-    description: "Connection status (Connected/Disconnected). Bind state via link.",
+    description: "Shows API/HA connection status. Auto-updates from ESPHome status sensor.",
     build: ({ x, y }) => {
+      const ledId = uid("ha_conn_led");
+      const lblId = uid("ha_conn_lbl");
       const raw = [
         { id: uid("ha_conn"), type: "container", x: 0, y: 0, w: 140, h: 32, props: {}, style: { bg_color: bgDark, radius: 6 } },
-        { id: uid("ha_conn_led"), type: "led", x: pad, y: 8, w: 16, h: 16, props: {} },
-        { id: uid("ha_conn_lbl"), type: "label", x: 28, y: 6, w: 104, h: 20, props: { text: "—" }, style: { text_color: textMuted } },
+        { id: ledId, type: "led", x: pad, y: 8, w: 16, h: 16, props: { color: 0x888888 } },
+        { id: lblId, type: "label", x: 28, y: 6, w: 104, h: 20, props: { text: "..." }, style: { text_color: textMuted } },
       ];
-      return { widgets: wrapInGroup(x, y, raw) };
+      const intervalYaml = `
+interval:
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            binary_sensor.is_on: etd_api_connected
+          then:
+            - lvgl.led.update:
+                id: ${ledId}
+                color: 0x22c55e
+            - lvgl.label.update:
+                id: ${lblId}
+                text: "Connected"
+          else:
+            - lvgl.led.update:
+                id: ${ledId}
+                color: 0xef4444
+            - lvgl.label.update:
+                id: ${lblId}
+                text: "Disconnected"
+`;
+      return {
+        widgets: wrapInGroup(x, y, raw),
+        esphome_components: [ESPHOME_API_STATUS, intervalYaml],
+      };
     },
   },
   {
     id: "prebuilt_clock",
     title: "Clock",
-    description: "Time label (e.g. 12:00). Set from RTC/NTP or bind.",
+    description: "Displays current time (HH:MM). Auto-updates from SNTP.",
     build: ({ x, y }) => {
+      const lblId = uid("clock");
+      const intervalYaml = `
+interval:
+  - interval: 1s
+    then:
+      - lvgl.label.update:
+          id: ${lblId}
+          text: !lambda |-
+            auto t = id(etd_time).now();
+            if (!t.is_valid()) return std::string("--:--");
+            char buf[6];
+            snprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+            return std::string(buf);
+`;
       return {
         widgets: [
-          { id: uid("clock"), type: "label", x, y, w: 100, h: 28, props: { text: "12:00" }, style: { text_color: textNormal } },
+          { id: lblId, type: "label", x, y, w: 100, h: 28, props: { text: "--:--" }, style: { text_color: textNormal } },
         ],
+        esphome_components: [ESPHOME_TIME_SNTP, intervalYaml],
       };
     },
   },
   {
     id: "prebuilt_date_time",
     title: "Date + time",
-    description: "Date and time labels.",
+    description: "Displays date and time. Auto-updates from SNTP.",
     build: ({ x, y }) => {
+      const dateId = uid("date");
+      const timeId = uid("time");
       const raw = [
-        { id: uid("date"), type: "label", x: 0, y: 0, w: 140, h: 22, props: { text: "—" }, style: { text_color: textMuted } },
-        { id: uid("time"), type: "label", x: 0, y: 24, w: 140, h: 24, props: { text: "12:00" }, style: { text_color: textNormal } },
+        { id: dateId, type: "label", x: 0, y: 0, w: 140, h: 22, props: { text: "..." }, style: { text_color: textMuted } },
+        { id: timeId, type: "label", x: 0, y: 24, w: 140, h: 24, props: { text: "--:--" }, style: { text_color: textNormal } },
       ];
-      return { widgets: wrapInGroup(x, y, raw) };
+      const intervalYaml = `
+interval:
+  - interval: 1s
+    then:
+      - lvgl.label.update:
+          id: ${dateId}
+          text: !lambda |-
+            auto t = id(etd_time).now();
+            if (!t.is_valid()) return std::string("---");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%04d-%02d-%02d", t.year, t.month, t.day_of_month);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: ${timeId}
+          text: !lambda |-
+            auto t = id(etd_time).now();
+            if (!t.is_valid()) return std::string("--:--");
+            char buf[6];
+            snprintf(buf, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+            return std::string(buf);
+`;
+      return {
+        widgets: wrapInGroup(x, y, raw),
+        esphome_components: [ESPHOME_TIME_SNTP, intervalYaml],
+      };
     },
   },
   {
     id: "prebuilt_color_temp",
     title: "White to warm",
-    description: "Colour temperature slider (cool white ← → warm white). Bind to light color_temp or mireds.",
-    yamlSnippet: `# Bind slider to light color temperature (mireds, typically 153-500).
-# Display: link entity light.xxx attribute color_temp → slider_value.
-# Action: on_value_changed / on_release → light.turn_on, data: color_temp from slider.`,
+    description: "Color temperature slider. Bind to a light via Links.",
     build: ({ x, y }) => {
       const raw = [
         { id: uid("ct_label"), type: "label", x: 0, y: 0, w: 180, h: 18, props: { text: "Cool ←  —  → Warm" }, style: { text_color: textMuted } },
@@ -232,11 +360,15 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_back_button",
     title: "Back button",
-    description: "Back button for navigation.",
+    description: "Navigates to previous page. Uses native LVGL page navigation.",
     build: ({ x, y }) => {
+      const btnId = uid("back_btn");
       return {
         widgets: [
-          { id: uid("back_btn"), type: "button", x, y, w: 80, h: 36, props: { text: "← Back" }, style: { bg_color: bgTrack, radius: 6 } },
+          { id: btnId, type: "button", x, y, w: 80, h: 36, props: { text: "◀ Back" }, style: { bg_color: bgTrack, radius: 6 } },
+        ],
+        action_bindings: [
+          { widget_id: btnId, event: "on_click", yaml_override: "then:\n  - lvgl.page.previous:" },
         ],
       };
     },
@@ -256,10 +388,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
   {
     id: "prebuilt_nav_bar",
     title: "Navigation bar",
-    description: "Page -, Home, Page +. Bind on_click to page change or actions.",
-    yamlSnippet: `# Action bindings are added automatically (prev/home/next page).
-# Edit in Bindings → Action tab for each button. Services depend on your integration;
-# e.g. esphome_touch_designer.previous_page / go_to_page / next_page if supported.`,
+    description: "Previous / Home / Next page buttons. Uses native LVGL page navigation.",
     build: ({ x, y }) => {
       const w = 200;
       const h = 44;
@@ -270,17 +399,18 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const nextId = uid("nav_next");
       const raw = [
         { id: uid("nav_bg"), type: "container", x: 0, y: 0, w, h, props: {}, style: { bg_color: bgDark, radius: 8 } },
-        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "-" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "◀" }, style: { bg_color: bgTrack, radius: 6 } },
         { id: homeId, type: "button", x: gap * 2 + btnW, y: 6, w: btnW, h: 32, props: { text: "⌂" }, style: { bg_color: bgTrack, radius: 6 } },
-        { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: "+" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: "▶" }, style: { bg_color: bgTrack, radius: 6 } },
       ];
       const widgets = wrapInGroup(x, y, raw);
+      // Native LVGL page navigation using yaml_override
       return {
         widgets,
         action_bindings: [
-          { widget_id: prevId, event: "on_click", call: { domain: "esphome_touch_designer", service: "previous_page", data: {} } },
-          { widget_id: homeId, event: "on_click", call: { domain: "esphome_touch_designer", service: "go_to_page", data: { page: 0 } } },
-          { widget_id: nextId, event: "on_click", call: { domain: "esphome_touch_designer", service: "next_page", data: {} } },
+          { widget_id: prevId, event: "on_click", yaml_override: "then:\n  - lvgl.page.previous:" },
+          { widget_id: homeId, event: "on_click", yaml_override: "then:\n  - lvgl.page.show: main_page" },
+          { widget_id: nextId, event: "on_click", yaml_override: "then:\n  - lvgl.page.next:" },
         ],
       };
     },

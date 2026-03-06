@@ -1,5 +1,15 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.136
+
+- **Feature**: Native ESPHome functionality for prebuilt widgets
+  - **Navigation bar** and **Back button** now use native LVGL page navigation (`lvgl.page.previous`, `lvgl.page.next`, `lvgl.page.show`)
+  - **WiFi strength** bars auto-update from ESPHome `wifi_signal` sensor (shows 1-4 bars based on dBm)
+  - **IP address** label auto-updates from ESPHome `wifi_info` text sensor
+  - **HA connection** status auto-updates from ESPHome `status` binary sensor (LED + label)
+  - **Clock** and **Date + time** auto-update from SNTP time component
+- **Compiler**: Prebuilts can now contribute ESPHome YAML components (sensors, intervals) that are merged into the compiled output
+
 ## v0.70.135
 
 - **Fix**: Prebuilt widget grouping. Clicking on any part of a grouped prebuilt now selects the root parent, and only the root is draggable so children can't be accidentally separated.

@@ -3024,6 +3024,11 @@ function deleteSelected() {
                           (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
                           for (const s of built.scripts) (p2 as any).scripts.push(s);
                         }
+                        // v0.70.136: merge esphome_components for native prebuilt functionality
+                        if (Array.isArray(built.esphome_components) && built.esphome_components.length > 0) {
+                          (p2 as any).esphome_components = Array.isArray((p2 as any).esphome_components) ? (p2 as any).esphome_components : [];
+                          for (const c of built.esphome_components) (p2 as any).esphome_components.push(c);
+                        }
                         setProject(p2, true);
                         setProjectDirty(true);
                         setSelectedWidgetIds(widgets.length ? [widgets[0].id] : []);
@@ -3186,6 +3191,11 @@ function deleteSelected() {
                         if (Array.isArray(built.scripts) && built.scripts.length > 0) {
                           (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
                           for (const s of built.scripts) (p2 as any).scripts.push(s);
+                        }
+                        // v0.70.136: merge esphome_components for native prebuilt functionality
+                        if (Array.isArray(built.esphome_components) && built.esphome_components.length > 0) {
+                          (p2 as any).esphome_components = Array.isArray((p2 as any).esphome_components) ? (p2 as any).esphome_components : [];
+                          for (const c of built.esphome_components) (p2 as any).esphome_components.push(c);
                         }
                         console.log('[ETD onDropCreate] Calling setProject');
                         setProject(p2, true);
