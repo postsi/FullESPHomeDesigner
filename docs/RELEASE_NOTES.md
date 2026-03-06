@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.133
+
+- **Fix**: Bar widget rendering for small dimensions. Bars with width/height < 16px were getting negative padding/track dimensions causing IndexSizeError. Now uses adaptive padding and ensures all dimensions and corner radii are valid.
+
 ## v0.70.132
 
 - **Diagnostics**: More detailed drop logging - shows widget structure (id, type, parent_id), confirms setProject call, and logs when widgets useMemo recalculates.

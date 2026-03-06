@@ -634,18 +634,21 @@ const stageRef = useRef<any>(null);
       const startVal = Number(p.start_value ?? barMin);
       const mode = String(p.mode ?? "NORMAL").toUpperCase();
       const isVert = w.h > w.w;
-      const pad = 8;
-      const trackLen = isVert ? w.h - pad * 2 : w.w - pad * 2;
-      const thick = Math.min(isVert ? w.w - pad * 2 : w.h - pad * 2, 20);
+      const pad = Math.min(4, Math.floor(Math.min(w.w, w.h) / 4));
+      const trackLen = Math.max(1, isVert ? w.h - pad * 2 : w.w - pad * 2);
+      const thick = Math.max(1, Math.min(isVert ? w.w - pad * 2 : w.h - pad * 2, 20));
       let normStart = barMax > barMin ? (startVal - barMin) / (barMax - barMin) : 0;
       let normEnd = barMax > barMin ? (val - barMin) / (barMax - barMin) : 0.5;
       if (mode === "RANGE" && normStart > normEnd) [normStart, normEnd] = [normEnd, normStart];
       if (mode === "SYMMETRICAL") normStart = 0.5;
       const trackFill = String(s.bg_color ?? "#1f2937");
       const indFill = String((w.indicator || {}).bg_color ?? "#10b981");
+      const barCornerR = Math.min(thick / 2, trackLen / 2);
       if (isVert) {
         const tx = ax + (w.w - thick) / 2;
         const ty = ay + pad;
+        const indH = Math.max(0, trackLen * (normEnd - normStart));
+        const indCornerR = Math.min(barCornerR, indH / 2);
         const simHandleBarV = simulationMode && simDraggable ? (
           <Rect x={ax} y={ay + pad} width={w.w} height={trackLen} fill="transparent" listening={true} draggable={true}
             dragBoundFunc={(pos) => ({ x: ax, y: ay + pad })}
@@ -664,12 +667,14 @@ const stageRef = useRef<any>(null);
         return (
           <Group key={w.id}>
             {base}
-            <Rect x={tx} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={thick / 2} listening={false} />
-            <Rect x={tx} y={ty + trackLen * (1 - normEnd)} width={thick} height={trackLen * (normEnd - normStart)} fill={indFill} cornerRadius={thick / 2} listening={false} />
+            <Rect x={tx} y={ty} width={thick} height={trackLen} fill={trackFill} cornerRadius={barCornerR} listening={false} />
+            {indH > 0 && <Rect x={tx} y={ty + trackLen * (1 - normEnd)} width={thick} height={indH} fill={indFill} cornerRadius={indCornerR} listening={false} />}
             {simHandleBarV}
           </Group>
         );
       }
+      const indW = Math.max(0, trackLen * (normEnd - normStart));
+      const indCornerRH = Math.min(barCornerR, indW / 2);
       const simHandleBarH = simulationMode && simDraggable ? (
         <Rect x={ax + pad} y={ay} width={trackLen} height={w.h} fill="transparent" listening={true} draggable={true}
           dragBoundFunc={(pos) => ({ x: ax + pad, y: ay })}
@@ -688,8 +693,8 @@ const stageRef = useRef<any>(null);
       return (
         <Group key={w.id}>
           {base}
-          <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={thick / 2} listening={false} />
-          <Rect x={ax + pad + trackLen * normStart} y={ay + (w.h - thick) / 2} width={trackLen * (normEnd - normStart)} height={thick} fill={indFill} cornerRadius={thick / 2} listening={false} />
+          <Rect x={ax + pad} y={ay + (w.h - thick) / 2} width={trackLen} height={thick} fill={trackFill} cornerRadius={barCornerR} listening={false} />
+          {indW > 0 && <Rect x={ax + pad + trackLen * normStart} y={ay + (w.h - thick) / 2} width={indW} height={thick} fill={indFill} cornerRadius={indCornerRH} listening={false} />}
           {simHandleBarH}
         </Group>
       );
