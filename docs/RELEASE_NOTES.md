@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.137
+
+- **Feature**: Right-click context menu on custom cards in the Card Library to delete them
+
 ## v0.70.136
 
 - **Feature**: Native ESPHome functionality for prebuilt widgets

@@ -358,6 +358,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [saveCardDeviceType, setSaveCardDeviceType] = useState<string>("climate");
   const [saveCardBusy, setSaveCardBusy] = useState<boolean>(false);
   const [saveCardErr, setSaveCardErr] = useState<string>("");
+  // v0.70.137: Context menu for deleting custom cards
+  const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; cardId: string; cardName: string } | null>(null);
 
   async function refreshCustomCards() {
     try {
@@ -2604,6 +2606,65 @@ function deleteSelected() {
         </div>
       )}
 
+      {/* Context menu for deleting custom cards */}
+      {cardContextMenu && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 9999 }}
+          onClick={() => setCardContextMenu(null)}
+          onContextMenu={(e) => { e.preventDefault(); setCardContextMenu(null); }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: cardContextMenu.x,
+              top: cardContextMenu.y,
+              background: "#2a2a2a",
+              border: "1px solid #444",
+              borderRadius: 6,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              minWidth: 140,
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: "8px 12px", fontSize: 11, color: "#888", borderBottom: "1px solid #444" }}>
+              {cardContextMenu.cardName}
+            </div>
+            <button
+              type="button"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "10px 12px",
+                textAlign: "left",
+                background: "transparent",
+                border: "none",
+                color: "#ef4444",
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#3a3a3a")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+              onClick={async () => {
+                const cardId = cardContextMenu.cardId;
+                const cardName = cardContextMenu.cardName;
+                setCardContextMenu(null);
+                if (!confirm(`Delete custom card "${cardName}"?\n\nThis cannot be undone.`)) return;
+                try {
+                  await deleteCard(cardId);
+                  await refreshCustomCards();
+                  setToast({ type: "ok", msg: `Deleted card: ${cardName}` });
+                } catch (e: any) {
+                  setToast({ type: "error", msg: `Failed to delete: ${e?.message || e}` });
+                }
+              }}
+            >
+              🗑 Delete card
+            </button>
+          </div>
+        </div>
+      )}
+
       <LvglSettingsModal
         open={lvglSettingsOpen}
         onClose={() => setLvglSettingsOpen(false)}
@@ -2990,7 +3051,8 @@ function deleteSelected() {
                       draggable
                       onDragStart={(e) => { console.log('[ETD DragStart] custom card:', c.id); e.dataTransfer.setData("application/x-esphome-control-template", "custom:" + c.id); e.dataTransfer.effectAllowed = "copy"; }}
                       onClick={() => { if (project && selectedDevice) openTemplateWizard("custom:" + c.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add cards" }); }}
-                      title={(c.description || "") + " (click or drag onto canvas)"}
+                      onContextMenu={(e) => { e.preventDefault(); setCardContextMenu({ x: e.clientX, y: e.clientY, cardId: c.id, cardName: c.name }); }}
+                      title={(c.description || "") + " (click or drag • right-click to delete)"}
                     >
                       {c.name} <span className="muted" style={{ fontSize: 10 }}>(custom)</span>
                     </div>
