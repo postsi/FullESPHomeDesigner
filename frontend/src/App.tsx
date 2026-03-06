@@ -302,7 +302,7 @@ async function onUploadAssetFile(file: File) {
 const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "widgets">("std");
   const [snippetModalPrebuilt, setSnippetModalPrebuilt] = useState<PrebuiltWidget | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder">("properties");
+  const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder" | "yaml">("properties");
   const [editingWidgetId, setEditingWidgetId] = useState<string>("");
   useEffect(() => {
     setEditingWidgetId("");
@@ -340,6 +340,10 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [recipeImportOk, setRecipeImportOk] = useState<any>(null);
 
   const [lvglSettingsOpen, setLvglSettingsOpen] = useState<boolean>(false);
+  // v0.70.138: Components panel for adding custom ESPHome components
+  const [componentsOpen, setComponentsOpen] = useState<boolean>(false);
+  const [addComponentSection, setAddComponentSection] = useState<string>("sensor");
+  const [addComponentYaml, setAddComponentYaml] = useState<string>("");
 
   // Live HA state for design-time preview (bound widgets show current HA values).
   const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
@@ -2735,6 +2739,136 @@ function deleteSelected() {
         </div>
       )}
 
+      {/* Components Panel Modal */}
+      {componentsOpen && project && (
+        <div className="modalOverlay" onClick={() => setComponentsOpen(false)}>
+          <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modalHeader">
+              <div className="title">ESPHome Components</div>
+              <button className="ghost" onClick={() => setComponentsOpen(false)}>✕</button>
+            </div>
+            <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
+              Add custom sensors, intervals, and scripts. Auto-generated components from prebuilts are shown as read-only.
+            </div>
+            <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
+              {/* Auto-generated components (read-only) */}
+              {((project as any).esphome_components || []).length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div className="sectionTitle" style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>Auto-generated</span>
+                    <span className="muted" style={{ fontSize: 11 }}>(from prebuilts, read-only)</span>
+                  </div>
+                  <pre style={{
+                    background: "rgba(0,0,0,0.3)",
+                    padding: 10,
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontFamily: "ui-monospace, monospace",
+                    maxHeight: 150,
+                    overflow: "auto",
+                    whiteSpace: "pre-wrap",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#888",
+                  }}>
+                    {((project as any).esphome_components || []).map((c: string) => c.trim()).join("\n\n")}
+                  </pre>
+                </div>
+              )}
+              {/* User components sections */}
+              {["sensor", "text_sensor", "binary_sensor", "interval", "time", "script"].map((section) => {
+                const userComps = ((project as any).user_components || {})[section] || [];
+                return (
+                  <details key={section} style={{ marginBottom: 12 }} open={userComps.length > 0 || addComponentSection === section}>
+                    <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 500, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                      {section.replace("_", " ")} ({userComps.length})
+                    </summary>
+                    <div style={{ padding: "12px 0" }}>
+                      {userComps.length === 0 ? (
+                        <div className="muted" style={{ fontSize: 12 }}>No custom {section.replace("_", " ")}s added.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {userComps.map((comp: any, idx: number) => (
+                            <div key={idx} style={{ background: "rgba(255,255,255,0.05)", padding: 10, borderRadius: 6, position: "relative" }}>
+                              <pre style={{ margin: 0, fontSize: 11, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" }}>
+                                {typeof comp === "string" ? comp : JSON.stringify(comp, null, 2)}
+                              </pre>
+                              <button
+                                type="button"
+                                className="danger"
+                                style={{ position: "absolute", top: 6, right: 6, fontSize: 10, padding: "2px 6px" }}
+                                onClick={() => {
+                                  const p2 = clone(project);
+                                  if (!(p2 as any).user_components) (p2 as any).user_components = {};
+                                  const arr = (p2 as any).user_components[section] || [];
+                                  arr.splice(idx, 1);
+                                  (p2 as any).user_components[section] = arr;
+                                  setProject(p2, true);
+                                  setProjectDirty(true);
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ marginTop: 12 }}>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Add {section.replace("_", " ")}</div>
+                        <textarea
+                          value={addComponentSection === section ? addComponentYaml : ""}
+                          onChange={(e) => { setAddComponentSection(section); setAddComponentYaml(e.target.value); }}
+                          onFocus={() => setAddComponentSection(section)}
+                          placeholder={section === "sensor" ? `- platform: wifi_signal
+  id: my_wifi_signal
+  name: "WiFi Signal"
+  update_interval: 30s` : section === "interval" ? `- interval: 10s
+  then:
+    - logger.log: "Tick"` : section === "script" ? `- id: my_script
+  then:
+    - logger.log: "Script ran"` : `- platform: template
+  id: my_${section}
+  name: "My ${section.replace("_", " ")}"`}
+                          style={{
+                            width: "100%",
+                            minHeight: 100,
+                            fontFamily: "ui-monospace, monospace",
+                            fontSize: 11,
+                            padding: 8,
+                            borderRadius: 4,
+                            border: "1px solid rgba(255,255,255,0.15)",
+                            background: "rgba(0,0,0,0.2)",
+                            color: "#e2e8f0",
+                            resize: "vertical",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ marginTop: 8, fontSize: 12 }}
+                          disabled={addComponentSection !== section || !addComponentYaml.trim()}
+                          onClick={() => {
+                            if (!addComponentYaml.trim()) return;
+                            const p2 = clone(project);
+                            if (!(p2 as any).user_components) (p2 as any).user_components = {};
+                            if (!(p2 as any).user_components[section]) (p2 as any).user_components[section] = [];
+                            (p2 as any).user_components[section].push(addComponentYaml.trim());
+                            setProject(p2, true);
+                            setProjectDirty(true);
+                            setAddComponentYaml("");
+                          }}
+                        >
+                          Add {section.replace("_", " ")}
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {newDeviceWizardOpen && (
         <div className="modalOverlay">
           <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
@@ -2997,6 +3131,7 @@ function deleteSelected() {
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
         <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
+        <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Add custom sensors, intervals, scripts">Components</button>
         <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
         <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
       </nav>
@@ -3338,6 +3473,7 @@ function deleteSelected() {
             <button type="button" className={`panelTab ${inspectorTab === "properties" ? "active" : ""}`} onClick={() => setInspectorTab("properties")}>Properties</button>
             <button type="button" className={`panelTab ${inspectorTab === "builder" ? "active" : ""}`} onClick={() => setInspectorTab("builder")}>Binding Builder</button>
             <button type="button" className={`panelTab ${inspectorTab === "bindings" ? "active" : ""}`} onClick={() => setInspectorTab("bindings")}>HA Bindings</button>
+            <button type="button" className={`panelTab ${inspectorTab === "yaml" ? "active" : ""}`} onClick={() => setInspectorTab("yaml")}>YAML</button>
           </div>
           <div className="panelContent">
             {project && (
@@ -3913,6 +4049,104 @@ function deleteSelected() {
                           )}
                         </div>
                       )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            {inspectorTab === "yaml" && (
+              <div className="section">
+                <div className="sectionTitle">Widget YAML</div>
+                {selectedWidgetIds.length !== 1 ? (
+                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Select a single widget to view and edit its YAML.</div>
+                ) : (() => {
+                  const widgetId = selectedWidgetIds[0];
+                  const selWidget = widgetsFlat.find((w: any) => w?.id === widgetId) ?? widgets.find((w: any) => w?.id === widgetId);
+                  if (!selWidget) return <div className="muted">Widget not found.</div>;
+                  const widgetType = selWidget?.type || "container";
+                  const customEvents = (selWidget as any).custom_events || {};
+                  const eventOptions = ["on_click", "on_press", "on_release", "on_value", "on_change", "on_focus", "on_defocus"];
+                  return (
+                    <>
+                      <div style={{ marginTop: 10 }}>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Generated YAML (read-only)</div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Preview of what the compiler will generate for this widget.</div>
+                        <pre style={{
+                          background: "rgba(0,0,0,0.3)",
+                          padding: 10,
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontFamily: "ui-monospace, monospace",
+                          maxHeight: 200,
+                          overflow: "auto",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                        }}>
+{`- ${widgetType}:
+    id: ${selWidget.id}
+    x: ${selWidget.x ?? 0}
+    y: ${selWidget.y ?? 0}
+    width: ${selWidget.w ?? 100}
+    height: ${selWidget.h ?? 50}${selWidget.props?.text != null ? `
+    text: "${selWidget.props.text}"` : ""}${Object.keys(selWidget.style || {}).length > 0 ? Object.entries(selWidget.style || {}).map(([k, v]) => `
+    ${k}: ${typeof v === "number" && k.includes("color") ? "0x" + v.toString(16).padStart(6, "0") : v}`).join("") : ""}`}
+                        </pre>
+                      </div>
+                      <div style={{ marginTop: 16 }}>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Custom Events</div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Add native ESPHome/LVGL actions (e.g., page navigation, logger).</div>
+                        {eventOptions.map((ev) => {
+                          const hasValue = !!(customEvents[ev] && customEvents[ev].trim());
+                          return (
+                            <details key={ev} style={{ marginBottom: 6 }} open={hasValue}>
+                              <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "#4ade80" : "#888" }}>
+                                {ev} {hasValue && "✓"}
+                              </summary>
+                              <textarea
+                                value={customEvents[ev] || ""}
+                                onChange={(e) => {
+                                  if (!project) return;
+                                  const p2 = clone(project);
+                                  const pg = (p2 as any).pages?.[safePageIndex];
+                                  const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
+                                  if (w) {
+                                    if (!w.custom_events) w.custom_events = {};
+                                    w.custom_events[ev] = e.target.value;
+                                  }
+                                  setProject(p2, true);
+                                  setProjectDirty(true);
+                                }}
+                                placeholder={`then:
+  - logger.log: "${ev} triggered"
+  - lvgl.page.next:`}
+                                style={{
+                                  width: "100%",
+                                  minHeight: 80,
+                                  fontFamily: "ui-monospace, monospace",
+                                  fontSize: 11,
+                                  padding: 8,
+                                  borderRadius: 4,
+                                  border: "1px solid rgba(255,255,255,0.15)",
+                                  background: "rgba(0,0,0,0.2)",
+                                  color: "#e2e8f0",
+                                  resize: "vertical",
+                                }}
+                              />
+                            </details>
+                          );
+                        })}
+                      </div>
+                      <div style={{ marginTop: 16 }}>
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ fontSize: 12 }}
+                          onClick={() => setInspectorTab("builder")}
+                        >
+                          → Binding Builder (HA actions)
+                        </button>
+                      </div>
                     </>
                   );
                 })()}

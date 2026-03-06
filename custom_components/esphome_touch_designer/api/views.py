@@ -644,8 +644,8 @@ def _compile_prebuilt_components(project: dict) -> str:
     v0.70.136: added for prebuilt widget native functionality.
     """
     components = project.get("esphome_components") or []
-    if not isinstance(components, list) or not components:
-        return ""
+    if not isinstance(components, list):
+        components = []
 
     seen_ids: set[str] = set()
     out_blocks: list[str] = []
@@ -672,11 +672,42 @@ def _compile_prebuilt_components(project: dict) -> str:
 
         out_blocks.append(yaml_str)
 
-    if not out_blocks:
-        return ""
+    auto_header = ""
+    if out_blocks:
+        auto_header = "# Prebuilt widget components (auto-generated)\n" + "\n\n".join(out_blocks) + "\n"
 
-    header = "# Prebuilt widget components (auto-generated)\n"
-    return header + "\n\n".join(out_blocks) + "\n"
+    # v0.70.138: Merge user_components into output
+    user_components = project.get("user_components") or {}
+    user_blocks: list[str] = []
+    for section in ["sensor", "text_sensor", "binary_sensor", "interval", "time", "script"]:
+        items = user_components.get(section) or []
+        if not isinstance(items, list) or not items:
+            continue
+        # Each item is a raw YAML string (list items under the section key)
+        section_yaml = f"{section}:\n"
+        for item in items:
+            item_str = str(item).strip()
+            if not item_str:
+                continue
+            # Check for id collision with auto-generated
+            item_ids = re.findall(r"^\s*id:\s*(\S+)\s*$", item_str, re.MULTILINE)
+            skip = False
+            for iid in item_ids:
+                if iid in seen_ids:
+                    # User component overrides auto-generated (remove from auto_header later)
+                    pass
+                seen_ids.add(iid)
+            # Indent each line of the item by 2 spaces (under section key)
+            indented = "\n".join("  " + ln if ln.strip() else ln for ln in item_str.split("\n"))
+            section_yaml += indented + "\n"
+        if len(section_yaml) > len(f"{section}:\n"):
+            user_blocks.append(section_yaml.rstrip())
+
+    user_header = ""
+    if user_blocks:
+        user_header = "\n# User-defined components\n" + "\n\n".join(user_blocks) + "\n"
+
+    return auto_header + user_header
 
 
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
@@ -1433,6 +1464,17 @@ def _emit_widget_from_schema(
                     out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(
                         ab["call"], widget_id=wid, wtype=wtype, option_maps=option_maps
                     ))))
+        # v0.70.138: Emit custom_events from widget (user-defined native YAML events)
+        if section == "events":
+            custom_events = widget.get("custom_events") or {}
+            for event_key, event_yaml in custom_events.items():
+                if not event_yaml or not str(event_yaml).strip():
+                    continue
+                # Skip if already emitted from action_bindings or schema
+                if event_key in (values or {}) or event_key in action_by_event:
+                    continue
+                yaml_key = (esphome.get("events") or {}).get(event_key) or event_key
+                out.append(_emit_kv(body_indent, yaml_key, str(event_yaml).strip()))
 
     # align_to: position relative to another widget (from props align_to_*)
     props = widget.get("props") or {}

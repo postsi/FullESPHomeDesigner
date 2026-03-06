@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.138
+
+- **Feature**: Custom YAML system (two-level approach)
+  - **Level 1: Widget YAML tab** - View generated YAML for selected widget, add custom events (on_click, on_value, etc.) with native ESPHome/LVGL actions
+  - **Level 2: Components panel** - Add custom sensors, text_sensors, binary_sensors, intervals, time, scripts via raw YAML
+  - Auto-generated components (from prebuilts) shown as read-only; user components editable
+  - Compiler merges all components with deduplication by ID
+
 ## v0.70.137
 
 - **Feature**: Right-click context menu on custom cards in the Card Library to delete them
