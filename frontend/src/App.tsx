@@ -3143,42 +3143,51 @@ function deleteSelected() {
                   onSelect={(id, additive) => selectWidget(id, additive)}
                   onSelectNone={() => setSelectedWidgetIds([])}
                   onDropCreate={(type, x, y) => {
-                    if (!project) return;
+                    console.log('[ETD onDropCreate] type:', type, 'x:', x, 'y:', y, 'project:', !!project, 'safePageIndex:', safePageIndex);
+                    if (!project) { console.log('[ETD onDropCreate] No project, aborting'); return; }
                     const p2 = clone(project);
+                    const pg = p2.pages?.[safePageIndex];
+                    console.log('[ETD onDropCreate] pg:', !!pg, 'pg.widgets:', pg?.widgets?.length ?? 'undefined');
+                    // Ensure page has widgets array
+                    if (pg && !Array.isArray(pg.widgets)) {
+                      console.log('[ETD onDropCreate] Initializing pg.widgets array');
+                      pg.widgets = [];
+                    }
                     // Prebuilt widgets: insert directly without wizard
                     if (String(type).startsWith("prebuilt:")) {
                       const prebuiltId = String(type).slice(9);
                       const pw = PREBUILT_WIDGETS.find((p) => p.id === prebuiltId);
-                      if (pw) {
-                        const pg = p2.pages?.[safePageIndex];
-                        if (pg?.widgets) {
-                          const built = pw.build({ x, y });
-                          const widgets = built.widgets || [];
-                          for (const w of widgets) pg.widgets.push(w);
-                          if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
-                            (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
-                            for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
-                          }
-                          if (Array.isArray(built.scripts) && built.scripts.length > 0) {
-                            (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
-                            for (const s of built.scripts) (p2 as any).scripts.push(s);
-                          }
-                          setProject(p2, true);
-                          setProjectDirty(true);
-                          const firstId = widgets.length ? widgets[0].id : null;
-                          requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                              if (firstId) setSelectedWidgetIds([firstId]);
-                              setInspectorTab("properties");
-                            });
-                          });
+                      console.log('[ETD onDropCreate] Prebuilt:', prebuiltId, 'found:', !!pw);
+                      if (pw && pg) {
+                        const built = pw.build({ x, y });
+                        const widgets = built.widgets || [];
+                        console.log('[ETD onDropCreate] Built widgets:', widgets.length);
+                        for (const w of widgets) pg.widgets.push(w);
+                        if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
+                          (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
+                          for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
                         }
+                        if (Array.isArray(built.scripts) && built.scripts.length > 0) {
+                          (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
+                          for (const s of built.scripts) (p2 as any).scripts.push(s);
+                        }
+                        setProject(p2, true);
+                        setProjectDirty(true);
+                        const firstId = widgets.length ? widgets[0].id : null;
+                        console.log('[ETD onDropCreate] Prebuilt done, firstId:', firstId);
+                        requestAnimationFrame(() => {
+                          requestAnimationFrame(() => {
+                            if (firstId) setSelectedWidgetIds([firstId]);
+                            setInspectorTab("properties");
+                          });
+                        });
                       }
                       return;
                     }
                     // v0.21: allow dropping either a raw widget type OR a control template (tmpl:<id>)
                     if (String(type).startsWith("tmpl:")) {
                       const tid = String(type).slice(5);
+                      console.log('[ETD onDropCreate] Template:', tid);
                       // v0.22: open a post-drop wizard so we can capture entity_id/label.
                       openTemplateWizard(tid, x, y);
                       return;
@@ -3196,9 +3205,9 @@ function deleteSelected() {
                       style: {},
                       events: {},
                     };
-                    const pg = p2.pages?.[safePageIndex];
-                    if (!pg?.widgets) return;
+                    if (!pg) { console.log('[ETD onDropCreate] No page, aborting'); return; }
                     pg.widgets.push(w as any);
+                    console.log('[ETD onDropCreate] Widget pushed, total widgets:', pg.widgets.length);
                     setProject(p2, true);
                     setProjectDirty(true);
                     setSelectedWidgetIds([id]);

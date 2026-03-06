@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.131
+
+- **Diagnostics**: Extended console logging in `onDropCreate` to trace widget drop flow. Shows project state, page index, widgets array, and confirms widget push.
+- **Fix**: Ensure `pg.widgets` array exists before pushing widgets (defensive init if missing).
+
 ## v0.70.130
 
 - **Fix**: Canvas corner radius bounds check. Prevents "IndexSizeError: The index is not in the allowed range" when a widget's cornerRadius exceeds half its width or height.
