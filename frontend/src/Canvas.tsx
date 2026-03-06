@@ -1260,17 +1260,18 @@ const stageRef = useRef<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Standard widgets, cards, and prebuilts all use the same drop path; only the MIME type differs.
-  // If prebuilts don't drop but others do: (1) drop may be hitting Konva's inner content, not this div, or
-  // (2) getData('application/x-esphome-prebuilt-widget') may be empty (e.g. drag started from a child button).
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const prebuilt = e.dataTransfer.getData('application/x-esphome-prebuilt-widget');
     const tmpl = e.dataTransfer.getData('application/x-esphome-control-template');
     const type = e.dataTransfer.getData('application/x-esphome-widget-type');
+    console.log('[ETD Drop] prebuilt:', JSON.stringify(prebuilt), 'tmpl:', JSON.stringify(tmpl), 'type:', JSON.stringify(type), 'target:', (e.target as HTMLElement)?.tagName);
     const payload = prebuilt ? `prebuilt:${prebuilt}` : tmpl ? `tmpl:${tmpl}` : type;
-    if (!payload || !onDropCreate) return;
+    if (!payload || !onDropCreate) {
+      console.log('[ETD Drop] No payload or no onDropCreate, aborting');
+      return;
+    }
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -1282,6 +1283,7 @@ const stageRef = useRef<any>(null);
     }
     x = Math.max(0, Math.min(width, x));
     y = Math.max(0, Math.min(height, y));
+    console.log('[ETD Drop] Calling onDropCreate with payload:', payload, 'at', x, y);
     onDropCreate(payload, snap(x, gridSize), snap(y, gridSize));
   };
 
@@ -1292,6 +1294,9 @@ const stageRef = useRef<any>(null);
         e.preventDefault();
         e.stopPropagation();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      }}
+      onDragEnter={(e) => {
+        console.log('[ETD DragEnter] target:', (e.target as HTMLElement)?.tagName, 'types:', Array.from(e.dataTransfer?.types || []));
       }}
       onDrop={handleDrop}
       style={{ width, height, minWidth: width, minHeight: height }}

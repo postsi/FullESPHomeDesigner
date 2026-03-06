@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.129
+
+- **Diagnostics**: Console logging added to track drag-and-drop events (`[ETD DragStart]`, `[ETD DragEnter]`, `[ETD Drop]`). Use browser Developer Console to see what's happening when dragging widgets, cards, and prebuilts onto the canvas.
+
 ## v0.70.128
 
 - **Fix**: Restore `useCallback` in Canvas.tsx imports (used by `finishSelectionBox`); its removal had caused "Can't find variable: useCallback" and UI crash.

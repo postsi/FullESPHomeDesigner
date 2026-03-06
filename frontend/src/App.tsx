@@ -2945,7 +2945,7 @@ function deleteSelected() {
                 <div className="sectionTitle">LVGL widgets</div>
                 <div className="palette">
                   {(schemaIndex ?? []).filter(Boolean).map((s) => (
-                    <div key={s?.type ?? ""} className="paletteItem" draggable onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-widget-type", s?.type ?? ""); e.dataTransfer.effectAllowed = "copy"; }} title={`Drag ${s?.title ?? s?.type ?? ""} onto canvas`}>
+                    <div key={s?.type ?? ""} className="paletteItem" draggable onDragStart={(e) => { console.log('[ETD DragStart] widget:', s?.type); e.dataTransfer.setData("application/x-esphome-widget-type", s?.type ?? ""); e.dataTransfer.effectAllowed = "copy"; }} title={`Drag ${s?.title ?? s?.type ?? ""} onto canvas`}>
                       {s?.title ?? s?.type ?? ""}
                     </div>
                   ))}
@@ -2961,7 +2961,7 @@ function deleteSelected() {
                       key={t.id}
                       className="paletteItem"
                       draggable
-                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onDragStart={(e) => { console.log('[ETD DragStart] card:', t.id); e.dataTransfer.setData("application/x-esphome-control-template", t.id); e.dataTransfer.effectAllowed = "copy"; }}
                       onClick={() => { if (project && selectedDevice) openTemplateWizard(t.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add cards" }); }}
                       title={String((t as any).description ?? "") + " (click or drag onto canvas)"}
                     >
@@ -2973,7 +2973,7 @@ function deleteSelected() {
                       key={"custom:" + c.id}
                       className="paletteItem"
                       draggable
-                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-control-template", "custom:" + c.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onDragStart={(e) => { console.log('[ETD DragStart] custom card:', c.id); e.dataTransfer.setData("application/x-esphome-control-template", "custom:" + c.id); e.dataTransfer.effectAllowed = "copy"; }}
                       onClick={() => { if (project && selectedDevice) openTemplateWizard("custom:" + c.id, 80, 80); else setToast({ type: "error", msg: "Select a device first, then add cards" }); }}
                       title={(c.description || "") + " (click or drag onto canvas)"}
                     >
@@ -2992,7 +2992,7 @@ function deleteSelected() {
                       key={pw.id}
                       className="paletteItem"
                       draggable
-                      onDragStart={(e) => { e.dataTransfer.setData("application/x-esphome-prebuilt-widget", pw.id); e.dataTransfer.effectAllowed = "copy"; }}
+                      onDragStart={(e) => { console.log('[ETD DragStart] prebuilt:', pw.id); e.dataTransfer.setData("application/x-esphome-prebuilt-widget", pw.id); e.dataTransfer.effectAllowed = "copy"; }}
                       onClick={() => {
                         if (!project) return;
                         const p2 = clone(project);
