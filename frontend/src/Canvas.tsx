@@ -1356,9 +1356,11 @@ const stageRef = useRef<any>(null);
     >
       <Layer>
         {gridLines()}
-        {widgets
-          .filter((w) => !w.parent_id)
-          .map((w) => renderWidget(w, selectedSet.has(w.id)))}
+        {(() => {
+          const topLevel = widgets.filter((w) => !w.parent_id);
+          console.log('[ETD Canvas render] widgets:', widgets.length, 'topLevel:', topLevel.length, topLevel.map(w => ({ id: w.id, type: w.type, x: w.x, y: w.y })));
+          return topLevel.map((w) => renderWidget(w, selectedSet.has(w.id)));
+        })()}
         <Transformer
           ref={trRef}
           rotateEnabled={false}
