@@ -1185,10 +1185,12 @@ if (baseId.startsWith("glance_card")) {
   const pages = project?.pages ?? [];
   const safePageIndex = Math.max(0, Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
   const widgets = useMemo(
-    () =>
-      (pages?.[safePageIndex]?.widgets ?? []).filter(
-        (w: any) => w && typeof w === "object" && w.id != null
-      ),
+    () => {
+      const raw = pages?.[safePageIndex]?.widgets ?? [];
+      const filtered = raw.filter((w: any) => w && typeof w === "object" && w.id != null);
+      console.log('[ETD widgets useMemo] safePageIndex:', safePageIndex, 'raw:', raw.length, 'filtered:', filtered.length);
+      return filtered;
+    },
     [pages, safePageIndex]
   );
 
@@ -3161,8 +3163,9 @@ function deleteSelected() {
                       if (pw && pg) {
                         const built = pw.build({ x, y });
                         const widgets = built.widgets || [];
-                        console.log('[ETD onDropCreate] Built widgets:', widgets.length);
+                        console.log('[ETD onDropCreate] Built widgets:', widgets.length, widgets.map((w: any) => ({ id: w.id, type: w.type, parent_id: w.parent_id })));
                         for (const w of widgets) pg.widgets.push(w);
+                        console.log('[ETD onDropCreate] After push, pg.widgets:', pg.widgets.length);
                         if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
                           (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
                           for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
@@ -3171,6 +3174,7 @@ function deleteSelected() {
                           (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
                           for (const s of built.scripts) (p2 as any).scripts.push(s);
                         }
+                        console.log('[ETD onDropCreate] Calling setProject');
                         setProject(p2, true);
                         setProjectDirty(true);
                         const firstId = widgets.length ? widgets[0].id : null;

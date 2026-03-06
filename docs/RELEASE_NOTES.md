@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.132
+
+- **Diagnostics**: More detailed drop logging - shows widget structure (id, type, parent_id), confirms setProject call, and logs when widgets useMemo recalculates.
+
 ## v0.70.131
 
 - **Diagnostics**: Extended console logging in `onDropCreate` to trace widget drop flow. Shows project state, page index, widgets array, and confirms widget push.
