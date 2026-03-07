@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml, getSectionsDefaults} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -345,8 +345,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [sectionsDefaults, setSectionsDefaults] = useState<{ sections: Record<string, string>; categories: Record<string, string[]> } | null>(null);
   const [sectionsLoading, setSectionsLoading] = useState<boolean>(false);
   const [sectionsError, setSectionsError] = useState<string | null>(null);
-  const [expandedSectionCategories, setExpandedSectionCategories] = useState<Set<string>>(new Set());
-  const [expandedSectionKeys, setExpandedSectionKeys] = useState<Set<string>>(new Set());
+  const [expandedSectionCategories, setExpandedSectionCategories] = useState<string[]>([]);
+  const [expandedSectionKeys, setExpandedSectionKeys] = useState<string[]>([]);
   const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
   const [editingSectionValue, setEditingSectionValue] = useState<string>("");
   // Widget YAML tab: full preview from compiler (props, style, action bindings)
@@ -391,7 +391,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
     setSectionsLoading(true);
     setSectionsError(null);
     const recipeId = (project as any)?.hardware?.recipe_id || (project as any)?.device?.hardware_recipe_id || "";
-    getSectionsDefaults(project, recipeId)
+    import("./lib/apiSections").then((m) => m.getSectionsDefaults(project, recipeId))
       .then((res) => { setSectionsDefaults(res); setSectionsLoading(false); })
       .catch((e) => { setSectionsError(e?.message || "Failed to load sections"); setSectionsLoading(false); });
   }, [componentsOpen, project]);
@@ -2813,14 +2813,14 @@ function deleteSelected() {
                     {categoryOrder.map((catLabel) => {
                       const keys = getKeysForCategory(catLabel);
                       const withContent = keys.filter((k) => effective(k) || overrides[k] !== undefined);
-                      const expanded = expandedSectionCategories.has(catLabel);
+                      const expanded = expandedSectionCategories.includes(catLabel);
                       return (
                         <div key={catLabel} style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, overflow: "hidden" }}>
                           <button
                             type="button"
                             className="ghost"
                             style={{ width: "100%", textAlign: "left", padding: "10px 12px", fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                            onClick={() => setExpandedSectionCategories((prev) => { const s = new Set(prev); if (s.has(catLabel)) s.delete(catLabel); else s.add(catLabel); return s; })}
+                            onClick={() => setExpandedSectionCategories((prev) => prev.includes(catLabel) ? prev.filter((x) => x !== catLabel) : [...prev, catLabel])}
                           >
                             <span>{catLabel}</span>
                             <span className="muted" style={{ fontSize: 11 }}>({withContent.length} sections)</span>
@@ -2831,14 +2831,14 @@ function deleteSelected() {
                                 const content = effective(sectionKey);
                                 const isOverride = overrides[sectionKey] !== undefined && overrides[sectionKey] !== null;
                                 const isEditing = editingSectionKey === sectionKey;
-                                const expandedSec = expandedSectionKeys.has(sectionKey);
+                                const expandedSec = expandedSectionKeys.includes(sectionKey);
                                 return (
                                   <div key={sectionKey} style={{ marginTop: 8, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
                                     <button
                                       type="button"
                                       className="ghost"
                                       style={{ width: "100%", textAlign: "left", padding: "8px 10px", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                                      onClick={() => setExpandedSectionKeys((prev) => { const s = new Set(prev); if (s.has(sectionKey)) s.delete(sectionKey); else s.add(sectionKey); return s; })}
+                                      onClick={() => setExpandedSectionKeys((prev) => prev.includes(sectionKey) ? prev.filter((x) => x !== sectionKey) : [...prev, sectionKey])}
                                     >
                                       <code style={{ fontSize: 11 }}>{sectionKey}</code>
                                       {isOverride && <span style={{ fontSize: 10, color: "#34d399" }}>edited</span>}

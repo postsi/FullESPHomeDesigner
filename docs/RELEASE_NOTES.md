@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.142
+
+- **Fix**: UI crash on load ("Cannot access 'ut' before initialization")
+  - Sections defaults API moved to separate chunk (`apiSections.ts`), loaded only when Components panel opens
+  - Expanded state in Components panel changed from `Set` to arrays to avoid bundler/engine issues
+
 ## v0.70.141
 
 - **Feature**: Section-based Components panel and compile
