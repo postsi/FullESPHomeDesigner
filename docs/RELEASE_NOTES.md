@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.150
+
+- **Fix Safari crash (root cause)**: Declare `pages` and `safePageIndex` immediately after `currentPageIndex` so they exist before any useEffect/useCallback that reference them. Fixes \"Cannot access 'safePageIndex' before initialization\" (TDZ). Minification re-enabled; bundle size back to ~700 KB.
+
 ## v0.70.149
 
 - **Fix Safari crash**: Disable JS minification in the frontend build. The minified bundle triggered \"Cannot access 'X' before initialization\" (TDZ) in Safari; unminified bundle runs correctly. Bundle size increases (~1.25 MB vs ~700 KB); gzip is still ~250 KB.

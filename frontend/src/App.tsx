@@ -203,6 +203,10 @@ export default function App() {
 
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
+  // Derived before any hooks that reference them (avoids TDZ: "Cannot access 'safePageIndex' before initialization").
+  const pages = project?.pages ?? [];
+  const safePageIndex = Math.max(0, Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
+
   // Clipboard for copy/paste (v0.19). Stored as raw widget JSON fragments.
   const [clipboard, setClipboard] = useState<any[] | null>(null);
 
@@ -1222,8 +1226,6 @@ if (baseId.startsWith("glance_card")) {
     } finally { setBusy(false); }
   }
 
-  const pages = project?.pages ?? [];
-  const safePageIndex = Math.max(0, Math.min(currentPageIndex, Math.max(0, pages.length - 1)));
   const widgets = useMemo(
     () => {
       const raw = pages?.[safePageIndex]?.widgets ?? [];
