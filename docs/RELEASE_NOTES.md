@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.157
+
+- **Components panel**: Save no longer closes the panel so you can edit multiple sections and save again. Close button (and ✕ / overlay) now prompt "You have unsaved changes. Close anyway?" when there are local edits. After Save, the app refetches the project from the server and updates state so reopened panels show the saved content correctly.
+
 ## v0.70.156
 
 - **Fix**: Components panel Save now persists the project to the server (calls putProject). Section overrides (e.g. esphome edits) were previously only updated in memory and required clicking the main Save button; they are now saved when you click Save in the panel.

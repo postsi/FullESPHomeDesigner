@@ -2789,11 +2789,15 @@ function deleteSelected() {
                   setBusy(true);
                   try {
                     const res = await putProject(entryId, selectedDevice, updatedProject);
-                    if (!res.ok) setToast({ type: "error", msg: res.error });
-                    else {
-                      setProjectDirty(false);
-                      setToast({ type: "ok", msg: "Project saved" });
+                    if (!res.ok) {
+                      setToast({ type: "error", msg: res.error });
+                      return;
                     }
+                    setProjectDirty(false);
+                    setToast({ type: "ok", msg: "Project saved" });
+                    // Refetch from server so app state matches stored project (section_overrides etc.).
+                    const getRes = await getProject(entryId, selectedDevice);
+                    if (getRes?.ok && getRes.project) setProject(getRes.project, true);
                   } finally {
                     setBusy(false);
                   }

@@ -15,7 +15,7 @@ export type SectionBasedComponentsPanelProps = {
   setProject: (p: any, commit?: boolean) => void;
   setProjectDirty: (dirty: boolean) => void;
   onClose: () => void;
-  /** When provided, called with the updated project after saving so the app can persist to the server. */
+  /** When provided, called with the updated project after saving so the app can persist to the server. Returns a Promise that resolves when done (so panel can clear local dirty). */
   onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
 };
 
@@ -32,6 +32,8 @@ export default function SectionBasedComponentsPanel({
   const [overriddenKeys, setOverriddenKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasLocalEdits, setHasLocalEdits] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const recipeId = (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "").trim() || "sunton_2432s028r_320x240";
 
@@ -46,6 +48,7 @@ export default function SectionBasedComponentsPanel({
         setCategories(cat);
         setOverriddenKeys(new Set(ovKeys));
         setSections(effective);
+        setHasLocalEdits(false);
       })
       .catch((e) => {
         if (!cancelled) setError(e?.message ?? "Failed to load section defaults");
@@ -58,13 +61,15 @@ export default function SectionBasedComponentsPanel({
 
   const setSectionContent = useCallback((key: string, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));
+    setHasLocalEdits(true);
   }, []);
 
   const resetSection = useCallback((key: string) => {
     setSections((prev) => ({ ...prev, [key]: (defaults[key] || "").trim() }));
+    setHasLocalEdits(true);
   }, [defaults]);
 
-  const save = useCallback(() => {
+  const save = useCallback(async () => {
     const overrides: Record<string, string> = {};
     const allKeys = new Set([...Object.keys(defaults), ...Object.keys(sections)]);
     for (const k of allKeys) {
@@ -76,10 +81,21 @@ export default function SectionBasedComponentsPanel({
     p2.section_overrides = overrides;
     setProject(p2, true);
     setProjectDirty(true);
+    if (onSaveAndPersist) {
+      setSaving(true);
+      try {
+        await onSaveAndPersist(p2);
+        setHasLocalEdits(false);
+      } finally {
+        setSaving(false);
+      }
+    }
+  }, [project, defaults, sections, setProject, setProjectDirty, onSaveAndPersist]);
+
+  const requestClose = useCallback(() => {
+    if (hasLocalEdits && !window.confirm("You have unsaved changes. Close anyway?")) return;
     onClose();
-    // Persist to server so section overrides are actually saved (panel Save used to only update local state).
-    onSaveAndPersist?.(p2);
-  }, [project, defaults, sections, setProject, setProjectDirty, onClose, onSaveAndPersist]);
+  }, [hasLocalEdits, onClose]);
 
   const categoryOrder = [
     "Device & platform",
@@ -97,7 +113,7 @@ export default function SectionBasedComponentsPanel({
   ];
 
   return (
-    <div className="modalOverlay" onClick={onClose}>
+    <div className="modalOverlay" onClick={requestClose}>
       <div
         className="modal"
         style={{
@@ -111,7 +127,7 @@ export default function SectionBasedComponentsPanel({
       >
         <div className="modalHeader">
           <div className="title">ESPHome Components</div>
-          <button className="ghost" onClick={onClose} type="button">
+          <button className="ghost" onClick={requestClose} type="button">
             ✕
           </button>
         </div>
@@ -235,17 +251,17 @@ export default function SectionBasedComponentsPanel({
           )}
         </div>
         <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <button type="button" className="secondary" onClick={onClose}>
-            Cancel
+          <button type="button" className="secondary" onClick={requestClose}>
+            Close
           </button>
           <button
             type="button"
             className="primary"
             style={{ marginLeft: 8 }}
-            onClick={save}
-            disabled={loading}
+            onClick={() => save()}
+            disabled={loading || saving}
           >
-            Save
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>
