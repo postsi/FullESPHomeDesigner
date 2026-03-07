@@ -15,6 +15,8 @@ export type SectionBasedComponentsPanelProps = {
   setProject: (p: any, commit?: boolean) => void;
   setProjectDirty: (dirty: boolean) => void;
   onClose: () => void;
+  /** When provided, called with the updated project after saving so the app can persist to the server. */
+  onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
 };
 
 export default function SectionBasedComponentsPanel({
@@ -22,6 +24,7 @@ export default function SectionBasedComponentsPanel({
   setProject,
   setProjectDirty,
   onClose,
+  onSaveAndPersist,
 }: SectionBasedComponentsPanelProps) {
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
@@ -74,7 +77,9 @@ export default function SectionBasedComponentsPanel({
     setProject(p2, true);
     setProjectDirty(true);
     onClose();
-  }, [project, defaults, sections, setProject, setProjectDirty, onClose]);
+    // Persist to server so section overrides are actually saved (panel Save used to only update local state).
+    onSaveAndPersist?.(p2);
+  }, [project, defaults, sections, setProject, setProjectDirty, onClose, onSaveAndPersist]);
 
   const categoryOrder = [
     "Device & platform",

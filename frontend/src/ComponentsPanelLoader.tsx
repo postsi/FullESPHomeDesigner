@@ -9,6 +9,7 @@ type Props = {
   setProject: (p: any, commit?: boolean) => void;
   setProjectDirty: (dirty: boolean) => void;
   onClose: () => void;
+  onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
 };
 
 export default function ComponentsPanelLoader(props: Props) {

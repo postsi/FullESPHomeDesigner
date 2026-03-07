@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.156
+
+- **Fix**: Components panel Save now persists the project to the server (calls putProject). Section overrides (e.g. esphome edits) were previously only updated in memory and required clicking the main Save button; they are now saved when you click Save in the panel.
+
 ## v0.70.155
 
 - **Components panel**: "Edited" badge and styling now only when the user has actually saved an override that differs from the default (not when content matches recipe/compiler default).

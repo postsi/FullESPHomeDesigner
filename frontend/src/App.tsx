@@ -2783,6 +2783,23 @@ function deleteSelected() {
           setProject={setProject}
           setProjectDirty={setProjectDirty}
           onClose={() => setComponentsOpen(false)}
+          onSaveAndPersist={
+            entryId && selectedDevice
+              ? async (updatedProject) => {
+                  setBusy(true);
+                  try {
+                    const res = await putProject(entryId, selectedDevice, updatedProject);
+                    if (!res.ok) setToast({ type: "error", msg: res.error });
+                    else {
+                      setProjectDirty(false);
+                      setToast({ type: "ok", msg: "Project saved" });
+                    }
+                  } finally {
+                    setBusy(false);
+                  }
+                }
+              : undefined
+          }
         />
       )}
 
