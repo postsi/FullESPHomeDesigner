@@ -3293,7 +3293,7 @@ class ValidateYamlView(HomeAssistantView):
 class ParseYamlView(HomeAssistantView):
     """Lightweight YAML syntax check only (no ESPHome validation). POST { \"yaml\": \"...\" }."""
 
-    url = f"/api/{DOMAIN}/parse-yaml"
+    url = f"/api/{DOMAIN}/parse_yaml"
     name = f"api:{DOMAIN}:parse_yaml"
     requires_auth = False
 

@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.159
+
+- **Components panel**: "Edited" badge now only when the section is in `overridden_keys` (stored content differs from default), not when local content merely differs. Fixes incorrect "Edited" on load.
+- **YAML parse**: Parse endpoint renamed to `parse_yaml` (underscore); frontend uses explicit origin for the request. Fixes "parse failed: 404" when saving section or widget event YAML.
+- **Widget YAML tab**: Draft is populated from action binding content when no override is stored, so existing on_release etc. show in the textarea. "Edited" considers both `custom_events[ev]` and action binding `yaml_override`. Save writes to action binding when one exists for that event, else to custom_events; Reset clears both.
+
 ## v0.70.158
 
 - **Components model**: Project now stores full section YAML in `project.sections` (not only overrides). Compiler concatenates stored sections; compiler-generated sections (lvgl, script, etc.) are refreshed on each compile. Legacy `section_overrides` is migrated into `sections` when opening a project.

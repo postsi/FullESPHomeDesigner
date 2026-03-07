@@ -42,7 +42,8 @@ export async function previewWidgetYaml(
 
 /** Lightweight YAML syntax check only (no ESPHome). */
 export async function parseYamlSyntax(yamlContent: string): Promise<{ ok: boolean; error?: string; line?: number }> {
-  const r = await fetch("/api/esphome_touch_designer/parse-yaml", {
+  const base = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+  const r = await fetch(`${base}/api/esphome_touch_designer/parse_yaml`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ yaml: yamlContent }),

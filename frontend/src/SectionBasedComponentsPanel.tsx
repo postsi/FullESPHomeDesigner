@@ -29,6 +29,7 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
+  const [overriddenKeys, setOverriddenKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
@@ -42,10 +43,11 @@ export default function SectionBasedComponentsPanel({
     setLoading(true);
     setError(null);
     getSectionsDefaults(project, recipeId)
-      .then(({ sections: effective, categories: cat, default_sections: defSections }) => {
+      .then(({ sections: effective, categories: cat, default_sections: defSections, overridden_keys: ovKeys }) => {
         if (cancelled) return;
         setDefaults(defSections);
         setCategories(cat);
+        setOverriddenKeys(new Set(Array.isArray(ovKeys) ? ovKeys : []));
         setSections(effective);
         setHasLocalEdits(false);
       })
@@ -66,6 +68,11 @@ export default function SectionBasedComponentsPanel({
 
   const resetSection = useCallback((key: string) => {
     setSections((prev) => ({ ...prev, [key]: (defaults[key] || "").trim() }));
+    setOverriddenKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
     setHasLocalEdits(true);
   }, [defaults]);
 
@@ -85,6 +92,16 @@ export default function SectionBasedComponentsPanel({
     if (p2.section_overrides !== undefined) delete p2.section_overrides;
     setProject(p2, true);
     setProjectDirty(true);
+    setOverriddenKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of Object.keys(sections)) {
+        const c = (sections[k] ?? "").trim();
+        const d = (defaults[k] ?? "").trim();
+        if (c !== d) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
     if (onSaveAndPersist) {
       setSaving(true);
       try {
@@ -94,7 +111,7 @@ export default function SectionBasedComponentsPanel({
         setSaving(false);
       }
     }
-  }, [project, sections, setProject, setProjectDirty, onSaveAndPersist]);
+  }, [project, sections, defaults, setProject, setProjectDirty, onSaveAndPersist]);
 
   const saveSection = useCallback(async (key: string) => {
     setSyntaxError(null);
@@ -111,6 +128,13 @@ export default function SectionBasedComponentsPanel({
     if (p2.section_overrides !== undefined) delete p2.section_overrides;
     setProject(p2, true);
     setProjectDirty(true);
+    setOverriddenKeys((prev) => {
+      const next = new Set(prev);
+      const d = (defaults[key] ?? "").trim();
+      if (content !== d) next.add(key);
+      else next.delete(key);
+      return next;
+    });
     if (onSaveAndPersist) {
       setSaving(true);
       try {
@@ -119,10 +143,11 @@ export default function SectionBasedComponentsPanel({
         setSaving(false);
       }
     }
-  }, [project, sections, setProject, setProjectDirty, onSaveAndPersist]);
+  }, [project, sections, defaults, setProject, setProjectDirty, onSaveAndPersist]);
 
   const resetAll = useCallback(() => {
     setSections({ ...defaults });
+    setOverriddenKeys(new Set());
     setHasLocalEdits(true);
   }, [defaults]);
 
@@ -205,9 +230,8 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const content = (sections[sectionKey] ?? "").trim();
-                        const defaultContent = (defaults[sectionKey] ?? "").trim();
-                        const isUserEdited = content !== defaultContent;
                         const isEmpty = content.length === 0;
+                        const isUserEdited = overriddenKeys.has(sectionKey);
                         const bgSection = isUserEdited ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
                         const borderSection = isUserEdited ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
                         return (
