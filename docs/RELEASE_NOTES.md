@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.144
+
+- **Components panel**: Re-enable section-based UI (categories → sections → YAML edit, saved as `section_overrides`). Panel is lazy-loaded so section API code is not in the main bundle, avoiding the load crash ("Cannot access 'ut' before initialization"). Open Components to edit ESPHome top-level sections; compile merges overrides with recipe + compiler.
+
 ## v0.70.143
 
 - **Fix**: Revert section-based Components panel UI to previous user_components panel to fix load crash ("Cannot access 'ut' before initialization"). Backend section-based compile, section_overrides, and GET /sections/defaults API remain; full section-based UI will be re-added in a future release after fixing the bundler/load issue.

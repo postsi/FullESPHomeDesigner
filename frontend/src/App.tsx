@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
@@ -36,6 +36,8 @@ import {
   type WidgetSchemaIndexItem,
 } from "./api";
 import LvglSettingsModal, { type LvglConfig } from "./LvglSettingsModal";
+
+const SectionBasedComponentsPanel = lazy(() => import("./SectionBasedComponentsPanel"));
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -340,10 +342,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [recipeImportOk, setRecipeImportOk] = useState<any>(null);
 
   const [lvglSettingsOpen, setLvglSettingsOpen] = useState<boolean>(false);
-  // v0.70.138: Components panel for adding custom ESPHome components
+  // v0.70.138: Components panel (section-based); lazy-loaded to avoid main-bundle init crash
   const [componentsOpen, setComponentsOpen] = useState<boolean>(false);
-  const [addComponentSection, setAddComponentSection] = useState<string>("sensor");
-  const [addComponentYaml, setAddComponentYaml] = useState<string>("");
   // Widget YAML tab: full preview from compiler (props, style, action bindings)
   const [widgetYamlPreview, setWidgetYamlPreview] = useState<string | null>(null);
   const [widgetYamlPreviewLoading, setWidgetYamlPreviewLoading] = useState<boolean>(false);
@@ -2773,123 +2773,16 @@ function deleteSelected() {
         </div>
       )}
 
-      {/* Components Panel Modal (user_components; section-based UI temporarily reverted to fix load crash) */}
+      {/* Components Panel: section-based YAML editor; lazy-loaded so section API is not in main bundle */}
       {componentsOpen && project && (
-        <div className="modalOverlay" onClick={() => setComponentsOpen(false)}>
-          <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
-            <div className="modalHeader">
-              <div className="title">ESPHome Components</div>
-              <button className="ghost" onClick={() => setComponentsOpen(false)}>✕</button>
-            </div>
-            <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-              Add custom sensors, intervals, and scripts. Auto-generated components from prebuilts are shown as read-only.
-            </div>
-            <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
-              {((project as any).esphome_components || []).length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div className="sectionTitle" style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>Auto-generated</span>
-                    <span className="muted" style={{ fontSize: 11 }}>(from prebuilts, read-only)</span>
-                  </div>
-                  <pre style={{
-                    background: "rgba(0,0,0,0.3)",
-                    padding: 10,
-                    borderRadius: 6,
-                    fontSize: 11,
-                    fontFamily: "ui-monospace, monospace",
-                    maxHeight: 150,
-                    overflow: "auto",
-                    whiteSpace: "pre-wrap",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#888",
-                  }}>
-                    {((project as any).esphome_components || []).map((c: string) => c.trim()).join("\n\n")}
-                  </pre>
-                </div>
-              )}
-              {["sensor", "text_sensor", "binary_sensor", "interval", "time", "script"].map((section) => {
-                const userComps = ((project as any).user_components || {})[section] || [];
-                return (
-                  <details key={section} style={{ marginBottom: 12 }} open={userComps.length > 0 || addComponentSection === section}>
-                    <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 500, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-                      {section.replace("_", " ")} ({userComps.length})
-                    </summary>
-                    <div style={{ padding: "12px 0" }}>
-                      {userComps.length === 0 ? (
-                        <div className="muted" style={{ fontSize: 12 }}>No custom {section.replace("_", " ")}s added.</div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {userComps.map((comp: any, idx: number) => (
-                            <div key={idx} style={{ background: "rgba(255,255,255,0.05)", padding: 10, borderRadius: 6, position: "relative" }}>
-                              <pre style={{ margin: 0, fontSize: 11, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" }}>
-                                {typeof comp === "string" ? comp : JSON.stringify(comp, null, 2)}
-                              </pre>
-                              <button
-                                type="button"
-                                className="danger"
-                                style={{ position: "absolute", top: 6, right: 6, fontSize: 10, padding: "2px 6px" }}
-                                onClick={() => {
-                                  const p2 = clone(project);
-                                  if (!(p2 as any).user_components) (p2 as any).user_components = {};
-                                  const arr = (p2 as any).user_components[section] || [];
-                                  arr.splice(idx, 1);
-                                  (p2 as any).user_components[section] = arr;
-                                  setProject(p2, true);
-                                  setProjectDirty(true);
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ marginTop: 12 }}>
-                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Add {section.replace("_", " ")}</div>
-                        <textarea
-                          value={addComponentSection === section ? addComponentYaml : ""}
-                          onChange={(e) => { setAddComponentSection(section); setAddComponentYaml(e.target.value); }}
-                          onFocus={() => setAddComponentSection(section)}
-                          placeholder={section === "sensor" ? `- platform: wifi_signal\n  id: my_wifi_signal\n  name: "WiFi Signal"\n  update_interval: 30s` : section === "interval" ? `- interval: 10s\n  then:\n    - logger.log: "Tick"` : section === "script" ? `- id: my_script\n  then:\n    - logger.log: "Script ran"` : `- platform: template\n  id: my_${section}\n  name: "My ${section.replace("_", " ")}"`}
-                          style={{
-                            width: "100%",
-                            minHeight: 100,
-                            fontFamily: "ui-monospace, monospace",
-                            fontSize: 11,
-                            padding: 8,
-                            borderRadius: 4,
-                            border: "1px solid rgba(255,255,255,0.15)",
-                            background: "rgba(0,0,0,0.2)",
-                            color: "#e2e8f0",
-                            resize: "vertical",
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="secondary"
-                          style={{ marginTop: 8, fontSize: 12 }}
-                          disabled={addComponentSection !== section || !addComponentYaml.trim()}
-                          onClick={() => {
-                            if (!addComponentYaml.trim()) return;
-                            const p2 = clone(project);
-                            if (!(p2 as any).user_components) (p2 as any).user_components = {};
-                            if (!(p2 as any).user_components[section]) (p2 as any).user_components[section] = [];
-                            (p2 as any).user_components[section].push(addComponentYaml.trim());
-                            setProject(p2, true);
-                            setProjectDirty(true);
-                            setAddComponentYaml("");
-                          }}
-                        >
-                          Add {section.replace("_", " ")}
-                        </button>
-                      </div>
-                    </div>
-                  </details>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <Suspense fallback={<div className="modalOverlay"><div className="modal" style={{ padding: 24 }}>Loading Components…</div></div>}>
+          <SectionBasedComponentsPanel
+            project={project}
+            setProject={setProject}
+            setProjectDirty={setProjectDirty}
+            onClose={() => setComponentsOpen(false)}
+          />
+        </Suspense>
       )}
 
       {newDeviceWizardOpen && (
@@ -3154,7 +3047,7 @@ function deleteSelected() {
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
         <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
-        <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Add custom sensors, intervals, scripts">Components</button>
+        <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
         <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
         <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
       </nav>
