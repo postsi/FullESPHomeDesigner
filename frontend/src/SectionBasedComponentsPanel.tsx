@@ -1,10 +1,10 @@
 /**
- * Section-based ESPHome Components panel. Loaded lazily so section API code
- * is not in the main bundle (avoids "Cannot access 'ut' before initialization").
- * Uses project.section_overrides; compile merges overrides with recipe + compiler.
+ * Section-based ESPHome Components panel. Uses project.sections (full section YAML).
+ * Compiler concatenates stored sections; Reset = default, Save = store to project.
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { getSectionsDefaults } from "./lib/apiSections";
+import { parseYamlSyntax } from "./lib/api";
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
@@ -29,11 +29,11 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
-  const [overriddenKeys, setOverriddenKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syntaxError, setSyntaxError] = useState<string | null>(null);
 
   const recipeId = (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "").trim() || "sunton_2432s028r_320x240";
 
@@ -42,11 +42,10 @@ export default function SectionBasedComponentsPanel({
     setLoading(true);
     setError(null);
     getSectionsDefaults(project, recipeId)
-      .then(({ sections: effective, categories: cat, overridden_keys: ovKeys, default_sections: defSections }) => {
+      .then(({ sections: effective, categories: cat, default_sections: defSections }) => {
         if (cancelled) return;
         setDefaults(defSections);
         setCategories(cat);
-        setOverriddenKeys(new Set(ovKeys));
         setSections(effective);
         setHasLocalEdits(false);
       })
@@ -62,6 +61,7 @@ export default function SectionBasedComponentsPanel({
   const setSectionContent = useCallback((key: string, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));
     setHasLocalEdits(true);
+    setSyntaxError(null);
   }, []);
 
   const resetSection = useCallback((key: string) => {
@@ -69,16 +69,20 @@ export default function SectionBasedComponentsPanel({
     setHasLocalEdits(true);
   }, [defaults]);
 
-  const save = useCallback(async () => {
-    const overrides: Record<string, string> = {};
-    const allKeys = new Set([...Object.keys(defaults), ...Object.keys(sections)]);
-    for (const k of allKeys) {
-      const eff = (sections[k] ?? "").trim();
-      const def = (defaults[k] ?? "").trim();
-      if (eff !== def) overrides[k] = eff;
+  const saveAll = useCallback(async () => {
+    setSyntaxError(null);
+    for (const k of Object.keys(sections)) {
+      const content = (sections[k] ?? "").trim();
+      if (!content) continue;
+      const result = await parseYamlSyntax(content);
+      if (!result.ok) {
+        setSyntaxError(`${k}: ${result.error || "Invalid YAML"}${result.line != null ? ` (line ${result.line})` : ""}`);
+        return;
+      }
     }
     const p2 = clone(project);
-    p2.section_overrides = overrides;
+    p2.sections = { ...(p2.sections || {}), ...sections };
+    if (p2.section_overrides !== undefined) delete p2.section_overrides;
     setProject(p2, true);
     setProjectDirty(true);
     if (onSaveAndPersist) {
@@ -90,7 +94,37 @@ export default function SectionBasedComponentsPanel({
         setSaving(false);
       }
     }
-  }, [project, defaults, sections, setProject, setProjectDirty, onSaveAndPersist]);
+  }, [project, sections, setProject, setProjectDirty, onSaveAndPersist]);
+
+  const saveSection = useCallback(async (key: string) => {
+    setSyntaxError(null);
+    const content = (sections[key] ?? "").trim();
+    if (content) {
+      const result = await parseYamlSyntax(content);
+      if (!result.ok) {
+        setSyntaxError(`${key}: ${result.error || "Invalid YAML"}${result.line != null ? ` (line ${result.line})` : ""}`);
+        return;
+      }
+    }
+    const p2 = clone(project);
+    p2.sections = { ...(p2.sections || {}), [key]: content };
+    if (p2.section_overrides !== undefined) delete p2.section_overrides;
+    setProject(p2, true);
+    setProjectDirty(true);
+    if (onSaveAndPersist) {
+      setSaving(true);
+      try {
+        await onSaveAndPersist(p2);
+      } finally {
+        setSaving(false);
+      }
+    }
+  }, [project, sections, setProject, setProjectDirty, onSaveAndPersist]);
+
+  const resetAll = useCallback(() => {
+    setSections({ ...defaults });
+    setHasLocalEdits(true);
+  }, [defaults]);
 
   const requestClose = useCallback(() => {
     if (hasLocalEdits && !window.confirm("You have unsaved changes. Close anyway?")) return;
@@ -132,7 +166,7 @@ export default function SectionBasedComponentsPanel({
           </button>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from recipe/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your overrides. Saved as section overrides at compile time.
+          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from recipe/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your changes. Reset = back to default; Save = store to project. Compiler uses stored sections.
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
           {loading && (
@@ -143,6 +177,11 @@ export default function SectionBasedComponentsPanel({
           {error && (
             <div style={{ padding: 12, background: "rgba(200,80,80,0.2)", borderRadius: 6, marginBottom: 12 }}>
               {error}
+            </div>
+          )}
+          {syntaxError && (
+            <div style={{ padding: 12, background: "rgba(200,80,80,0.2)", borderRadius: 6, marginBottom: 12 }}>
+              YAML syntax: {syntaxError}
             </div>
           )}
           {!loading && !error && (
@@ -166,7 +205,8 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const content = (sections[sectionKey] ?? "").trim();
-                        const isUserEdited = overriddenKeys.has(sectionKey);
+                        const defaultContent = (defaults[sectionKey] ?? "").trim();
+                        const isUserEdited = content !== defaultContent;
                         const isEmpty = content.length === 0;
                         const bgSection = isUserEdited ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
                         const borderSection = isUserEdited ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
@@ -229,16 +269,25 @@ export default function SectionBasedComponentsPanel({
                                   resize: "vertical",
                                 }}
                               />
-                              {isUserEdited && (
+                              <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 <button
                                   type="button"
                                   className="secondary"
-                                  style={{ marginTop: 6, fontSize: 11 }}
+                                  style={{ fontSize: 11 }}
                                   onClick={() => resetSection(sectionKey)}
                                 >
-                                  Reset to default
+                                  Reset
                                 </button>
-                              )}
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  style={{ fontSize: 11 }}
+                                  onClick={() => saveSection(sectionKey)}
+                                  disabled={saving}
+                                >
+                                  {saving ? "Saving…" : "Save"}
+                                </button>
+                              </div>
                             </div>
                           </details>
                         );
@@ -250,18 +299,20 @@ export default function SectionBasedComponentsPanel({
             </>
           )}
         </div>
-        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="secondary" onClick={requestClose}>
             Close
+          </button>
+          <button type="button" className="secondary" onClick={resetAll} disabled={loading}>
+            Reset all
           </button>
           <button
             type="button"
             className="primary"
-            style={{ marginLeft: 8 }}
-            onClick={() => save()}
+            onClick={() => saveAll()}
             disabled={loading || saving}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Save all"}
           </button>
         </div>
       </div>

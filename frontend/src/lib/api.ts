@@ -40,6 +40,18 @@ export async function previewWidgetYaml(
   };
 }
 
+/** Lightweight YAML syntax check only (no ESPHome). */
+export async function parseYamlSyntax(yamlContent: string): Promise<{ ok: boolean; error?: string; line?: number }> {
+  const r = await fetch("/api/esphome_touch_designer/parse-yaml", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ yaml: yamlContent }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return { ok: false, error: data?.error ?? `parse failed: ${r.status}` };
+  return { ok: data.ok === true, error: data.error, line: data.line };
+}
+
 export type ValidateYamlResult = { ok: boolean; stdout?: string; stderr?: string; error?: string; returncode?: number };
 
 export async function validateYaml(yamlText: string): Promise<ValidateYamlResult> {

@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.158
+
+- **Components model**: Project now stores full section YAML in `project.sections` (not only overrides). Compiler concatenates stored sections; compiler-generated sections (lvgl, script, etc.) are refreshed on each compile. Legacy `section_overrides` is migrated into `sections` when opening a project.
+- **Components panel**: Per-section **Reset** (to recipe/compiler default) and **Save** (persist that section to project). Footer **Reset all** and **Save all**. YAML syntax check (parse-only) runs before Save/Save all; invalid YAML shows an error and blocks save.
+- **Widget YAML tab**: Custom Events use **drafts** until Save. Per event: **Reset** (clear override, back to Auto) and **Save** (validate YAML then write to `custom_events`). Read-only assembled YAML at top; badges Empty / Auto / Edited.
+- **YAML syntax check**: New API `POST /api/esphome_touch_designer/parse-yaml` for lightweight parse-only validation (no ESPHome). Used when saving Components sections and widget event overrides.
+
 ## v0.70.157
 
 - **Components panel**: Save no longer closes the panel so you can edit multiple sections and save again. Close button (and ✕ / overlay) now prompt "You have unsaved changes. Close anyway?" when there are local edits. After Save, the app refetches the project from the server and updates state so reopened panels show the saved content correctly.

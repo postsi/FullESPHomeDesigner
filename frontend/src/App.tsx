@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, parseYamlSyntax, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -352,6 +352,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [widgetYamlEventSnippets, setWidgetYamlEventSnippets] = useState<Record<string, { yaml: string; source: string }>>({});
   const [widgetYamlPreviewLoading, setWidgetYamlPreviewLoading] = useState<boolean>(false);
   const [widgetYamlPreviewError, setWidgetYamlPreviewError] = useState<string | null>(null);
+  const [widgetEventDrafts, setWidgetEventDrafts] = useState<Record<string, string>>({});
+  const [widgetEventError, setWidgetEventError] = useState<string | null>(null);
 
   // Live HA state for design-time preview (bound widgets show current HA values).
   const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
@@ -4102,20 +4104,26 @@ function deleteSelected() {
                       <div style={{ marginTop: 16, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.06)", border: "1px solid rgba(100,160,255,0.2)" }}>
                         <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
                           Custom Events
-                          <span className="muted" style={{ fontSize: 10 }}>Empty / Auto = from binding; Edited = your override</span>
+                          <span className="muted" style={{ fontSize: 10 }}>Empty / Auto = from binding; Edited = your override. Draft until Save.</span>
                         </div>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Effective content for each event is shown below. Edit the textarea to override with custom YAML.</div>
+                        {widgetEventError && (
+                          <div className="error" style={{ padding: 8, fontSize: 11, borderRadius: 6, marginBottom: 8 }}>{widgetEventError}</div>
+                        )}
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Effective content per event. Edit in textarea; Reset = back to Auto, Save = validate and store override.</div>
                         {eventOptions.map((ev) => {
                           const snippet = widgetYamlEventSnippets[ev];
-                          const source = snippet?.source ?? "empty";
-                          const effectiveYaml = (snippet?.yaml ?? "").trim();
-                          const hasValue = !!effectiveYaml || !!(customEvents[ev] && customEvents[ev].trim());
-                          const badgeLabel = source === "empty" ? "Empty" : source === "auto" ? "Auto" : "Edited";
-                          const badgeStyle = source === "empty"
+                          const effectiveFromApi = (snippet?.yaml ?? "").trim();
+                          const storedOverride = (customEvents[ev] ?? "").trim();
+                          const draftKey = `${widgetId}:${ev}`;
+                          const draftValue = widgetEventDrafts[draftKey] ?? storedOverride ?? "";
+                          const hasOverride = !!storedOverride;
+                          const badgeLabel = hasOverride ? "Edited" : (effectiveFromApi ? "Auto" : "Empty");
+                          const badgeStyle = !effectiveFromApi && !hasOverride
                             ? { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }
-                            : source === "auto"
-                              ? { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" }
-                              : { background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" };
+                            : hasOverride
+                              ? { background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }
+                              : { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" };
+                          const hasValue = !!effectiveFromApi || !!storedOverride || !!draftValue.trim();
                           return (
                             <details key={ev} style={{ marginBottom: 6 }} open={hasValue}>
                               <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "rgba(200,220,255,0.95)" : "#888", display: "flex", alignItems: "center", gap: 8 }}>
@@ -4123,26 +4131,18 @@ function deleteSelected() {
                                 <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, ...badgeStyle }}>{badgeLabel}</span>
                                 {hasValue && "✓"}
                               </summary>
-                              {effectiveYaml ? (
+                              {effectiveFromApi && !storedOverride ? (
                                 <pre style={{ fontSize: 10, fontFamily: "ui-monospace, monospace", background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 4, marginBottom: 8, whiteSpace: "pre-wrap", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                  {effectiveYaml}
+                                  {effectiveFromApi}
                                 </pre>
                               ) : null}
                               <textarea
-                                value={customEvents[ev] || ""}
+                                value={draftValue}
                                 onChange={(e) => {
-                                  if (!project) return;
-                                  const p2 = clone(project);
-                                  const pg = (p2 as any).pages?.[safePageIndex];
-                                  const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
-                                  if (w) {
-                                    if (!w.custom_events) w.custom_events = {};
-                                    w.custom_events[ev] = e.target.value;
-                                  }
-                                  setProject(p2, true);
-                                  setProjectDirty(true);
+                                  setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }));
+                                  setWidgetEventError(null);
                                 }}
-                                placeholder={effectiveYaml ? "Override with custom YAML (leave empty to keep Auto content)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
+                                placeholder={effectiveFromApi ? "Override with custom YAML (leave empty to keep Auto)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
                                 style={{
                                   width: "100%",
                                   minHeight: 80,
@@ -4156,6 +4156,62 @@ function deleteSelected() {
                                   resize: "vertical",
                                 }}
                               />
+                              <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  style={{ fontSize: 11 }}
+                                  onClick={() => {
+                                    const p2 = clone(project);
+                                    const pg = (p2 as any).pages?.[safePageIndex];
+                                    const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
+                                    if (w?.custom_events?.[ev] !== undefined) {
+                                      delete w.custom_events[ev];
+                                      if (Object.keys(w.custom_events).length === 0) delete w.custom_events;
+                                    }
+                                    setProject(p2, true);
+                                    setProjectDirty(true);
+                                    setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                                    setWidgetEventError(null);
+                                  }}
+                                >
+                                  Reset
+                                </button>
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  style={{ fontSize: 11 }}
+                                  onClick={async () => {
+                                    const toSave = draftValue.trim();
+                                    if (toSave) {
+                                      const result = await parseYamlSyntax(toSave);
+                                      if (!result.ok) {
+                                        setWidgetEventError(`${ev}: ${result.error || "Invalid YAML"}${result.line != null ? ` (line ${result.line})` : ""}`);
+                                        return;
+                                      }
+                                    }
+                                    setWidgetEventError(null);
+                                    const p2 = clone(project);
+                                    const pg = (p2 as any).pages?.[safePageIndex];
+                                    const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
+                                    if (w) {
+                                      if (!toSave) {
+                                        if (w.custom_events?.[ev] !== undefined) {
+                                          delete w.custom_events[ev];
+                                          if (Object.keys(w.custom_events).length === 0) delete w.custom_events;
+                                        }
+                                      } else {
+                                        if (!w.custom_events) w.custom_events = {};
+                                        w.custom_events[ev] = toSave;
+                                      }
+                                    }
+                                    setProject(p2, true);
+                                    setProjectDirty(true);
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              </div>
                             </details>
                           );
                         })}
