@@ -4109,7 +4109,25 @@ function deleteSelected() {
                           <div className="muted" style={{ padding: 10, fontSize: 12 }}>Loading…</div>
                         )}
                         {widgetYamlPreviewError && !widgetYamlPreviewLoading && (
-                          <div className="error" style={{ padding: 10, fontSize: 12, borderRadius: 6 }}>{widgetYamlPreviewError}</div>
+                          <div>
+                            <div className="error" style={{ padding: 10, fontSize: 12, borderRadius: 6 }}>{widgetYamlPreviewError}</div>
+                            <button
+                              type="button"
+                              className="secondary"
+                              style={{ marginTop: 6, fontSize: 11 }}
+                              onClick={() => {
+                                if (!project || selectedWidgetIds.length !== 1) return;
+                                setWidgetYamlPreviewLoading(true);
+                                setWidgetYamlPreviewError(null);
+                                previewWidgetYaml(project, selectedWidgetIds[0], safePageIndex)
+                                  .then((yaml) => { setWidgetYamlPreview(yaml); setWidgetYamlPreviewError(null); })
+                                  .catch((e: any) => { setWidgetYamlPreviewError(String(e?.message || e)); })
+                                  .finally(() => setWidgetYamlPreviewLoading(false));
+                              }}
+                            >
+                              Retry
+                            </button>
+                          </div>
                         )}
                         {!widgetYamlPreviewLoading && widgetYamlPreview != null && (
                           <>

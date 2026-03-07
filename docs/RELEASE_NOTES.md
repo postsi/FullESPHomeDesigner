@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.140
+
+- **UI**: Widget YAML tab shows a "Retry" button when the preview fails to load (e.g. API error)
+
 ## v0.70.139
 
 - **Fix**: Widget YAML tab now shows the full generated YAML from the compiler: all props (e.g. arc min_value, max_value, start_angle), style, and action bindings (e.g. on_release → climate.set_temperature)
