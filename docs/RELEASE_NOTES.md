@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.151
+
+- **Components panel**: Re-enable section-based UI. Click Components to open categories (Device & platform, Network, Display & touch, etc.) → expand a section to edit its YAML; changes save to `section_overrides` and are applied at compile time. Panel loads on demand (separate chunk) so the main bundle stays small.
+
 ## v0.70.150
 
 - **Fix Safari crash (root cause)**: Declare `pages` and `safePageIndex` immediately after `currentPageIndex` so they exist before any useEffect/useCallback that reference them. Fixes \"Cannot access 'safePageIndex' before initialization\" (TDZ). Minification re-enabled; bundle size back to ~700 KB.
