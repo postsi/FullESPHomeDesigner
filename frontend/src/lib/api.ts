@@ -18,6 +18,18 @@ export async function compileYaml(deviceId: string, project?: any): Promise<stri
   return data.yaml;
 }
 
+/** Preview the exact YAML the compiler would emit for one widget (props, style, action bindings). */
+export async function previewWidgetYaml(project: any, widgetId: string, pageIndex: number): Promise<string> {
+  const r = await fetch("/api/esphome_touch_designer/preview-widget-yaml", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, widget_id: widgetId, page_index: pageIndex }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data?.ok === false) throw new Error(data?.error || `preview failed: ${r.status}`);
+  return data.yaml ?? "";
+}
+
 export type ValidateYamlResult = { ok: boolean; stdout?: string; stderr?: string; error?: string; returncode?: number };
 
 export async function validateYaml(yamlText: string): Promise<ValidateYamlResult> {

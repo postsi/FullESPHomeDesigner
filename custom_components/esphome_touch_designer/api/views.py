@@ -1645,6 +1645,87 @@ def _compile_lvgl_config_body(project: dict) -> str:
     return "".join(out)
 
 
+def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> str | None:
+    """Return the exact YAML fragment the compiler would emit for one widget.
+
+    Used by the frontend Widget YAML tab to show a complete preview including
+    all props, style, and action bindings (e.g. on_release with climate.set_temperature).
+    """
+    pages = project.get("pages") or []
+    if not isinstance(pages, list) or not pages or page_index < 0 or page_index >= len(pages):
+        return None
+    page = pages[page_index]
+    if not isinstance(page, dict):
+        return None
+    all_widgets = page.get("widgets") or []
+    if not isinstance(all_widgets, list):
+        all_widgets = []
+    widget = None
+    for w in all_widgets:
+        if isinstance(w, dict) and str(w.get("id") or "") == str(widget_id):
+            widget = w
+            break
+    if not widget or widget.get("type") not in PALETTE_WIDGET_TYPES:
+        return None
+
+    action_bindings_raw = project.get("action_bindings") or []
+    action_bindings_by_widget: dict[str, list[dict]] = {}
+    for ab in action_bindings_raw:
+        if not isinstance(ab, dict):
+            continue
+        wid = str(ab.get("widget_id") or "").strip()
+        if not wid:
+            continue
+        action_bindings_by_widget.setdefault(wid, []).append(ab)
+    ab_list = action_bindings_by_widget.get(str(widget_id)) or []
+
+    def _collect_options(widgets: list, m: dict[str, list[str]]) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            t = w.get("type")
+            if t in ("dropdown", "roller") and w.get("id"):
+                props = w.get("props") or {}
+                opts = props.get("options") or ["Option A", "Option B"]
+                if isinstance(opts, str):
+                    opts = [s.strip() for s in opts.replace("\\n", "\n").split("\n") if s.strip()]
+                else:
+                    opts = [str(o).strip() for o in opts if str(o).strip()]
+                m[str(w["id"])] = opts if opts else ["(none)"]
+            _collect_options(w.get("widgets") or [], m)
+
+    option_maps: dict[str, list[str]] = {}
+    for p in pages:
+        if isinstance(p, dict):
+            _collect_options(p.get("widgets") or [], option_maps)
+
+    parent_w, parent_h = 100, 50
+    parent_id = widget.get("parent_id")
+    if parent_id:
+        for w in all_widgets:
+            if isinstance(w, dict) and str(w.get("id") or "") == str(parent_id):
+                parent_w = int(w.get("w") or 100)
+                parent_h = int(w.get("h") or 50)
+                break
+
+    wtype = widget.get("type")
+    schema = _load_widget_schema(str(wtype)) if wtype else None
+    if not schema:
+        return None
+    raw = _emit_widget_from_schema(widget, schema, ab_list, parent_w, parent_h, option_maps)
+    # Normalize indent for standalone preview: 8 spaces -> 2, 12 spaces -> 4
+    lines = raw.splitlines()
+    out_lines = []
+    for ln in lines:
+        if ln.startswith("            "):
+            out_lines.append("    " + ln[12:])
+        elif ln.startswith("        "):
+            out_lines.append("  " + ln[8:])
+        else:
+            out_lines.append(ln)
+    return "\n".join(out_lines)
+
+
 def _compile_lvgl_pages_schema_driven(project: dict) -> str:
     """Compile LVGL pages from the project model.
 
@@ -2713,6 +2794,31 @@ class StateWebSocketView(HomeAssistantView):
         return ws
 
 
+class PreviewWidgetYamlView(HomeAssistantView):
+    """Return the exact YAML fragment the compiler would emit for one widget."""
+
+    url = f"/api/{DOMAIN}/preview-widget-yaml"
+    name = f"api:{DOMAIN}:preview_widget_yaml"
+    requires_auth = False
+
+    async def post(self, request):
+        try:
+            body = await request.json()
+        except Exception:
+            return self.json({"ok": False, "error": "invalid_json"}, status_code=400)
+        project = body.get("project")
+        widget_id = body.get("widget_id")
+        page_index = int(body.get("page_index") or 0)
+        if not isinstance(project, dict):
+            return self.json({"ok": False, "error": "project required"}, status_code=400)
+        if not widget_id or not str(widget_id).strip():
+            return self.json({"ok": False, "error": "widget_id required"}, status_code=400)
+        yaml_str = _preview_widget_yaml(project, str(widget_id).strip(), page_index)
+        if yaml_str is None:
+            return self.json({"ok": False, "error": "widget not found or unsupported type"}, status_code=404)
+        return self.json({"ok": True, "yaml": yaml_str})
+
+
 class CompileView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices/{{device_id}}/compile"
     name = f"api:{DOMAIN}:compile"
@@ -2935,6 +3041,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(RecipeImportView)
 
     # Build / deploy / export
+    hass.http.register_view(PreviewWidgetYamlView)
     hass.http.register_view(CompileView)
     hass.http.register_view(ValidateYamlView)
     hass.http.register_view(DeployView)

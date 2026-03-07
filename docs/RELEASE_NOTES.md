@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.139
+
+- **Fix**: Widget YAML tab now shows the full generated YAML from the compiler: all props (e.g. arc min_value, max_value, start_angle), style, and action bindings (e.g. on_release → climate.set_temperature)
+- **Feature**: New API `POST /api/esphome_touch_designer/preview-widget-yaml` returns the exact widget YAML fragment; frontend fetches it when the YAML tab is open
+- **UI**: "Refresh preview" button in the Widget YAML tab to refetch after editing
+
 ## v0.70.138
 
 - **Feature**: Custom YAML system (two-level approach)

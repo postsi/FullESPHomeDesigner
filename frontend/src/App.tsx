@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -344,6 +344,10 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [componentsOpen, setComponentsOpen] = useState<boolean>(false);
   const [addComponentSection, setAddComponentSection] = useState<string>("sensor");
   const [addComponentYaml, setAddComponentYaml] = useState<string>("");
+  // Widget YAML tab: full preview from compiler (props, style, action bindings)
+  const [widgetYamlPreview, setWidgetYamlPreview] = useState<string | null>(null);
+  const [widgetYamlPreviewLoading, setWidgetYamlPreviewLoading] = useState<boolean>(false);
+  const [widgetYamlPreviewError, setWidgetYamlPreviewError] = useState<string | null>(null);
 
   // Live HA state for design-time preview (bound widgets show current HA values).
   const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
@@ -466,6 +470,36 @@ useEffect(() => {
     .then((x) => setEntities(Array.isArray(x) ? x : []))
     .catch(() => setEntities([]));
 }, []);
+
+  // Widget YAML tab: fetch full preview from compiler when tab is active and one widget selected
+  useEffect(() => {
+    if (inspectorTab !== "yaml" || selectedWidgetIds.length !== 1 || !project) {
+      setWidgetYamlPreview(null);
+      setWidgetYamlPreviewError(null);
+      return;
+    }
+    const widgetId = selectedWidgetIds[0];
+    let cancelled = false;
+    setWidgetYamlPreviewLoading(true);
+    setWidgetYamlPreviewError(null);
+    previewWidgetYaml(project, widgetId, safePageIndex)
+      .then((yaml) => {
+        if (!cancelled) {
+          setWidgetYamlPreview(yaml);
+          setWidgetYamlPreviewError(null);
+        }
+      })
+      .catch((e: any) => {
+        if (!cancelled) {
+          setWidgetYamlPreview(null);
+          setWidgetYamlPreviewError(String(e?.message || e));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWidgetYamlPreviewLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [inspectorTab, selectedWidgetIds.join(","), project, safePageIndex]);
 
 useEffect(() => {
   // Binding Builder: when user selects an entity, fetch its full details so the Attribute dropdown has all keys (e.g. temperature, current_temperature).
@@ -4070,28 +4104,47 @@ function deleteSelected() {
                     <>
                       <div style={{ marginTop: 10 }}>
                         <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Generated YAML (read-only)</div>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Preview of what the compiler will generate for this widget.</div>
-                        <pre style={{
-                          background: "rgba(0,0,0,0.3)",
-                          padding: 10,
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontFamily: "ui-monospace, monospace",
-                          maxHeight: 200,
-                          overflow: "auto",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                        }}>
-{`- ${widgetType}:
-    id: ${selWidget.id}
-    x: ${selWidget.x ?? 0}
-    y: ${selWidget.y ?? 0}
-    width: ${selWidget.w ?? 100}
-    height: ${selWidget.h ?? 50}${selWidget.props?.text != null ? `
-    text: "${selWidget.props.text}"` : ""}${Object.keys(selWidget.style || {}).length > 0 ? Object.entries(selWidget.style || {}).map(([k, v]) => `
-    ${k}: ${typeof v === "number" && k.includes("color") ? "0x" + v.toString(16).padStart(6, "0") : v}`).join("") : ""}`}
-                        </pre>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Full preview from compiler: props, style, and action bindings (e.g. on_release → climate.set_temperature).</div>
+                        {widgetYamlPreviewLoading && (
+                          <div className="muted" style={{ padding: 10, fontSize: 12 }}>Loading…</div>
+                        )}
+                        {widgetYamlPreviewError && !widgetYamlPreviewLoading && (
+                          <div className="error" style={{ padding: 10, fontSize: 12, borderRadius: 6 }}>{widgetYamlPreviewError}</div>
+                        )}
+                        {!widgetYamlPreviewLoading && widgetYamlPreview != null && (
+                          <>
+                            <pre style={{
+                              background: "rgba(0,0,0,0.3)",
+                              padding: 10,
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontFamily: "ui-monospace, monospace",
+                              maxHeight: 320,
+                              overflow: "auto",
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }}>
+                              {widgetYamlPreview || "(empty)"}
+                            </pre>
+                            <button
+                              type="button"
+                              className="secondary"
+                              style={{ marginTop: 6, fontSize: 11 }}
+                              onClick={() => {
+                                if (!project || selectedWidgetIds.length !== 1) return;
+                                setWidgetYamlPreviewLoading(true);
+                                setWidgetYamlPreviewError(null);
+                                previewWidgetYaml(project, selectedWidgetIds[0], safePageIndex)
+                                  .then((yaml) => { setWidgetYamlPreview(yaml); setWidgetYamlPreviewError(null); })
+                                  .catch((e: any) => { setWidgetYamlPreviewError(String(e?.message || e)); })
+                                  .finally(() => setWidgetYamlPreviewLoading(false));
+                              }}
+                            >
+                              Refresh preview
+                            </button>
+                          </>
+                        )}
                       </div>
                       <div style={{ marginTop: 16 }}>
                         <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Custom Events</div>
