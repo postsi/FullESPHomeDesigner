@@ -145,8 +145,7 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const content = (sections[sectionKey] ?? "").trim();
-                        const defaultContent = (defaults[sectionKey] ?? "").trim();
-                        const isUserEdited = overriddenKeys.has(sectionKey) || content !== defaultContent;
+                        const isUserEdited = overriddenKeys.has(sectionKey);
                         const isEmpty = content.length === 0;
                         const bgSection = isUserEdited ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
                         const borderSection = isUserEdited ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";

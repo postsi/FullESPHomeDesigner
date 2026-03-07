@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.155
+
+- **Components panel**: "Edited" badge and styling now only when the user has actually saved an override that differs from the default (not when content matches recipe/compiler default).
+- **Widget YAML tab**: Custom Events section now shows the **effective content** for each event (from action bindings or custom_events). Expanded event shows the same content as in the generated YAML preview. Per-event badges: **Empty** (no content), **Auto** (from action binding), **Edited** (custom_events or action yaml_override).
+
 ## v0.70.154
 
 - **Engine + compiler**: Refactored so the engine produces section pieces (recipe + compiler + overrides) and the compiler only assembles them in order. Sections/defaults API now uses the same engine and returns `default_sections` and `overridden_keys` for the UI.

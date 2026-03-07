@@ -18,8 +18,15 @@ export async function compileYaml(deviceId: string, project?: any): Promise<stri
   return data.yaml;
 }
 
-/** Preview the exact YAML the compiler would emit for one widget (props, style, action bindings). */
-export async function previewWidgetYaml(project: any, widgetId: string, pageIndex: number): Promise<string> {
+/** Per-event snippet from widget YAML preview. source: "empty" | "auto" | "edited" */
+export type WidgetYamlEventSnippet = { yaml: string; source: string };
+
+/** Preview the exact YAML the compiler would emit for one widget (props, style, action bindings). Returns yaml and per-event snippets. */
+export async function previewWidgetYaml(
+  project: any,
+  widgetId: string,
+  pageIndex: number
+): Promise<{ yaml: string; event_snippets: Record<string, WidgetYamlEventSnippet> }> {
   const r = await fetch("/api/esphome_touch_designer/preview-widget-yaml", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,7 +34,10 @@ export async function previewWidgetYaml(project: any, widgetId: string, pageInde
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data?.ok === false) throw new Error(data?.error || `preview failed: ${r.status}`);
-  return data.yaml ?? "";
+  return {
+    yaml: data.yaml ?? "",
+    event_snippets: data.event_snippets ?? {},
+  };
 }
 
 export type ValidateYamlResult = { ok: boolean; stdout?: string; stderr?: string; error?: string; returncode?: number };

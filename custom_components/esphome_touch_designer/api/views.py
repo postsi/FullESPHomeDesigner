@@ -1487,6 +1487,7 @@ def _emit_widget_from_schema(
     parent_w: int | None = None,
     parent_h: int | None = None,
     option_maps: dict[str, list[str]] | None = None,
+    event_snippets_out: dict | None = None,
 ) -> str:
     wtype = widget.get("type") or schema.get("type")
     esphome = schema.get("esphome", {})
@@ -1598,14 +1599,17 @@ def _emit_widget_from_schema(
         fields = schema.get(section) or {}
         values = dict(widget.get(section) or {})
         # For events: prefer action_binding for this widget (yaml_override or generated from call).
+        event_source: dict[str, str] = {}  # event_key -> "auto" | "edited"
         if section == "events" and action_by_event:
             for event_key, ab in action_by_event.items():
                 if ab.get("yaml_override"):
                     values[event_key] = ab.get("yaml_override")
+                    event_source[event_key] = "edited"
                 elif ab.get("call"):
                     values[event_key] = _action_binding_call_to_yaml(
                         ab["call"], widget_id=wid, wtype=wtype, option_maps=option_maps
                     )
+                    event_source[event_key] = "auto"
                 # else keep widget.events[event_key] if present
         for k, field_def in fields.items():
             if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
@@ -1618,7 +1622,10 @@ def _emit_widget_from_schema(
                     for line in v.strip().split("\n"):
                         out.append(f"{body_indent}  {line}\n")
                 else:
-                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, v)))
+                    emitted_val = _maybe_harden_event(yaml_key, v) if section == "events" else v
+                    out.append(_emit_kv(body_indent, yaml_key, emitted_val))
+                    if section == "events" and event_snippets_out is not None:
+                        event_snippets_out[k] = {"yaml": (emitted_val if isinstance(emitted_val, str) else str(emitted_val)), "source": event_source.get(k, "edited")}
             else:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
                     out.append(_emit_kv(body_indent, yaml_key, field_def.get("default")))
@@ -1629,11 +1636,17 @@ def _emit_widget_from_schema(
                     continue  # already emitted above
                 yaml_key = (esphome.get("events") or {}).get(event_key) or event_key
                 if ab.get("yaml_override"):
-                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, ab["yaml_override"])))
+                    emitted_val = _maybe_harden_event(yaml_key, ab["yaml_override"])
+                    out.append(_emit_kv(body_indent, yaml_key, emitted_val))
+                    if event_snippets_out is not None:
+                        event_snippets_out[event_key] = {"yaml": emitted_val, "source": "edited"}
                 elif ab.get("call"):
-                    out.append(_emit_kv(body_indent, yaml_key, _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(
+                    emitted_val = _maybe_harden_event(yaml_key, _action_binding_call_to_yaml(
                         ab["call"], widget_id=wid, wtype=wtype, option_maps=option_maps
-                    ))))
+                    ))
+                    out.append(_emit_kv(body_indent, yaml_key, emitted_val))
+                    if event_snippets_out is not None:
+                        event_snippets_out[event_key] = {"yaml": emitted_val, "source": "auto"}
         # v0.70.138: Emit custom_events from widget (user-defined native YAML events)
         if section == "events":
             custom_events = widget.get("custom_events") or {}
@@ -1644,7 +1657,16 @@ def _emit_widget_from_schema(
                 if event_key in (values or {}) or event_key in action_by_event:
                     continue
                 yaml_key = (esphome.get("events") or {}).get(event_key) or event_key
-                out.append(_emit_kv(body_indent, yaml_key, str(event_yaml).strip()))
+                emitted_val = str(event_yaml).strip()
+                out.append(_emit_kv(body_indent, yaml_key, emitted_val))
+                if event_snippets_out is not None:
+                    event_snippets_out[event_key] = {"yaml": emitted_val, "source": "edited"}
+            # Fill empty for any event key we consider but did not emit
+            if event_snippets_out is not None:
+                all_event_keys = set(fields.keys()) | set(action_by_event.keys()) | set(custom_events.keys())
+                for ev in all_event_keys:
+                    if ev not in event_snippets_out:
+                        event_snippets_out[ev] = {"yaml": "", "source": "empty"}
 
     # align_to: position relative to another widget (from props align_to_*)
     props = widget.get("props") or {}
@@ -1815,11 +1837,12 @@ def _compile_lvgl_config_body(project: dict) -> str:
     return "".join(out)
 
 
-def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> str | None:
-    """Return the exact YAML fragment the compiler would emit for one widget.
+def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> tuple[str, dict] | None:
+    """Return the exact YAML fragment the compiler would emit for one widget, plus per-event snippets.
 
     Used by the frontend Widget YAML tab to show a complete preview including
-    all props, style, and action bindings (e.g. on_release with climate.set_temperature).
+    all props, style, and action bindings. event_snippets: { event_key: { yaml, source } }
+    where source is "empty" | "auto" | "edited".
     """
     pages = project.get("pages") or []
     if not isinstance(pages, list) or not pages or page_index < 0 or page_index >= len(pages):
@@ -1882,7 +1905,8 @@ def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> 
     schema = _load_widget_schema(str(wtype)) if wtype else None
     if not schema:
         return None
-    raw = _emit_widget_from_schema(widget, schema, ab_list, parent_w, parent_h, option_maps)
+    event_snippets: dict = {}
+    raw = _emit_widget_from_schema(widget, schema, ab_list, parent_w, parent_h, option_maps, event_snippets_out=event_snippets)
     # Normalize indent for standalone preview: 8 spaces -> 2, 12 spaces -> 4
     lines = raw.splitlines()
     out_lines = []
@@ -1893,7 +1917,7 @@ def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> 
             out_lines.append("  " + ln[8:])
         else:
             out_lines.append(ln)
-    return "\n".join(out_lines)
+    return "\n".join(out_lines), event_snippets
 
 
 def _compile_lvgl_pages_schema_driven(project: dict) -> str:
@@ -2983,10 +3007,11 @@ class PreviewWidgetYamlView(HomeAssistantView):
             return self.json({"ok": False, "error": "project required"}, status_code=400)
         if not widget_id or not str(widget_id).strip():
             return self.json({"ok": False, "error": "widget_id required"}, status_code=400)
-        yaml_str = _preview_widget_yaml(project, str(widget_id).strip(), page_index)
-        if yaml_str is None:
+        result = _preview_widget_yaml(project, str(widget_id).strip(), page_index)
+        if result is None:
             return self.json({"ok": False, "error": "widget not found or unsupported type"}, status_code=404)
-        return self.json({"ok": True, "yaml": yaml_str})
+        yaml_str, event_snippets = result
+        return self.json({"ok": True, "yaml": yaml_str, "event_snippets": event_snippets})
 
 
 class SectionsDefaultsView(HomeAssistantView):
@@ -3020,12 +3045,18 @@ class SectionsDefaultsView(HomeAssistantView):
         project_no_override = dict(project)
         project_no_override["section_overrides"] = {}
         default_pieces, _ = _build_section_engine_pieces(project_no_override, device=None, recipe_text=recipe_text)
+        overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
+        # Only treat as "edited" when the saved override actually differs from default content
+        overridden_keys = [
+            k for k in user_edited
+            if (overrides.get(k) or "").strip() != (default_pieces.get(k) or "").strip()
+        ]
         return self.json({
             "ok": True,
             "sections": pieces,
             "default_sections": default_pieces,
             "categories": dict(SECTION_CATEGORIES),
-            "overridden_keys": list(user_edited),
+            "overridden_keys": overridden_keys,
         })
 
 

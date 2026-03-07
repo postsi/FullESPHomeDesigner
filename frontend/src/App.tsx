@@ -349,6 +349,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [componentsOpen, setComponentsOpen] = useState<boolean>(false);
   // Widget YAML tab: full preview from compiler (props, style, action bindings)
   const [widgetYamlPreview, setWidgetYamlPreview] = useState<string | null>(null);
+  const [widgetYamlEventSnippets, setWidgetYamlEventSnippets] = useState<Record<string, { yaml: string; source: string }>>({});
   const [widgetYamlPreviewLoading, setWidgetYamlPreviewLoading] = useState<boolean>(false);
   const [widgetYamlPreviewError, setWidgetYamlPreviewError] = useState<string | null>(null);
 
@@ -486,9 +487,10 @@ useEffect(() => {
     setWidgetYamlPreviewLoading(true);
     setWidgetYamlPreviewError(null);
     previewWidgetYaml(project, widgetId, safePageIndex)
-      .then((yaml) => {
+      .then(({ yaml, event_snippets }) => {
         if (!cancelled) {
           setWidgetYamlPreview(yaml);
+          setWidgetYamlEventSnippets(event_snippets ?? {});
           setWidgetYamlPreviewError(null);
         }
       })
@@ -4004,7 +4006,11 @@ function deleteSelected() {
                                 setWidgetYamlPreviewLoading(true);
                                 setWidgetYamlPreviewError(null);
                                 previewWidgetYaml(project, selectedWidgetIds[0], safePageIndex)
-                                  .then((yaml) => { setWidgetYamlPreview(yaml); setWidgetYamlPreviewError(null); })
+                                  .then(({ yaml, event_snippets }) => {
+                                    setWidgetYamlPreview(yaml);
+                                    setWidgetYamlEventSnippets(event_snippets ?? {});
+                                    setWidgetYamlPreviewError(null);
+                                  })
                                   .catch((e: any) => { setWidgetYamlPreviewError(String(e?.message || e)); })
                                   .finally(() => setWidgetYamlPreviewLoading(false));
                               }}
@@ -4058,7 +4064,11 @@ function deleteSelected() {
                                 setWidgetYamlPreviewLoading(true);
                                 setWidgetYamlPreviewError(null);
                                 previewWidgetYaml(project, selectedWidgetIds[0], safePageIndex)
-                                  .then((yaml) => { setWidgetYamlPreview(yaml); setWidgetYamlPreviewError(null); })
+                                  .then(({ yaml, event_snippets }) => {
+                                    setWidgetYamlPreview(yaml);
+                                    setWidgetYamlEventSnippets(event_snippets ?? {});
+                                    setWidgetYamlPreviewError(null);
+                                  })
                                   .catch((e: any) => { setWidgetYamlPreviewError(String(e?.message || e)); })
                                   .finally(() => setWidgetYamlPreviewLoading(false));
                               }}
@@ -4071,16 +4081,32 @@ function deleteSelected() {
                       <div style={{ marginTop: 16, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.06)", border: "1px solid rgba(100,160,255,0.2)" }}>
                         <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
                           Custom Events
-                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }}>Edited</span>
+                          <span className="muted" style={{ fontSize: 10 }}>Empty / Auto = from binding; Edited = your override</span>
                         </div>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Add native ESPHome/LVGL actions (e.g., page navigation, logger). These appear in the generated YAML above.</div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Effective content for each event is shown below. Edit the textarea to override with custom YAML.</div>
                         {eventOptions.map((ev) => {
-                          const hasValue = !!(customEvents[ev] && customEvents[ev].trim());
+                          const snippet = widgetYamlEventSnippets[ev];
+                          const source = snippet?.source ?? "empty";
+                          const effectiveYaml = (snippet?.yaml ?? "").trim();
+                          const hasValue = !!effectiveYaml || !!(customEvents[ev] && customEvents[ev].trim());
+                          const badgeLabel = source === "empty" ? "Empty" : source === "auto" ? "Auto" : "Edited";
+                          const badgeStyle = source === "empty"
+                            ? { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }
+                            : source === "auto"
+                              ? { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" }
+                              : { background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" };
                           return (
                             <details key={ev} style={{ marginBottom: 6 }} open={hasValue}>
-                              <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "rgba(200,220,255,0.95)" : "#888" }}>
-                                {ev} {hasValue && "✓"}
+                              <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "rgba(200,220,255,0.95)" : "#888", display: "flex", alignItems: "center", gap: 8 }}>
+                                {ev}
+                                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, ...badgeStyle }}>{badgeLabel}</span>
+                                {hasValue && "✓"}
                               </summary>
+                              {effectiveYaml ? (
+                                <pre style={{ fontSize: 10, fontFamily: "ui-monospace, monospace", background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 4, marginBottom: 8, whiteSpace: "pre-wrap", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  {effectiveYaml}
+                                </pre>
+                              ) : null}
                               <textarea
                                 value={customEvents[ev] || ""}
                                 onChange={(e) => {
@@ -4095,9 +4121,7 @@ function deleteSelected() {
                                   setProject(p2, true);
                                   setProjectDirty(true);
                                 }}
-                                placeholder={`then:
-  - logger.log: "${ev} triggered"
-  - lvgl.page.next:`}
+                                placeholder={effectiveYaml ? "Override with custom YAML (leave empty to keep Auto content)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
                                 style={{
                                   width: "100%",
                                   minHeight: 80,
