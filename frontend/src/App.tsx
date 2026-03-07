@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
-import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
+import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml, getSectionsDefaults} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -342,8 +342,13 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [lvglSettingsOpen, setLvglSettingsOpen] = useState<boolean>(false);
   // v0.70.138: Components panel for adding custom ESPHome components
   const [componentsOpen, setComponentsOpen] = useState<boolean>(false);
-  const [addComponentSection, setAddComponentSection] = useState<string>("sensor");
-  const [addComponentYaml, setAddComponentYaml] = useState<string>("");
+  const [sectionsDefaults, setSectionsDefaults] = useState<{ sections: Record<string, string>; categories: Record<string, string[]> } | null>(null);
+  const [sectionsLoading, setSectionsLoading] = useState<boolean>(false);
+  const [sectionsError, setSectionsError] = useState<string | null>(null);
+  const [expandedSectionCategories, setExpandedSectionCategories] = useState<Set<string>>(new Set());
+  const [expandedSectionKeys, setExpandedSectionKeys] = useState<Set<string>>(new Set());
+  const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
+  const [editingSectionValue, setEditingSectionValue] = useState<string>("");
   // Widget YAML tab: full preview from compiler (props, style, action bindings)
   const [widgetYamlPreview, setWidgetYamlPreview] = useState<string | null>(null);
   const [widgetYamlPreviewLoading, setWidgetYamlPreviewLoading] = useState<boolean>(false);
@@ -380,6 +385,16 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   useEffect(() => {
     if (paletteTab === "cards") refreshCustomCards();
   }, [paletteTab]);
+
+  useEffect(() => {
+    if (!componentsOpen || !project) return;
+    setSectionsLoading(true);
+    setSectionsError(null);
+    const recipeId = (project as any)?.hardware?.recipe_id || (project as any)?.device?.hardware_recipe_id || "";
+    getSectionsDefaults(project, recipeId)
+      .then((res) => { setSectionsDefaults(res); setSectionsLoading(false); })
+      .catch((e) => { setSectionsError(e?.message || "Failed to load sections"); setSectionsLoading(false); });
+  }, [componentsOpen, project]);
 
   async function doImportRecipe() {
     setRecipeImportBusy(true);
@@ -2773,131 +2788,105 @@ function deleteSelected() {
         </div>
       )}
 
-      {/* Components Panel Modal */}
+      {/* Components Panel Modal — section-based (categories + section_overrides) */}
       {componentsOpen && project && (
-        <div className="modalOverlay" onClick={() => setComponentsOpen(false)}>
-          <div className="modal" style={{ maxWidth: 700, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+        <div className="modalOverlay" onClick={() => { setComponentsOpen(false); setEditingSectionKey(null); }}>
+          <div className="modal" style={{ maxWidth: 800, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div className="modalHeader">
-              <div className="title">ESPHome Components</div>
-              <button className="ghost" onClick={() => setComponentsOpen(false)}>✕</button>
+              <div className="title">ESPHome sections</div>
+              <button className="ghost" onClick={() => { setComponentsOpen(false); setEditingSectionKey(null); }}>✕</button>
             </div>
             <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-              Add custom sensors, intervals, and scripts. Auto-generated components from prebuilts are shown as read-only.
+              Edit any top-level section. Effective content is shown; changes are stored as overrides and used on Compile.
             </div>
             <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
-              {/* Auto-generated components (read-only) */}
-              {((project as any).esphome_components || []).length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div className="sectionTitle" style={{ fontSize: 13, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>Auto-generated</span>
-                    <span className="muted" style={{ fontSize: 11 }}>(from prebuilts, read-only)</span>
-                  </div>
-                  <pre style={{
-                    background: "rgba(0,0,0,0.3)",
-                    padding: 10,
-                    borderRadius: 6,
-                    fontSize: 11,
-                    fontFamily: "ui-monospace, monospace",
-                    maxHeight: 150,
-                    overflow: "auto",
-                    whiteSpace: "pre-wrap",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#888",
-                  }}>
-                    {((project as any).esphome_components || []).map((c: string) => c.trim()).join("\n\n")}
-                  </pre>
-                </div>
-              )}
-              {/* User components sections */}
-              {["sensor", "text_sensor", "binary_sensor", "interval", "time", "script"].map((section) => {
-                const userComps = ((project as any).user_components || {})[section] || [];
+              {sectionsLoading && <div className="muted" style={{ padding: 12 }}>Loading defaults…</div>}
+              {sectionsError && <div style={{ padding: 12, color: "#f87171" }}>{sectionsError}</div>}
+              {!sectionsLoading && !sectionsError && sectionsDefaults && (() => {
+                const { sections: defaultSections, categories } = sectionsDefaults;
+                const overrides: Record<string, string> = (project as any).section_overrides || {};
+                const effective = (key: string) => (overrides[key] !== undefined && overrides[key] !== null ? String(overrides[key]) : (defaultSections[key] ?? "")).trim();
+                const categoryOrder = Object.keys(categories).length > 0 ? Object.keys(categories) : ["All sections"];
+                const getKeysForCategory = (cat: string) => (categories[cat] && categories[cat].length > 0) ? categories[cat] : (cat === "All sections" ? Object.keys(defaultSections) : []);
                 return (
-                  <details key={section} style={{ marginBottom: 12 }} open={userComps.length > 0 || addComponentSection === section}>
-                    <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 500, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-                      {section.replace("_", " ")} ({userComps.length})
-                    </summary>
-                    <div style={{ padding: "12px 0" }}>
-                      {userComps.length === 0 ? (
-                        <div className="muted" style={{ fontSize: 12 }}>No custom {section.replace("_", " ")}s added.</div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {userComps.map((comp: any, idx: number) => (
-                            <div key={idx} style={{ background: "rgba(255,255,255,0.05)", padding: 10, borderRadius: 6, position: "relative" }}>
-                              <pre style={{ margin: 0, fontSize: 11, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap" }}>
-                                {typeof comp === "string" ? comp : JSON.stringify(comp, null, 2)}
-                              </pre>
-                              <button
-                                type="button"
-                                className="danger"
-                                style={{ position: "absolute", top: 6, right: 6, fontSize: 10, padding: "2px 6px" }}
-                                onClick={() => {
-                                  const p2 = clone(project);
-                                  if (!(p2 as any).user_components) (p2 as any).user_components = {};
-                                  const arr = (p2 as any).user_components[section] || [];
-                                  arr.splice(idx, 1);
-                                  (p2 as any).user_components[section] = arr;
-                                  setProject(p2, true);
-                                  setProjectDirty(true);
-                                }}
-                              >
-                                Delete
-                              </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {categoryOrder.map((catLabel) => {
+                      const keys = getKeysForCategory(catLabel);
+                      const withContent = keys.filter((k) => effective(k) || overrides[k] !== undefined);
+                      const expanded = expandedSectionCategories.has(catLabel);
+                      return (
+                        <div key={catLabel} style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, overflow: "hidden" }}>
+                          <button
+                            type="button"
+                            className="ghost"
+                            style={{ width: "100%", textAlign: "left", padding: "10px 12px", fontSize: 13, fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                            onClick={() => setExpandedSectionCategories((prev) => { const s = new Set(prev); if (s.has(catLabel)) s.delete(catLabel); else s.add(catLabel); return s; })}
+                          >
+                            <span>{catLabel}</span>
+                            <span className="muted" style={{ fontSize: 11 }}>({withContent.length} sections)</span>
+                          </button>
+                          {expanded && (
+                            <div style={{ padding: "0 12px 12px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                              {keys.map((sectionKey) => {
+                                const content = effective(sectionKey);
+                                const isOverride = overrides[sectionKey] !== undefined && overrides[sectionKey] !== null;
+                                const isEditing = editingSectionKey === sectionKey;
+                                const expandedSec = expandedSectionKeys.has(sectionKey);
+                                return (
+                                  <div key={sectionKey} style={{ marginTop: 8, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, overflow: "hidden" }}>
+                                    <button
+                                      type="button"
+                                      className="ghost"
+                                      style={{ width: "100%", textAlign: "left", padding: "8px 10px", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                      onClick={() => setExpandedSectionKeys((prev) => { const s = new Set(prev); if (s.has(sectionKey)) s.delete(sectionKey); else s.add(sectionKey); return s; })}
+                                    >
+                                      <code style={{ fontSize: 11 }}>{sectionKey}</code>
+                                      {isOverride && <span style={{ fontSize: 10, color: "#34d399" }}>edited</span>}
+                                    </button>
+                                    {expandedSec && (
+                                      <div style={{ padding: "8px 10px 10px", background: "rgba(0,0,0,0.2)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                        {isEditing ? (
+                                          <>
+                                            <textarea
+                                              value={editingSectionValue}
+                                              onChange={(e) => setEditingSectionValue(e.target.value)}
+                                              style={{ width: "100%", minHeight: 120, fontFamily: "ui-monospace, monospace", fontSize: 11, padding: 8, borderRadius: 4, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(0,0,0,0.3)", color: "#e2e8f0", resize: "vertical" }}
+                                            />
+                                            <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                                              <button type="button" className="secondary" onClick={() => { setEditingSectionKey(null); setEditingSectionValue(""); }}>Cancel</button>
+                                              <button type="button" onClick={() => {
+                                                const p2 = clone(project);
+                                                if (!(p2 as any).section_overrides) (p2 as any).section_overrides = {};
+                                                if (!editingSectionValue.trim()) delete (p2 as any).section_overrides[editingSectionKey!];
+                                                else (p2 as any).section_overrides[editingSectionKey!] = editingSectionValue.trim();
+                                                setProject(p2, true);
+                                                setProjectDirty(true);
+                                                setEditingSectionKey(null);
+                                                setEditingSectionValue("");
+                                              }}>Save</button>
+                                            </div>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <pre style={{ margin: 0, fontSize: 11, fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto", color: content ? "#e2e8f0" : "#64748b" }}>
+                                              {content || "(empty)"}
+                                            </pre>
+                                            <button type="button" className="secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => { setEditingSectionKey(sectionKey); setEditingSectionValue(content); }}>Edit section</button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                      <div style={{ marginTop: 12 }}>
-                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Add {section.replace("_", " ")}</div>
-                        <textarea
-                          value={addComponentSection === section ? addComponentYaml : ""}
-                          onChange={(e) => { setAddComponentSection(section); setAddComponentYaml(e.target.value); }}
-                          onFocus={() => setAddComponentSection(section)}
-                          placeholder={section === "sensor" ? `- platform: wifi_signal
-  id: my_wifi_signal
-  name: "WiFi Signal"
-  update_interval: 30s` : section === "interval" ? `- interval: 10s
-  then:
-    - logger.log: "Tick"` : section === "script" ? `- id: my_script
-  then:
-    - logger.log: "Script ran"` : `- platform: template
-  id: my_${section}
-  name: "My ${section.replace("_", " ")}"`}
-                          style={{
-                            width: "100%",
-                            minHeight: 100,
-                            fontFamily: "ui-monospace, monospace",
-                            fontSize: 11,
-                            padding: 8,
-                            borderRadius: 4,
-                            border: "1px solid rgba(255,255,255,0.15)",
-                            background: "rgba(0,0,0,0.2)",
-                            color: "#e2e8f0",
-                            resize: "vertical",
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="secondary"
-                          style={{ marginTop: 8, fontSize: 12 }}
-                          disabled={addComponentSection !== section || !addComponentYaml.trim()}
-                          onClick={() => {
-                            if (!addComponentYaml.trim()) return;
-                            const p2 = clone(project);
-                            if (!(p2 as any).user_components) (p2 as any).user_components = {};
-                            if (!(p2 as any).user_components[section]) (p2 as any).user_components[section] = [];
-                            (p2 as any).user_components[section].push(addComponentYaml.trim());
-                            setProject(p2, true);
-                            setProjectDirty(true);
-                            setAddComponentYaml("");
-                          }}
-                        >
-                          Add {section.replace("_", " ")}
-                        </button>
-                      </div>
-                    </div>
-                  </details>
+                      );
+                    })}
+                  </div>
                 );
-              })}
+              })()}
             </div>
           </div>
         </div>

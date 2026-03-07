@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.141
+
+- **Feature**: Section-based Components panel and compile
+  - **Components panel**: All ESPHome top-level sections (esphome, wifi, sensor, lvgl, etc.) in categories (Device & platform, Network, Display & touch, Sensors & entities, etc.). Expand category → section → edit YAML; effective content = compiler/recipe default or your override. Stored in `project.section_overrides`.
+  - **Compile**: Recipe is parsed into sections; compiler produces section map; final YAML = merge recipe + compiler + `section_overrides`, emitted in canonical order. Replaces marker-based injection with section-based assembly.
+  - **API**: `POST /api/esphome_touch_designer/sections/defaults` returns default section content and categories for the panel.
+  - **Backend**: `esphome_sections.py` (SECTION_ORDER, SECTION_CATEGORIES), recipe parser, `_build_compiler_sections`, section-based compile path. Legacy compile path retained when section list unavailable.
+
 ## v0.70.140
 
 - **UI**: Widget YAML tab shows a "Retry" button when the preview fails to load (e.g. API error)

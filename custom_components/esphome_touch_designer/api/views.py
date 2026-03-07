@@ -17,6 +17,13 @@ RECIPES_BUILTIN_DIR = Path(__file__).resolve().parent.parent / "recipes" / "buil
 # Placeholder in hardware recipes for the device name; compiler replaces with device slug (YAML-quoted).
 ETD_DEVICE_NAME_PLACEHOLDER = "__ETD_DEVICE_NAME__"
 
+# Section-based compile: canonical order and categories (same package as views.py's parent).
+try:
+    from ..esphome_sections import SECTION_ORDER, SECTION_CATEGORIES
+except ImportError:
+    SECTION_ORDER = ()
+    SECTION_CATEGORIES = {}
+
 
 def _integration_version() -> str:
     """Best-effort integration version (from manifest.json)."""
@@ -57,6 +64,82 @@ def list_builtin_recipes() -> list[dict]:
         rid = p.stem
         out.append({"id": rid, "name": label_map.get(rid, rid.replace("_", " ")), "kind": "builtin", "path": str(p)})
     return out
+
+
+# --- Section-based compile: recipe parser and YAML section splitter ---
+
+# Top-level YAML key: line start, then key name (word chars + underscores), then colon.
+_TOP_LEVEL_KEY_RE = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s*:(?:\s*(?:#.*)?)?$")
+
+
+def _parse_recipe_into_sections(recipe_text: str) -> dict[str, str]:
+    """Split recipe YAML into top-level key -> content (content = lines under key, indent preserved)."""
+    sections: dict[str, str] = {}
+    lines = recipe_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = _TOP_LEVEL_KEY_RE.match(line)
+        if m:
+            key = m.group(1).strip().lower()
+            i += 1
+            content_lines: list[str] = []
+            while i < len(lines):
+                next_line = lines[i]
+                # Next top-level key: line that starts with a word and colon (no leading space)
+                if next_line and not next_line[0].isspace() and _TOP_LEVEL_KEY_RE.match(next_line):
+                    break
+                content_lines.append(next_line)
+                i += 1
+            content = "\n".join(content_lines).rstrip()
+            if content:
+                sections[key] = content
+        else:
+            i += 1
+    return sections
+
+
+def _yaml_str_to_section_map(yaml_str: str, merge_duplicate_keys: bool = False) -> dict[str, str]:
+    """Split a multi-section YAML string (e.g. compiler output) into key -> content.
+    Content is the body under each key (first line after 'key:' onward until next key).
+    If merge_duplicate_keys is True, duplicate keys have their content concatenated (for prebuilt snippets).
+    """
+    sections: dict[str, str] = {}
+    lines = yaml_str.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        m = _TOP_LEVEL_KEY_RE.match(line)
+        if m:
+            key = m.group(1).strip().lower()
+            i += 1
+            content_lines = []
+            while i < len(lines):
+                next_line = lines[i]
+                if next_line and not next_line[0].isspace() and _TOP_LEVEL_KEY_RE.match(next_line):
+                    break
+                content_lines.append(next_line)
+                i += 1
+            content = "\n".join(content_lines).rstrip()
+            if merge_duplicate_keys and key in sections:
+                sections[key] = sections[key].rstrip() + "\n\n" + content
+            else:
+                sections[key] = content
+        else:
+            i += 1
+    return sections
+
+
+def _strip_section_key(block: str, key: str) -> str:
+    """If block starts with 'key:\\n', return the rest (content only). Otherwise return block."""
+    prefix = key + ":"
+    if block.strip().startswith(prefix):
+        rest = block.split("\n", 1)
+        if len(rest) == 2:
+            return rest[1].rstrip()
+        return ""
+    return block.strip()
+
 
 def _compile_lvgl_pages(project: dict) -> str:
     pages = project.get("pages") or []
@@ -634,13 +717,14 @@ def _merge_scripts_into_rest(rest: str, scripts_yaml: str) -> str:
     return "".join(new_lines)
 
 
-def _compile_prebuilt_components(project: dict) -> str:
+def _compile_prebuilt_components(project: dict, include_user_components: bool = True) -> str:
     """Compile ESPHome components from prebuilt widgets (sensors, intervals, etc.).
 
     project.esphome_components is an array of raw YAML strings (or dicts with 'yaml' key).
     We deduplicate by checking for duplicate 'id:' lines to avoid emitting duplicate
     sensors/intervals when multiple prebuilts use the same shared component.
 
+    When include_user_components is False (section-based compile), only prebuilt blocks are emitted.
     v0.70.136: added for prebuilt widget native functionality.
     """
     components = project.get("esphome_components") or []
@@ -676,7 +760,10 @@ def _compile_prebuilt_components(project: dict) -> str:
     if out_blocks:
         auto_header = "# Prebuilt widget components (auto-generated)\n" + "\n\n".join(out_blocks) + "\n"
 
-    # v0.70.138: Merge user_components into output
+    if not include_user_components:
+        return auto_header
+
+    # v0.70.138: Merge user_components into output (legacy path; section-based uses section_overrides)
     user_components = project.get("user_components") or {}
     user_blocks: list[str] = []
     for section in ["sensor", "text_sensor", "binary_sensor", "interval", "time", "script"]:
@@ -691,11 +778,7 @@ def _compile_prebuilt_components(project: dict) -> str:
                 continue
             # Check for id collision with auto-generated
             item_ids = re.findall(r"^\s*id:\s*(\S+)\s*$", item_str, re.MULTILINE)
-            skip = False
             for iid in item_ids:
-                if iid in seen_ids:
-                    # User component overrides auto-generated (remove from auto_header later)
-                    pass
                 seen_ids.add(iid)
             # Indent each line of the item by 2 spaces (under section key)
             indented = "\n".join("  " + ln if ln.strip() else ln for ln in item_str.split("\n"))
@@ -708,6 +791,64 @@ def _compile_prebuilt_components(project: dict) -> str:
         user_header = "\n# User-defined components\n" + "\n\n".join(user_blocks) + "\n"
 
     return auto_header + user_header
+
+
+def _build_compiler_sections(project: dict, device: object | None = None) -> dict[str, str]:
+    """Build the section map that the compiler produces (sensor, text_sensor, lvgl, script, etc.).
+    Used by section-based compile and by GET sections/defaults. device is optional (for api key).
+    """
+    # Font rewrite (same as full compile) so lvgl/widget refs are correct
+    project = dict(project)
+    fonts_yaml, font_id_map = _compile_fonts_from_project(project)
+    if font_id_map:
+        project = _rewrite_widget_font_references(project, font_id_map)
+
+    out: dict[str, str] = {}
+
+    # HA bindings -> sensor, text_sensor, binary_sensor (content only)
+    ha_yaml = _compile_ha_bindings(project)
+    if ha_yaml.strip():
+        for k, v in _yaml_str_to_section_map(ha_yaml).items():
+            out[k] = v
+
+    # Prebuilt components (no user_components; section_overrides handle user edits)
+    prebuilt_str = _compile_prebuilt_components(project, include_user_components=False)
+    if prebuilt_str.strip():
+        prebuilt_map = _yaml_str_to_section_map(prebuilt_str, merge_duplicate_keys=True)
+        for k, v in prebuilt_map.items():
+            if k in out:
+                out[k] = out[k].rstrip() + "\n\n" + v
+            else:
+                out[k] = v
+
+    # Script
+    scripts_yaml = _compile_scripts(project)
+    if scripts_yaml.strip():
+        out["script"] = _strip_section_key(scripts_yaml, "script")
+
+    # Globals (lock vars)
+    locks_yaml = _compile_ui_lock_globals(project)
+    if locks_yaml.strip():
+        out["globals"] = _strip_section_key(locks_yaml, "globals")
+
+    # LVGL (full body: config + pages)
+    pages_yaml = _compile_lvgl_pages_schema_driven(project)
+    if pages_yaml.strip():
+        out["lvgl"] = pages_yaml.strip()
+
+    # Font, image
+    if fonts_yaml.strip():
+        out["font"] = _strip_section_key(fonts_yaml, "font")
+    assets_yaml = _compile_assets(project)
+    if assets_yaml.strip():
+        out["image"] = _strip_section_key(assets_yaml, "image")
+
+    # API encryption (when device has api_key)
+    if device is not None and getattr(device, "api_key", None) and str(getattr(device, "api_key", "") or "").strip():
+        key = (getattr(device, "api_key", "") or "").strip()
+        out["api"] = "  encryption:\n    key: " + json.dumps(key) + "\n"
+
+    return out
 
 
 def _apply_user_injection(recipe_text: str, project: dict) -> str:
@@ -841,16 +982,74 @@ def _compile_ui_lock_globals(project: dict) -> str:
     out.append("\n")
     return "".join(out)
 
+
+def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: str) -> str:
+    """Section-based compile: parse recipe into sections, merge with compiler + section_overrides, emit in canonical order."""
+    project = device.project or {}
+    overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
+    recipe_sections = _parse_recipe_into_sections(recipe_text)
+    compiler_sections = _build_compiler_sections(project, device)
+
+    # manage_run_and_sleep stub if recipe references it but script doesn't define it
+    if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
+        stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
+        compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
+
+    def has_section(sections: dict, key: str) -> bool:
+        c = (sections.get(key) or "").strip()
+        return bool(c)
+
+    final: dict[str, str] = {}
+    for key in SECTION_ORDER:
+        content = overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
+        if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
+            content = content.replace("#__LVGL_PAGES__", compiler_sections["lvgl"].rstrip())
+        if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
+            # Ensure name placeholder so final replace works
+            if re.search(r"^\s*name\s*:", content, re.MULTILINE):
+                content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
+            else:
+                content = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER + "\n" + content.lstrip()
+        if not (content and str(content).strip()):
+            # Defaults for wifi/ota/logger when missing
+            if key == "wifi":
+                content = _strip_section_key(_default_wifi_yaml(), "wifi")
+            elif key == "ota":
+                content = _strip_section_key(_default_ota_yaml(), "ota")
+            elif key == "logger":
+                content = _strip_section_key(_default_logger_yaml(), "logger")
+        if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
+            final[key] = (content or "").strip()
+
+    header = (
+        "---\n"
+        f"# Generated by {DOMAIN} v{_integration_version()}\n"
+        f"# device_id: {device.device_id}\n"
+        f"# slug: {device.slug}\n"
+        "\n"
+    )
+    out_parts = [header]
+    for key in SECTION_ORDER:
+        if key not in final:
+            continue
+        content = final[key]
+        # Content should be the body under the key (indent 2 spaces for first level)
+        if content and not content.startswith("  ") and "\n" in content:
+            content = "\n".join("  " + ln if ln.strip() else ln for ln in content.splitlines())
+        elif content and not content.startswith("  "):
+            content = "  " + content
+        out_parts.append(f"{key}:\n{content.rstrip()}\n\n")
+    out = "".join(out_parts).rstrip() + "\n"
+    out = out.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
+    return out
+
+
 def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = None) -> str:
     """Compile a device project into a full ESPHome YAML document.
 
-    - When recipe_text is None, loads the hardware recipe from RECIPES_BUILTIN_DIR.
-    - When recipe_text is provided (e.g. by CompileView from same source as UI), uses it.
-    - Injects optional user YAML (pre/post + markers).
-    - Compiles LVGL pages (schema-driven) and inserts at the pages marker.
-    - Compiles HA bindings and inserts at the bindings marker.
+    Uses section-based compile when SECTION_ORDER is available: recipe is parsed into sections,
+    merged with compiler output and project.section_overrides, then emitted in canonical order.
     """
-
     project = device.project or {}
     recipe_id = (
         (project.get("hardware") or {}).get("recipe_id")
@@ -861,53 +1060,36 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         recipe_path = RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml"
         recipe_text = recipe_path.read_text("utf-8") if recipe_path.exists() else ""
 
+    recipe_text = _apply_user_injection(recipe_text, project)
+
+    if SECTION_ORDER:
+        return _compile_to_esphome_yaml_section_based(device, recipe_text)
+
+    # Fallback when esphome_sections not available (legacy path)
     assets_yaml = _compile_assets(project)
     ha_bindings_yaml = _compile_ha_bindings(project)
     scripts_yaml = _compile_scripts(project)
-    # v0.70.136: compile prebuilt esphome_components (sensors, intervals, etc.)
     prebuilt_components_yaml = _compile_prebuilt_components(project)
-    # v0.38: font extraction (first pass).
     fonts_yaml, font_id_map = _compile_fonts_from_project(project)
     if font_id_map:
         project = _rewrite_widget_font_references(project, font_id_map)
-
     pages_yaml = _compile_lvgl_pages_schema_driven(project)
-
     locks_yaml = _compile_ui_lock_globals(project)
-
-    recipe_text = _apply_user_injection(recipe_text, project)
-
-    # Inject HA bindings at marker only (do not prepend; order is handled below)
     if "#__HA_BINDINGS__" in recipe_text:
         recipe_text = recipe_text.replace("#__HA_BINDINGS__", ha_bindings_yaml.rstrip())
     elif ha_bindings_yaml.strip():
         recipe_text = recipe_text.rstrip() + "\n\n" + ha_bindings_yaml.rstrip() + "\n"
-
     merged = _inject_pages_into_recipe(recipe_text, pages_yaml)
-
-    # If recipe references manage_run_and_sleep (e.g. on_boot display refresh) but doesn't define it, inject a minimal stub.
     if "manage_run_and_sleep" in merged and "id: manage_run_and_sleep" not in scripts_yaml and "id: manage_run_and_sleep" not in merged:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        if scripts_yaml.strip():
-            scripts_yaml = scripts_yaml.rstrip() + "\n" + stub.rstrip() + "\n"
-        else:
-            scripts_yaml = "script:\n" + stub
-
-    # Emit in standard order: esphome first, then api, wifi, ota, then rest of recipe.
-    # Recipes declare the device name with the placeholder; we replace it once at the end.
+        scripts_yaml = scripts_yaml.rstrip() + "\n" + stub.rstrip() + "\n" if scripts_yaml.strip() else "script:\n" + stub
     esphome_block, rest = _split_esphome_block(merged)
     name_placeholder_line = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER
     if not esphome_block.strip() and "esphome:" not in rest:
         esphome_block = "esphome:\n" + name_placeholder_line + "\n"
     elif not esphome_block.strip() and "esphome:" in rest:
-        rest = re.sub(
-            r"(?m)^((?:\ufeff)?\s*esphome:\s*(?:#.*)?)\r?\n",
-            r"\1\n" + name_placeholder_line + r"\n",
-            rest,
-            count=1,
-        )
+        rest = re.sub(r"(?m)^((?:\ufeff)?\s*esphome:\s*(?:#.*)?)\r?\n", r"\1\n" + name_placeholder_line + r"\n", rest, count=1)
     else:
-        # Recipe has esphome block; ensure placeholder is the first key (recipes should already have it).
         lines = esphome_block.splitlines()
         if not lines:
             esphome_block = "esphome:\n" + name_placeholder_line + "\n"
@@ -917,42 +1099,24 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
             if first_line.startswith("esphome:"):
                 first_line = "esphome:"
             esphome_block = first_line + "\n" + name_placeholder_line + "\n" + "\n".join(rest_lines) + ("\n" if rest_lines else "")
-
-    # Add default wifi/ota if recipe does not already include them (top-level key)
     def has_top_level_key(text: str, key: str) -> bool:
         t = "\n" + text
         return f"\n{key}:" in t or text.strip().startswith(f"{key}:")
     wifi_yaml = _default_wifi_yaml() if not has_top_level_key(rest, "wifi") else ""
     ota_yaml = _default_ota_yaml() if not has_top_level_key(rest, "ota") else ""
     logger_yaml = _default_logger_yaml() if not has_top_level_key(rest, "logger") else ""
-
-    # Explicit YAML document start so parsers don't complain (e.g. "expected document start, but found block mapping")
-    header = (
-        "---\n"
-        f"# Generated by {DOMAIN} v{_integration_version()}\n"
-        f"# device_id: {device.device_id}\n"
-        f"# slug: {device.slug}\n"
-        "\n"
-    )
+    header = "---\n" + f"# Generated by {DOMAIN} v{_integration_version()}\n" + f"# device_id: {device.device_id}\n" + f"# slug: {device.slug}\n" + "\n"
     out = header
     if esphome_block.strip():
         out += esphome_block.rstrip() + "\n\n"
-
-    # API encryption key for Home Assistant connectivity (32-byte base64)
     if device.api_key and str(device.api_key).strip():
-        out += (
-            "api:\n"
-            "  encryption:\n"
-            f"    key: {json.dumps(device.api_key.strip())}\n"
-            "\n"
-        )
+        out += "api:\n  encryption:\n    key: " + json.dumps(device.api_key.strip()) + "\n\n"
     if wifi_yaml:
         out += wifi_yaml.rstrip() + "\n\n"
     if ota_yaml:
         out += ota_yaml.rstrip() + "\n\n"
     if logger_yaml:
         out += logger_yaml.rstrip() + "\n\n"
-    # Merge our script entries into rest's script: block when recipe already has one (avoid duplicate key).
     if has_top_level_key(rest, "script") and scripts_yaml.strip():
         rest = _merge_scripts_into_rest(rest, scripts_yaml)
         scripts_yaml = ""
@@ -967,7 +1131,6 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
         out += prebuilt_components_yaml.rstrip() + "\n\n"
     if assets_yaml.strip():
         out += assets_yaml.rstrip() + "\n"
-    # Replace recipe placeholder with the device slug (YAML-quoted).
     out = out.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
     return out
 
@@ -2819,6 +2982,41 @@ class PreviewWidgetYamlView(HomeAssistantView):
         return self.json({"ok": True, "yaml": yaml_str})
 
 
+class SectionsDefaultsView(HomeAssistantView):
+    """Return default section content (recipe + compiler) for the Components panel.
+    POST body: { project, recipe_id? }. Response: { ok, sections: { key: content } }.
+    """
+
+    url = f"/api/{DOMAIN}/sections/defaults"
+    name = f"api:{DOMAIN}:sections_defaults"
+    requires_auth = False
+
+    async def post(self, request):
+        try:
+            body = await request.json() if request.can_read_body else {}
+        except Exception:
+            return self.json({"ok": False, "error": "invalid_json"}, status_code=400)
+        if not isinstance(body, dict):
+            return self.json({"ok": False, "error": "body must be JSON object"}, status_code=400)
+        project = body.get("project")
+        recipe_id = (body.get("recipe_id") or "").strip() or (isinstance(project, dict) and (project.get("hardware") or {}).get("recipe_id")) or "sunton_2432s028r_320x240"
+        if not isinstance(project, dict):
+            return self.json({"ok": False, "error": "project required"}, status_code=400)
+        hass = request.app.get("hass") if request.app else None
+        recipe_path = (_find_recipe_path_by_id(hass, recipe_id) if hass else None) or (RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml")
+        recipe_text = recipe_path.read_text("utf-8") if recipe_path and recipe_path.exists() else ""
+        recipe_sections = _parse_recipe_into_sections(recipe_text)
+        compiler_sections = _build_compiler_sections(project, device=None)
+        out: dict[str, str] = {}
+        for key in SECTION_ORDER:
+            content = compiler_sections.get(key) or recipe_sections.get(key)
+            if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
+                content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
+            if content and str(content).strip():
+                out[key] = content.strip()
+        return self.json({"ok": True, "sections": out, "categories": dict(SECTION_CATEGORIES)})
+
+
 class CompileView(HomeAssistantView):
     url = f"/api/{DOMAIN}/devices/{{device_id}}/compile"
     name = f"api:{DOMAIN}:compile"
@@ -3042,6 +3240,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     # Build / deploy / export
     hass.http.register_view(PreviewWidgetYamlView)
+    hass.http.register_view(SectionsDefaultsView)
     hass.http.register_view(CompileView)
     hass.http.register_view(ValidateYamlView)
     hass.http.register_view(DeployView)
