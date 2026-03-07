@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.143
+
+- **Fix**: Revert section-based Components panel UI to previous user_components panel to fix load crash ("Cannot access 'ut' before initialization"). Backend section-based compile, section_overrides, and GET /sections/defaults API remain; full section-based UI will be re-added in a future release after fixing the bundler/load issue.
+
 ## v0.70.142
 
 - **Fix**: UI crash on load ("Cannot access 'ut' before initialization")
