@@ -6,7 +6,7 @@
 
 ## Project: ESPHome Touch Designer
 
-**Current version:** v0.70.141 (see `custom_components/esphome_touch_designer/manifest.json`, `frontend/package.json`, `README.md`).
+**Current version:** v0.70.142 (see `custom_components/esphome_touch_designer/manifest.json`, `frontend/package.json`, `README.md`).
 
 **Repo:** ESPHome Touch Designer – Home Assistant integration for designing LVGL UIs for ESPHome devices. Frontend is React + Konva; backend is Python (Home Assistant custom component). Compiles a JSON project into ESPHome YAML.
 
@@ -39,8 +39,8 @@
 
 You can paste this file or say something like:
 
-> "I'm working on ESPHome Touch Designer (v0.70.141). See docs/CONTINUATION_NOTE.md for context. [Then describe your new task.]"
+> "I'm working on ESPHome Touch Designer (v0.70.142). See docs/CONTINUATION_NOTE.md for context. [Then describe your new task.]"
 
 ---
 
-*Last updated: after v0.70.141 release.*
+*Last updated: after v0.70.142 release.*
