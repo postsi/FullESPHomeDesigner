@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.148
+
+- **Release**: Frontend rebuilt as part of release; no code changes. Ensures dist in the release matches current source.
+
 ## v0.70.147
 
 - **Fix**: Serve panel HTML with `Cache-Control: no-store` so the browser does not use a cached index.html from a previous version. If you still see a crash loading `index-tcQvV6_i.js` or similar, you are on cached content: update to this version, restart Home Assistant, then hard-refresh the panel (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows/Linux) or clear the site data for your HA URL.

@@ -17,11 +17,11 @@ When you have made any changes to this project, complete the full release workfl
 
 2. **Add a release note** for the new version in `docs/RELEASE_NOTES.md`.
 
-3. **Rebuild the frontend** if you changed anything in `frontend/` or the backend that affects the UI:
+3. **Always rebuild the frontend** (so every release has a fresh dist; no stale assets):
    ```bash
    cd frontend && npm run build
    ```
-   The build outputs to `custom_components/.../web/dist/` — stage those changes too.
+   The build outputs to `custom_components/esphome_touch_designer/web/dist/` — stage those changes with `git add -A` in step 4.
 
 4. **Commit and push**:
    ```bash
