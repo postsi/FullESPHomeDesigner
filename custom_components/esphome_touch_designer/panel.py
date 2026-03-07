@@ -40,7 +40,11 @@ class PanelIndexView(HomeAssistantView):
             )
             return web.Response(text=fallback, content_type="text/html")
         html = await hass.async_add_executor_job(index_path.read_text, "utf-8")
-        return web.Response(text=html, content_type="text/html")
+        return web.Response(
+            text=html,
+            content_type="text/html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
 
 
 async def async_register_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:

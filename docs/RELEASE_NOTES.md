@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.147
+
+- **Fix**: Serve panel HTML with `Cache-Control: no-store` so the browser does not use a cached index.html from a previous version. If you still see a crash loading `index-tcQvV6_i.js` or similar, you are on cached content: update to this version, restart Home Assistant, then hard-refresh the panel (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows/Linux) or clear the site data for your HA URL.
+
 ## v0.70.146
 
 - **Fix crash (Safari)**: Restore frontend to match v0.70.140 (last known working). No lazy-loaded Canvas or Components panel; single-bundle build with inline Components modal (user_components). Backend section-based compile and `section_overrides` unchanged; section-based Components UI deferred until we can add it without TDZ.
