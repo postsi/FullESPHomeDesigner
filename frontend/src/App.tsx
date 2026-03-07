@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Canvas from "./Canvas";
+const Canvas = lazy(() => import("./Canvas"));
 import {listRecipes, compileYaml, validateYaml, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
@@ -36,8 +36,7 @@ import {
   type WidgetSchemaIndexItem,
 } from "./api";
 import LvglSettingsModal, { type LvglConfig } from "./LvglSettingsModal";
-
-const SectionBasedComponentsPanel = lazy(() => import("./SectionBasedComponentsPanel"));
+import ComponentsPanelLoader from "./ComponentsPanelLoader";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -2773,16 +2772,14 @@ function deleteSelected() {
         </div>
       )}
 
-      {/* Components Panel: section-based YAML editor; lazy-loaded so section API is not in main bundle */}
+      {/* Components Panel: loaded via import() when modal opens so main bundle never references panel (avoids TDZ) */}
       {componentsOpen && project && (
-        <Suspense fallback={<div className="modalOverlay"><div className="modal" style={{ padding: 24 }}>Loading Components…</div></div>}>
-          <SectionBasedComponentsPanel
-            project={project}
-            setProject={setProject}
-            setProjectDirty={setProjectDirty}
-            onClose={() => setComponentsOpen(false)}
-          />
-        </Suspense>
+        <ComponentsPanelLoader
+          project={project}
+          setProject={setProject}
+          setProjectDirty={setProjectDirty}
+          onClose={() => setComponentsOpen(false)}
+        />
       )}
 
       {newDeviceWizardOpen && (
@@ -2953,6 +2950,7 @@ function deleteSelected() {
             <div style={{ padding: 12, overflow: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
               <p className="muted" style={{ marginBottom: 8, fontSize: 12 }}>Click and drag widgets to try controls. Buttons and actions show a toast.</p>
               <div style={{ outline: "2px solid rgba(16, 185, 129, 0.4)", borderRadius: 12 }}>
+                <Suspense fallback={<div style={{ width: screenSize.width, height: screenSize.height, background: "rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>}>
                 <Canvas
                   widgets={widgets}
                   selectedIds={[]}
@@ -3015,6 +3013,7 @@ function deleteSelected() {
                   onDropCreate={() => {}}
                   onChangeMany={() => {}}
                 />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -3264,6 +3263,7 @@ function deleteSelected() {
                     })()}
                   </div>
                   <div style={{ minWidth: 0, outline: "2px solid rgba(16, 185, 129, 0.4)", borderRadius: 12 }}>
+                    <Suspense fallback={<div style={{ width: screenSize.width, height: screenSize.height, background: "rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading…</div>}>
                     <Canvas
                   widgets={widgets}
                   selectedIds={selectedWidgetIds}
@@ -3368,6 +3368,7 @@ function deleteSelected() {
                     setProjectDirty(true);
                   }}
                 />
+                    </Suspense>
                   </div>
                   <div />
                   <div className="canvasAxisX" style={{ display: "flex", justifyContent: "space-between", alignSelf: "start", width: screenSize.width, fontSize: 11, color: "var(--muted)", direction: "ltr" }}>

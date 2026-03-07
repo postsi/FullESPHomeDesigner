@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.145
+
+- **Fix TDZ crash (Safari)**: Lazy-load Canvas and the Components panel so the main bundle no longer includes react-konva or section API code. Reduces main bundle size and avoids "Cannot access 'pt' before initialization" from minified init order. Components panel now loads via import() when the modal opens; Canvas loads in a separate chunk with a brief "Loading…" fallback.
+
 ## v0.70.144
 
 - **Components panel**: Re-enable section-based UI (categories → sections → YAML edit, saved as `section_overrides`). Panel is lazy-loaded so section API code is not in the main bundle, avoiding the load crash ("Cannot access 'ut' before initialization"). Open Components to edit ESPHome top-level sections; compile merges overrides with recipe + compiler.
