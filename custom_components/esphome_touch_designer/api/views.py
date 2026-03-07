@@ -983,35 +983,34 @@ def _compile_ui_lock_globals(project: dict) -> str:
     return "".join(out)
 
 
-def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: str) -> str:
-    """Section-based compile: parse recipe into sections, merge with compiler + section_overrides, emit in canonical order."""
-    project = device.project or {}
+def _build_section_engine_pieces(
+    project: dict,
+    device: object | None,
+    recipe_text: str,
+) -> tuple[dict[str, str], set[str]]:
+    """Engine: produce the final content for each section (recipe + compiler + overrides).
+    Returns (section_key -> content, set of keys that are user-overridden).
+    The compiler then just emits these pieces in SECTION_ORDER."""
     overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
+    user_edited: set[str] = set(overrides.keys())
     recipe_sections = _parse_recipe_into_sections(recipe_text)
     compiler_sections = _build_compiler_sections(project, device)
 
-    # manage_run_and_sleep stub if recipe references it but script doesn't define it
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
         compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
 
-    def has_section(sections: dict, key: str) -> bool:
-        c = (sections.get(key) or "").strip()
-        return bool(c)
-
-    final: dict[str, str] = {}
+    pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
         content = overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
         if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
-            content = content.replace("#__LVGL_PAGES__", compiler_sections["lvgl"].rstrip())
+            content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
-            # Ensure name placeholder so final replace works
             if re.search(r"^\s*name\s*:", content, re.MULTILINE):
                 content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
             else:
                 content = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER + "\n" + content.lstrip()
         if not (content and str(content).strip()):
-            # Defaults for wifi/ota/logger when missing
             if key == "wifi":
                 content = _strip_section_key(_default_wifi_yaml(), "wifi")
             elif key == "ota":
@@ -1019,7 +1018,16 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
             elif key == "logger":
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
-            final[key] = (content or "").strip()
+            pieces[key] = (content or "").strip()
+            if key not in overrides:
+                user_edited.discard(key)
+    return pieces, user_edited
+
+
+def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: str) -> str:
+    """Compiler: take engine pieces and emit YAML in canonical order."""
+    project = device.project or {}
+    pieces, _ = _build_section_engine_pieces(project, device, recipe_text)
 
     header = (
         "---\n"
@@ -1030,10 +1038,9 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     )
     out_parts = [header]
     for key in SECTION_ORDER:
-        if key not in final:
+        if key not in pieces:
             continue
-        content = final[key]
-        # Content should be the body under the key (indent 2 spaces for first level)
+        content = pieces[key]
         if content and not content.startswith("  ") and "\n" in content:
             content = "\n".join("  " + ln if ln.strip() else ln for ln in content.splitlines())
         elif content and not content.startswith("  "):
@@ -3009,16 +3016,17 @@ class SectionsDefaultsView(HomeAssistantView):
         hass = request.app.get("hass") if request.app else None
         recipe_path = (_find_recipe_path_by_id(hass, recipe_id) if hass else None) or (RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml")
         recipe_text = recipe_path.read_text("utf-8") if recipe_path and recipe_path.exists() else ""
-        recipe_sections = _parse_recipe_into_sections(recipe_text)
-        compiler_sections = _build_compiler_sections(project, device=None)
-        out: dict[str, str] = {}
-        for key in SECTION_ORDER:
-            content = compiler_sections.get(key) or recipe_sections.get(key)
-            if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
-                content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
-            if content and str(content).strip():
-                out[key] = content.strip()
-        return self.json({"ok": True, "sections": out, "categories": dict(SECTION_CATEGORIES)})
+        pieces, user_edited = _build_section_engine_pieces(project, device=None, recipe_text=recipe_text)
+        project_no_override = dict(project)
+        project_no_override["section_overrides"] = {}
+        default_pieces, _ = _build_section_engine_pieces(project_no_override, device=None, recipe_text=recipe_text)
+        return self.json({
+            "ok": True,
+            "sections": pieces,
+            "default_sections": default_pieces,
+            "categories": dict(SECTION_CATEGORIES),
+            "overridden_keys": list(user_edited),
+        })
 
 
 class CompileView(HomeAssistantView):

@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.154
+
+- **Engine + compiler**: Refactored so the engine produces section pieces (recipe + compiler + overrides) and the compiler only assembles them in order. Sections/defaults API now uses the same engine and returns `default_sections` and `overridden_keys` for the UI.
+- **Components panel**: Empty sections show an "Empty" badge and helper text. Auto vs Edited colour coding: neutral/grey for auto-generated (recipe/compiler), blue tint and "Edited" badge for user overrides. Same legend in the panel header.
+- **Widget YAML tab**: Same Auto/Edited legend; generated YAML block labeled "Auto"; Custom Events block and any action bindings with custom YAML shown in a "User-defined" (Edited) tinted block.
+
 ## v0.70.153
 
 - **Fix**: Components panel now shows the same recipe sections as Compile. Recipe for section defaults is resolved from `project.device.hardware_recipe_id` (and `project.hardware.recipe_id`) so the correct hardware recipe is used when opening Components; previously the default recipe was often used and most sections appeared empty.

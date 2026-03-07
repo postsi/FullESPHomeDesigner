@@ -2,7 +2,12 @@
 export async function getSectionsDefaults(
   project: any,
   recipeId?: string
-): Promise<{ sections: Record<string, string>; categories: Record<string, string[]> }> {
+): Promise<{
+  sections: Record<string, string>;
+  categories: Record<string, string[]>;
+  overridden_keys: string[];
+  default_sections: Record<string, string>;
+}> {
   const r = await fetch("/api/esphome_touch_designer/sections/defaults", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -15,5 +20,7 @@ export async function getSectionsDefaults(
   for (const [k, v] of Object.entries(cat)) {
     categories[k] = Array.isArray(v) ? v : [];
   }
-  return { sections: data.sections ?? {}, categories };
+  const overridden_keys = Array.isArray(data.overridden_keys) ? data.overridden_keys : [];
+  const default_sections = (data.default_sections && typeof data.default_sections === "object") ? data.default_sections : {};
+  return { sections: data.sections ?? {}, categories, overridden_keys, default_sections };
 }

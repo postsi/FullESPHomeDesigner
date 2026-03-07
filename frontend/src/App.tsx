@@ -3984,8 +3984,11 @@ function deleteSelected() {
                   return (
                     <>
                       <div style={{ marginTop: 10 }}>
-                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Generated YAML (read-only)</div>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Full preview from compiler: props, style, and action bindings (e.g. on_release → climate.set_temperature).</div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}><span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from schema/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your custom events and action overrides.</div>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                          Generated YAML (read-only)
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" }}>Auto</span>
+                        </div>
                         {widgetYamlPreviewLoading && (
                           <div className="muted" style={{ padding: 10, fontSize: 12 }}>Loading…</div>
                         )}
@@ -4026,6 +4029,26 @@ function deleteSelected() {
                             }}>
                               {widgetYamlPreview || "(empty)"}
                             </pre>
+                            {(() => {
+                              const actionBindings = (project as any)?.action_bindings || [];
+                              const withOverride = actionBindings.filter((ab: any) => String(ab?.widget_id) === widgetId && ab?.yaml_override);
+                              const hasCustomEvents = eventOptions.some((ev) => customEvents[ev]?.trim());
+                              if (!hasCustomEvents && withOverride.length === 0) return null;
+                              return (
+                                <div style={{ marginTop: 12, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.08)", border: "1px solid rgba(100,160,255,0.25)" }}>
+                                  <div style={{ fontSize: 11, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontWeight: 600 }}>User-defined</span>
+                                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }}>Edited</span>
+                                  </div>
+                                  {hasCustomEvents && (
+                                    <div style={{ fontSize: 11, marginBottom: 6 }}>Custom events (below) are included in the preview above.</div>
+                                  )}
+                                  {withOverride.length > 0 && (
+                                    <div style={{ fontSize: 11 }}>Action binding(s) with custom YAML: {withOverride.map((ab: any) => ab.event).join(", ")}.</div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                             <button
                               type="button"
                               className="secondary"
@@ -4045,14 +4068,17 @@ function deleteSelected() {
                           </>
                         )}
                       </div>
-                      <div style={{ marginTop: 16 }}>
-                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Custom Events</div>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Add native ESPHome/LVGL actions (e.g., page navigation, logger).</div>
+                      <div style={{ marginTop: 16, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.06)", border: "1px solid rgba(100,160,255,0.2)" }}>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                          Custom Events
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }}>Edited</span>
+                        </div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Add native ESPHome/LVGL actions (e.g., page navigation, logger). These appear in the generated YAML above.</div>
                         {eventOptions.map((ev) => {
                           const hasValue = !!(customEvents[ev] && customEvents[ev].trim());
                           return (
                             <details key={ev} style={{ marginBottom: 6 }} open={hasValue}>
-                              <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "#4ade80" : "#888" }}>
+                              <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "rgba(200,220,255,0.95)" : "#888" }}>
                                 {ev} {hasValue && "✓"}
                               </summary>
                               <textarea

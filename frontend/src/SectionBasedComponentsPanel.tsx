@@ -26,6 +26,7 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
+  const [overriddenKeys, setOverriddenKeys] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,23 +37,12 @@ export default function SectionBasedComponentsPanel({
     setLoading(true);
     setError(null);
     getSectionsDefaults(project, recipeId)
-      .then(({ sections: def, categories: cat }) => {
+      .then(({ sections: effective, categories: cat, overridden_keys: ovKeys, default_sections: defSections }) => {
         if (cancelled) return;
-        setDefaults(def);
+        setDefaults(defSections);
         setCategories(cat);
-        const overrides = (project?.section_overrides && typeof project.section_overrides === "object")
-          ? project.section_overrides
-          : {};
-        const merged: Record<string, string> = {};
-        for (const k of Object.keys(def)) {
-          merged[k] = overrides[k] !== undefined && overrides[k] !== null
-            ? String(overrides[k]).trim()
-            : (def[k] || "").trim();
-        }
-        for (const k of Object.keys(overrides)) {
-          if (merged[k] === undefined) merged[k] = String(overrides[k]).trim();
-        }
-        setSections(merged);
+        setOverriddenKeys(new Set(ovKeys));
+        setSections(effective);
       })
       .catch((e) => {
         if (!cancelled) setError(e?.message ?? "Failed to load section defaults");
@@ -121,7 +111,7 @@ export default function SectionBasedComponentsPanel({
           </button>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          Edit top-level ESPHome sections. Effective content = recipe + compiler defaults, overridden by your edits. Saved as section overrides and applied at compile time.
+          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from recipe/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your overrides. Saved as section overrides at compile time.
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
           {loading && (
@@ -156,15 +146,18 @@ export default function SectionBasedComponentsPanel({
                       {keys.map((sectionKey) => {
                         const content = (sections[sectionKey] ?? "").trim();
                         const defaultContent = (defaults[sectionKey] ?? "").trim();
-                        const isOverride = content !== defaultContent;
+                        const isUserEdited = overriddenKeys.has(sectionKey) || content !== defaultContent;
+                        const isEmpty = content.length === 0;
+                        const bgSection = isUserEdited ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
+                        const borderSection = isUserEdited ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
                         return (
                           <details
                             key={sectionKey}
                             style={{
                               marginBottom: 8,
-                              background: "rgba(255,255,255,0.03)",
+                              background: bgSection,
                               borderRadius: 6,
-                              border: "1px solid rgba(255,255,255,0.08)",
+                              border: borderSection,
                             }}
                           >
                             <summary
@@ -178,11 +171,27 @@ export default function SectionBasedComponentsPanel({
                               }}
                             >
                               <code style={{ fontWeight: 600 }}>{sectionKey}</code>
-                              {isOverride && (
-                                <span className="muted" style={{ fontSize: 10 }}>(edited)</span>
+                              {isEmpty && (
+                                <span className="muted" style={{ fontSize: 10 }}>Empty</span>
+                              )}
+                              {!isEmpty && (
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                    background: isUserEdited ? "rgba(100,160,255,0.25)" : "rgba(255,255,255,0.12)",
+                                    color: isUserEdited ? "rgba(200,220,255,0.95)" : "rgba(255,255,255,0.65)",
+                                  }}
+                                >
+                                  {isUserEdited ? "Edited" : "Auto"}
+                                </span>
                               )}
                             </summary>
                             <div style={{ padding: "0 10px 10px" }}>
+                              {isEmpty && (
+                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No content (recipe/compiler did not emit this section). Add YAML below to override.</div>
+                              )}
                               <textarea
                                 value={sections[sectionKey] ?? ""}
                                 onChange={(e) => setSectionContent(sectionKey, e.target.value)}
@@ -194,13 +203,13 @@ export default function SectionBasedComponentsPanel({
                                   fontSize: 11,
                                   padding: 8,
                                   borderRadius: 4,
-                                  border: "1px solid rgba(255,255,255,0.15)",
-                                  background: "rgba(0,0,0,0.2)",
+                                  border: isUserEdited ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.15)",
+                                  background: isUserEdited ? "rgba(100,160,255,0.05)" : "rgba(0,0,0,0.2)",
                                   color: "#e2e8f0",
                                   resize: "vertical",
                                 }}
                               />
-                              {isOverride && (
+                              {isUserEdited && (
                                 <button
                                   type="button"
                                   className="secondary"
