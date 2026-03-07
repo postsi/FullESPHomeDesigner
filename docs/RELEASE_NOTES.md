@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.160
+
+- **Placeholder substitution**: `__ETD_DEVICE_NAME__` in recipe/section content is now replaced with the actual device slug when building component YAML for a device. GET device project, section defaults API (with `device_id`/`entry_id`), and compile all show or emit the real device name. Components panel receives `deviceId` and `entryId` so section content is substituted when a device is selected.
+
 ## v0.70.159
 
 - **Components panel**: "Edited" badge now only when the section is in `overridden_keys` (stored content differs from default), not when local content merely differs. Fixes incorrect "Edited" on load.

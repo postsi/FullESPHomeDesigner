@@ -17,6 +17,9 @@ export type SectionBasedComponentsPanelProps = {
   onClose: () => void;
   /** When provided, called with the updated project after saving so the app can persist to the server. Returns a Promise that resolves when done (so panel can clear local dirty). */
   onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
+  /** When provided with entryId, backend substitutes __ETD_DEVICE_NAME__ with the device slug in section content. */
+  deviceId?: string | null;
+  entryId?: string | null;
 };
 
 export default function SectionBasedComponentsPanel({
@@ -25,6 +28,8 @@ export default function SectionBasedComponentsPanel({
   setProjectDirty,
   onClose,
   onSaveAndPersist,
+  deviceId,
+  entryId,
 }: SectionBasedComponentsPanelProps) {
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
@@ -42,7 +47,7 @@ export default function SectionBasedComponentsPanel({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getSectionsDefaults(project, recipeId)
+    getSectionsDefaults(project, recipeId, deviceId ?? undefined, entryId ?? undefined)
       .then(({ sections: effective, categories: cat, default_sections: defSections, overridden_keys: ovKeys }) => {
         if (cancelled) return;
         setDefaults(defSections);
@@ -58,7 +63,7 @@ export default function SectionBasedComponentsPanel({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [project, recipeId]);
+  }, [project, recipeId, deviceId, entryId]);
 
   const setSectionContent = useCallback((key: string, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));

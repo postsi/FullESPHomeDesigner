@@ -10,6 +10,8 @@ type Props = {
   setProjectDirty: (dirty: boolean) => void;
   onClose: () => void;
   onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
+  deviceId?: string | null;
+  entryId?: string | null;
 };
 
 export default function ComponentsPanelLoader(props: Props) {

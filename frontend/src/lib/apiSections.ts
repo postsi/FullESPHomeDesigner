@@ -1,17 +1,26 @@
-/** Sections defaults for Components panel — loaded on demand to avoid bundle init order issues. */
+/** Sections defaults for Components panel — loaded on demand to avoid bundle init order issues.
+ * When deviceId and entryId are provided, backend substitutes __ETD_DEVICE_NAME__ with the device slug. */
 export async function getSectionsDefaults(
   project: any,
-  recipeId?: string
+  recipeId?: string,
+  deviceId?: string | null,
+  entryId?: string | null
 ): Promise<{
   sections: Record<string, string>;
   categories: Record<string, string[]>;
   overridden_keys: string[];
   default_sections: Record<string, string>;
 }> {
+  const body: Record<string, unknown> = {
+    project,
+    recipe_id: recipeId ?? (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "") ?? "",
+  };
+  if (deviceId) body.device_id = deviceId;
+  if (entryId) body.entry_id = entryId;
   const r = await fetch("/api/esphome_touch_designer/sections/defaults", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, recipe_id: recipeId ?? (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "") }),
+    body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data?.ok === false) throw new Error(data?.error ?? `sections/defaults failed: ${r.status}`);

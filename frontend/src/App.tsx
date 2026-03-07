@@ -2785,6 +2785,8 @@ function deleteSelected() {
           setProject={setProject}
           setProjectDirty={setProjectDirty}
           onClose={() => setComponentsOpen(false)}
+          deviceId={selectedDevice || null}
+          entryId={entryId || null}
           onSaveAndPersist={
             entryId && selectedDevice
               ? async (updatedProject) => {

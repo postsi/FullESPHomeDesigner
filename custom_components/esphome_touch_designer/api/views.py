@@ -17,6 +17,17 @@ RECIPES_BUILTIN_DIR = Path(__file__).resolve().parent.parent / "recipes" / "buil
 # Placeholder in hardware recipes for the device name; compiler replaces with device slug (YAML-quoted).
 ETD_DEVICE_NAME_PLACEHOLDER = "__ETD_DEVICE_NAME__"
 
+
+def _substitute_device_name_in_sections(sections_dict: dict, device_slug: str) -> None:
+    """Replace __ETD_DEVICE_NAME__ with the device slug (YAML-quoted) in section content. Mutates in place."""
+    if not sections_dict or not device_slug:
+        return
+    repl = json.dumps(device_slug)
+    for key, content in list(sections_dict.items()):
+        if content and ETD_DEVICE_NAME_PLACEHOLDER in content:
+            sections_dict[key] = content.replace(ETD_DEVICE_NAME_PLACEHOLDER, repl)
+
+
 # Section-based compile: canonical order and categories (same package as views.py's parent).
 try:
     from ..esphome_sections import SECTION_ORDER, SECTION_CATEGORIES
@@ -1013,6 +1024,8 @@ def _build_default_section_pieces(
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
             pieces[key] = (content or "").strip()
+    if device is not None and getattr(device, "slug", None):
+        _substitute_device_name_in_sections(pieces, device.slug)
     return pieces
 
 
@@ -1050,6 +1063,8 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
             pieces[key] = (content or "").strip()
     project["sections"] = pieces
+    if device is not None and getattr(device, "slug", None):
+        _substitute_device_name_in_sections(project["sections"], device.slug)
 
 
 def _build_section_engine_pieces(
@@ -3131,12 +3146,22 @@ class SectionsDefaultsView(HomeAssistantView):
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "project required"}, status_code=400)
         hass = request.app.get("hass") if request.app else None
+        device = None
+        device_id = (body.get("device_id") or "").strip() if isinstance(body.get("device_id"), str) else ""
+        if device_id and hass:
+            entry_id = request.query.get("entry_id") or body.get("entry_id") or _active_entry_id(hass)
+            if entry_id:
+                storage = _get_storage(hass, entry_id)
+                device = storage.get_device(device_id)
         recipe_path = (_find_recipe_path_by_id(hass, recipe_id) if hass else None) or (RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml")
         recipe_text = recipe_path.read_text("utf-8") if recipe_path and recipe_path.exists() else ""
         project = dict(project)
-        _ensure_project_sections(project, device=None, recipe_text=recipe_text)
-        sections = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
-        default_sections = _build_default_section_pieces(project, device=None, recipe_text=recipe_text)
+        _ensure_project_sections(project, device=device, recipe_text=recipe_text)
+        sections = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
+        default_sections = _build_default_section_pieces(project, device=device, recipe_text=recipe_text)
+        if device is not None and getattr(device, "slug", None):
+            _substitute_device_name_in_sections(sections, device.slug)
+            _substitute_device_name_in_sections(default_sections, device.slug)
         overridden_keys = [k for k in sections if (sections.get(k) or "").strip() != (default_sections.get(k) or "").strip()]
         return self.json({
             "ok": True,
