@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.149
+
+- **Fix Safari crash**: Disable JS minification in the frontend build. The minified bundle triggered \"Cannot access 'X' before initialization\" (TDZ) in Safari; unminified bundle runs correctly. Bundle size increases (~1.25 MB vs ~700 KB); gzip is still ~250 KB.
+
 ## v0.70.148
 
 - **Release**: Frontend rebuilt as part of release; no code changes. Ensures dist in the release matches current source.

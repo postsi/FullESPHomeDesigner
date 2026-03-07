@@ -9,5 +9,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "../custom_components/esphome_touch_designer/web/dist"),
     emptyOutDir: true,
     sourcemap: true,
+    // Disable minification to avoid Safari TDZ ("Cannot access 'X' before initialization") in production bundle.
+    minify: false,
   },
 });
