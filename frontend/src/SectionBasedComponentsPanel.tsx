@@ -26,8 +26,6 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,16 +70,6 @@ export default function SectionBasedComponentsPanel({
   const resetSection = useCallback((key: string) => {
     setSections((prev) => ({ ...prev, [key]: (defaults[key] || "").trim() }));
   }, [defaults]);
-
-  const toggleSectionExpanded = useCallback((key: string) => {
-    setExpandedSections((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
-  }, []);
-
-  const toggleCategoryExpanded = useCallback((cat: string) => {
-    setExpandedCategory((prev) => (prev === cat ? null : cat));
-  }, []);
 
   const save = useCallback(() => {
     const overrides: Record<string, string> = {};
@@ -151,14 +139,8 @@ export default function SectionBasedComponentsPanel({
               {categoryOrder.map((catLabel) => {
                 const keys = categories[catLabel] || [];
                 const withContent = keys.filter((k) => (sections[k] ?? "").trim().length > 0);
-                const open = expandedCategory === catLabel;
                 return (
-                  <details
-                    key={catLabel}
-                    style={{ marginBottom: 12 }}
-                    open={open}
-                    onToggle={() => toggleCategoryExpanded(catLabel)}
-                  >
+                  <details key={catLabel} style={{ marginBottom: 12 }}>
                     <summary
                       style={{
                         cursor: "pointer",
@@ -175,7 +157,6 @@ export default function SectionBasedComponentsPanel({
                         const content = (sections[sectionKey] ?? "").trim();
                         const defaultContent = (defaults[sectionKey] ?? "").trim();
                         const isOverride = content !== defaultContent;
-                        const isExpanded = expandedSections.includes(sectionKey);
                         return (
                           <details
                             key={sectionKey}
@@ -185,8 +166,6 @@ export default function SectionBasedComponentsPanel({
                               borderRadius: 6,
                               border: "1px solid rgba(255,255,255,0.08)",
                             }}
-                            open={isExpanded}
-                            onToggle={() => toggleSectionExpanded(sectionKey)}
                           >
                             <summary
                               style={{

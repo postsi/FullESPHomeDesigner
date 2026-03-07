@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.152
+
+- **Fix**: Components panel section expand no longer flickers. Category and section `<details>` are now uncontrolled (no React open/onToggle state) so the browser handles open/close natively and a toggle loop is avoided.
+
 ## v0.70.151
 
 - **Components panel**: Re-enable section-based UI. Click Components to open categories (Device & platform, Network, Display & touch, etc.) → expand a section to edit its YAML; changes save to `section_overrides` and are applied at compile time. Panel loads on demand (separate chunk) so the main bundle stays small.
