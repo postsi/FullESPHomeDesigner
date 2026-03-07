@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.146
+
+- **Fix crash (Safari)**: Restore frontend to match v0.70.140 (last known working). No lazy-loaded Canvas or Components panel; single-bundle build with inline Components modal (user_components). Backend section-based compile and `section_overrides` unchanged; section-based Components UI deferred until we can add it without TDZ.
+
 ## v0.70.145
 
 - **Fix TDZ crash (Safari)**: Lazy-load Canvas and the Components panel so the main bundle no longer includes react-konva or section API code. Reduces main bundle size and avoids "Cannot access 'pt' before initialization" from minified init order. Components panel now loads via import() when the modal opens; Canvas loads in a separate chunk with a brief "Loading…" fallback.
