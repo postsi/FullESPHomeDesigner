@@ -2999,7 +2999,11 @@ class SectionsDefaultsView(HomeAssistantView):
         if not isinstance(body, dict):
             return self.json({"ok": False, "error": "body must be JSON object"}, status_code=400)
         project = body.get("project")
-        recipe_id = (body.get("recipe_id") or "").strip() or (isinstance(project, dict) and (project.get("hardware") or {}).get("recipe_id")) or "sunton_2432s028r_320x240"
+        # Same recipe_id resolution as compile: body, project.hardware.recipe_id, project.device.hardware_recipe_id
+        _rid = (body.get("recipe_id") or "").strip() if isinstance(body.get("recipe_id"), str) else ""
+        if not _rid and isinstance(project, dict):
+            _rid = (project.get("hardware") or {}).get("recipe_id") or (project.get("device") or {}).get("hardware_recipe_id") or ""
+        recipe_id = (_rid or "sunton_2432s028r_320x240").strip() or "sunton_2432s028r_320x240"
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "project required"}, status_code=400)
         hass = request.app.get("hass") if request.app else None

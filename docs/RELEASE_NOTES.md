@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.153
+
+- **Fix**: Components panel now shows the same recipe sections as Compile. Recipe for section defaults is resolved from `project.device.hardware_recipe_id` (and `project.hardware.recipe_id`) so the correct hardware recipe is used when opening Components; previously the default recipe was often used and most sections appeared empty.
+
 ## v0.70.152
 
 - **Fix**: Components panel section expand no longer flickers. Category and section `<details>` are now uncontrolled (no React open/onToggle state) so the browser handles open/close natively and a toggle loop is avoided.

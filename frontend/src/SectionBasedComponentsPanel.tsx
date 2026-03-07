@@ -29,7 +29,7 @@ export default function SectionBasedComponentsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const recipeId = (project?.hardware?.recipe_id ?? "").trim() || "sunton_2432s028r_320x240";
+  const recipeId = (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "").trim() || "sunton_2432s028r_320x240";
 
   useEffect(() => {
     let cancelled = false;

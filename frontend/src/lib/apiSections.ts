@@ -6,7 +6,7 @@ export async function getSectionsDefaults(
   const r = await fetch("/api/esphome_touch_designer/sections/defaults", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, recipe_id: recipeId ?? (project?.hardware?.recipe_id ?? "") }),
+    body: JSON.stringify({ project, recipe_id: recipeId ?? (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "") }),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data?.ok === false) throw new Error(data?.error ?? `sections/defaults failed: ${r.status}`);
