@@ -32,6 +32,16 @@ text_sensor:
       name: "IP Address"
 `;
 
+const ESPHOME_HOST_NAME = `
+text_sensor:
+  - platform: template
+    name: "Host Name"
+    id: etd_host_name
+    update_interval: 60s
+    lambda: |-
+      return { App.get_name() };
+`;
+
 const ESPHOME_API_STATUS = `
 binary_sensor:
   - platform: status
@@ -189,6 +199,28 @@ interval:
           { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted } },
         ],
         esphome_components: [ESPHOME_WIFI_IP, intervalYaml],
+      };
+    },
+  },
+  {
+    id: "prebuilt_host_name",
+    title: "Host name",
+    description: "Displays device host name (esphome: name). Auto-updates from ESPHome App.get_name().",
+    build: ({ x, y }) => {
+      const lblId = uid("hostname");
+      const intervalYaml = `
+interval:
+  - interval: 30s
+    then:
+      - lvgl.label.update:
+          id: ${lblId}
+          text: !lambda 'return id(etd_host_name).state;'
+`;
+      return {
+        widgets: [
+          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted } },
+        ],
+        esphome_components: [ESPHOME_HOST_NAME, intervalYaml],
       };
     },
   },

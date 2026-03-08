@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.167
+
+- **Prebuilt widget**: New "Host name" widget in the Widgets panel (next to IP address). Displays device host name via `App.get_name()`. Drops a label and adds template text_sensor + interval to the compiled YAML.
+
 ## v0.70.166
 
 - **YAML parse (!lambda/!secret) fix**: Use dedicated `_ESPHomeSafeLoader` class with constructors for `!secret` and `!lambda` instead of modifying SafeLoader. Fixes "could not determine a constructor for the tag '!lambda'" when saving action YAML with comments and ESPHome tags.
