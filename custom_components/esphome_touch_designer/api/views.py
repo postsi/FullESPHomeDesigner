@@ -3332,7 +3332,10 @@ class ParseYamlView(HomeAssistantView):
             return self.json({"ok": True})
         try:
             import yaml as _yaml
-            full = "root:\n" + "\n".join("  " + ln for ln in content.splitlines())
+            # Section content from Components panel is the value of a top-level key (e.g. esphome:)
+            # — same as recipe: "esphome:\n  name: ...\n  project:\n    ...". Validate by
+            # reconstructing that: one top-level key + content (content already has correct indent).
+            full = "esphome:\n" + content
             _yaml.safe_load(full)
             return self.json({"ok": True})
         except _yaml.YAMLError as e:

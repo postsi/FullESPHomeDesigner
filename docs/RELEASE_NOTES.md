@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.161
+
+- **YAML parse (Components)**: Section content is now validated by reconstructing ESPHome-style YAML (`esphome:\n` + content) so it matches the recipe structure. Fixes "mapping values are not allowed here" when saving the esphome section (e.g. with `project:`, `on_boot:`).
+
 ## v0.70.160
 
 - **Placeholder substitution**: `__ETD_DEVICE_NAME__` in recipe/section content is now replaced with the actual device slug when building component YAML for a device. GET device project, section defaults API (with `device_id`/`entry_id`), and compile all show or emit the real device name. Components panel receives `deviceId` and `entryId` so section content is substituted when a device is selected.
