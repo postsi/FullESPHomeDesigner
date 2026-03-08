@@ -1516,6 +1516,19 @@ if (baseId.startsWith("glance_card")) {
       if (w.parent_id && idMap.has(w.parent_id)) w.parent_id = idMap.get(w.parent_id);
     }
 
+    // Copy and remap action_bindings for pasted widgets so the new widgets get the same bindings.
+    const abs = (p2 as any).action_bindings || [];
+    const toAdd: any[] = [];
+    for (const ab of abs) {
+      const wid = String(ab?.widget_id || "").trim();
+      if (clipIds.has(wid) && idMap.has(wid)) {
+        const cloned = clone(ab);
+        cloned.widget_id = idMap.get(wid);
+        toAdd.push(cloned);
+      }
+    }
+    (p2 as any).action_bindings = abs.concat(toAdd);
+
     list.push(...pasted);
     setProject(p2, true);
     setProjectDirty(true);
@@ -4218,8 +4231,16 @@ function deleteSelected() {
                                       }
                                       setProject(p2, true);
                                       setProjectDirty(true);
-                                      setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                                      setWidgetEventDrafts((prev) => { const next = { ...prev }; delete next[draftKey]; return next; });
                                       setWidgetEventError(null);
+                                      setWidgetYamlPreviewLoading(true);
+                                      previewWidgetYaml(p2, widgetId, safePageIndex)
+                                        .then(({ yaml: newYaml, event_snippets: newSnippets }) => {
+                                          setWidgetYamlPreview(newYaml);
+                                          setWidgetYamlEventSnippets(newSnippets ?? {});
+                                        })
+                                        .catch(() => {})
+                                        .finally(() => setWidgetYamlPreviewLoading(false));
                                     }}
                                   >
                                     Reset

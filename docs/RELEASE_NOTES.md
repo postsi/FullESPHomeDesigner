@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.165
+
+- **Widget YAML Reset**: Reset now deletes the draft and refetches the preview so the auto-generated YAML is restored when a binding exists.
+- **Paste widgets**: Paste now copies and remaps `action_bindings` for pasted widgets so the new widgets get the same bindings (and action YAML in the box).
+- **YAML parse (!lambda/!secret)**: Parse endpoint now accepts `!secret` and `!lambda` tags so saving action YAML with comments and ESPHome tags succeeds.
+
 ## v0.70.164
 
 - **Widget YAML Save fix**: After Save, explicitly refetch the widget preview so the main YAML block and event badge (Auto/Edited) update immediately. Ensure `action_bindings` is an array before updating. Fixes main widget YAML not changing and badge not updating from Auto to Edited after Save.

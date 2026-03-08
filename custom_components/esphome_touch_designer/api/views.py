@@ -3357,8 +3357,15 @@ class ParseYamlView(HomeAssistantView):
             return self.json({"ok": True})
         try:
             import yaml as _yaml
-            # Section content from Components panel is the full block (e.g. "esphome:\n  name: ...") — valid YAML as-is.
-            _yaml.safe_load(content)
+            loader = _yaml.SafeLoader
+            # ESPHome uses !secret / !lambda; allow them so parse succeeds.
+            def _tag_constructor(loader, node):
+                return getattr(node, "value", str(node))
+            if "!secret" in content:
+                _yaml.add_constructor("!secret", _tag_constructor, loader)
+            if "!lambda" in content:
+                _yaml.add_constructor("!lambda", _tag_constructor, loader)
+            _yaml.load(content, Loader=loader)
             return self.json({"ok": True})
         except _yaml.YAMLError as e:
             line_no = None
