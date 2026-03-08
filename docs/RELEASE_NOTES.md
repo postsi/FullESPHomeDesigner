@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.163
+
+- **Widget YAML (action events)**: One text box per event (like Components). Content is auto-generated when a binding exists (shown as Auto) or stored when edited (Edited). Empty when no binding. Reset = back to Auto; Save = validate and store. Compiler uses stored block when Edited, else generates at compile time.
+- **Binding Builder**: Action event YAML is edited only in the Widget YAML tab. "Edit YAML" opens that tab. "Change entity" dropdown on each action: when the binding has custom YAML, changing entity prompts "Keep current YAML" or "Reset to auto-generated" for the new entity.
+- **Tests**: New `scripts/test_action_yaml.py` for preview event_snippets (auto/edited/empty) and compile using stored override.
+
 ## v0.70.162
 
 - **Components / LVGL compile**: LVGL block is now stored with leading indent preserved (`rstrip()` instead of `strip()` in compiler sections) so emitted YAML is valid. Fixes `yaml.scanner.ScannerError: mapping values are not allowed here` at `buffer_size: 100%`.

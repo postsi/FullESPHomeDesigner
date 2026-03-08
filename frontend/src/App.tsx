@@ -274,7 +274,6 @@ export default function App() {
   const [actionEntity, setActionEntity] = useState<string>("");
   const [actionEntityDropdownOpen, setActionEntityDropdownOpen] = useState(false);
   const [editingLinkOverride, setEditingLinkOverride] = useState<{ widgetId: string; entityId: string; attribute: string; action: string } | null>(null);
-  const [editingActionOverride, setEditingActionOverride] = useState<{ widgetId: string; event: string } | null>(null);
   const [editingOverrideYaml, setEditingOverrideYaml] = useState<string>("");
   /** Fetched entity details for Binding Builder attribute list (so dropdown has full attributes e.g. temperature, current_temperature). */
   const [bindingEntityDetails, setBindingEntityDetails] = useState<{ entity_id: string; attributes?: Record<string, unknown> } | null>(null);
@@ -354,6 +353,8 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [widgetYamlPreviewError, setWidgetYamlPreviewError] = useState<string | null>(null);
   const [widgetEventDrafts, setWidgetEventDrafts] = useState<Record<string, string>>({});
   const [widgetEventError, setWidgetEventError] = useState<string | null>(null);
+  // When user changes bound entity on an action that has custom YAML: prompt Keep or Reset
+  const [actionEntityChangePending, setActionEntityChangePending] = useState<{ widgetId: string; event: string; newEntityId: string } | null>(null);
 
   // Live HA state for design-time preview (bound widgets show current HA values).
   const [liveEntityStates, setLiveEntityStates] = useState<Record<string, { state: string; attributes: Record<string, any> }>>({});
@@ -3749,8 +3750,8 @@ function deleteSelected() {
                                 <li key={idx}>
                                   {hasOverride && <span title="Custom YAML">✎ </span>}
                                   <code>{ent}{attr ? ` [${attr}]` : ""}</code>{action ? ` → ${action}` : ""}
-                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingLinkOverride({ widgetId, entityId: ent, attribute: attr, action }); setEditingActionOverride(null); setEditingOverrideYaml(tgt?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
-                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const links = (p2 as any).links || []; const idx = links.findIndex((l: any) => l?.target?.widget_id === widgetId && l?.source?.entity_id === ent && String(l?.source?.attribute || "") === attr && l?.target?.action === action); if (idx >= 0) { links.splice(idx, 1); (p2 as any).links = links; setProject(p2, true); setProjectDirty(true); setEditingLinkOverride(null); setEditingActionOverride(null); } }} title="Delete this binding">Delete</button>
+                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingLinkOverride({ widgetId, entityId: ent, attribute: attr, action }); setEditingOverrideYaml(tgt?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
+                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const links = (p2 as any).links || []; const idx = links.findIndex((l: any) => l?.target?.widget_id === widgetId && l?.source?.entity_id === ent && String(l?.source?.attribute || "") === attr && l?.target?.action === action); if (idx >= 0) { links.splice(idx, 1); (p2 as any).links = links; setProject(p2, true); setProjectDirty(true); setEditingLinkOverride(null); } }} title="Delete this binding">Delete</button>
                                 </li>
                               );
                             })}
@@ -3763,39 +3764,98 @@ function deleteSelected() {
                               const call = ab?.call || {};
                               const hasOverride = !!ab?.yaml_override;
                               const ev = String(ab?.event || "");
-                              const isEditing = editingActionOverride?.widgetId === widgetId && editingActionOverride?.event === ev;
+                              const currentEnt = String(call?.entity_id || "").trim();
+                              const pending = actionEntityChangePending?.widgetId === widgetId && actionEntityChangePending?.event === ev ? actionEntityChangePending : null;
                               return (
                                 <li key={`a-${idx}`}>
                                   {hasOverride && <span title="Custom YAML">✎ </span>}
-                                  <span className="muted">{ab?.event}</span> → <code>{call?.domain}.{call?.service}</code>
-                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => { setEditingActionOverride({ widgetId, event: ev }); setEditingLinkOverride(null); setEditingOverrideYaml(ab?.yaml_override || ""); }}>{isEditing ? "Cancel" : "Edit YAML"}</button>
-                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const abs = (p2 as any).action_bindings || []; const aIdx = abs.findIndex((a: any) => a?.widget_id === widgetId && a?.event === ev); if (aIdx >= 0) { abs.splice(aIdx, 1); (p2 as any).action_bindings = abs; setProject(p2, true); setProjectDirty(true); setEditingActionOverride(null); } }} title="Delete this binding">Delete</button>
+                                  <span className="muted">{ab?.event}</span> → <code>{call?.domain}.{call?.service}</code> ({currentEnt || "—"})
+                                  <button type="button" className="secondary" style={{ marginLeft: 6, fontSize: 10 }} onClick={() => setInspectorTab("yaml")} title="Edit event YAML in Widget YAML tab">Edit YAML</button>
+                                  <select
+                                    value={pending ? pending.newEntityId : currentEnt}
+                                    onChange={(e) => {
+                                      const newId = e.target.value;
+                                      if (newId === currentEnt) return;
+                                      if (hasOverride) {
+                                        setActionEntityChangePending({ widgetId, event: ev, newEntityId: newId });
+                                      } else {
+                                        if (!project) return;
+                                        const p2 = clone(project);
+                                        const abs = (p2 as any).action_bindings || [];
+                                        const ab = abs.find((a: any) => a?.widget_id === widgetId && a?.event === ev);
+                                        if (ab?.call) {
+                                          ab.call = { ...ab.call, entity_id: newId, data: { ...(ab.call.data || {}), entity_id: newId } };
+                                          setProject(p2, true);
+                                          setProjectDirty(true);
+                                        }
+                                      }
+                                    }}
+                                    style={{ marginLeft: 6, fontSize: 10, maxWidth: 140 }}
+                                  >
+                                    <option value={currentEnt}>{currentEnt || "(entity)"}</option>
+                                    {entities.filter((e) => e?.entity_id && e.entity_id !== currentEnt).slice(0, 100).map((e) => (
+                                      <option key={e.entity_id} value={e.entity_id}>{e.entity_id}</option>
+                                    ))}
+                                  </select>
+                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const abs = (p2 as any).action_bindings || []; const aIdx = abs.findIndex((a: any) => a?.widget_id === widgetId && a?.event === ev); if (aIdx >= 0) { abs.splice(aIdx, 1); (p2 as any).action_bindings = abs; setProject(p2, true); setProjectDirty(true); setActionEntityChangePending((p) => p?.widgetId === widgetId && p?.event === ev ? null : p); } }} title="Delete this binding">Delete</button>
                                 </li>
                               );
                             })}
                           </ul>
                         ))}
-                        {(editingLinkOverride?.widgetId === widgetId || editingActionOverride?.widgetId === widgetId) && (
+                        {actionEntityChangePending && (() => {
+                          const p = actionEntityChangePending;
+                          const abs = (project as any)?.action_bindings || [];
+                          const ab = abs.find((a: any) => String(a?.widget_id) === p.widgetId && a?.event === p.event);
+                          if (!ab) { setActionEntityChangePending(null); return null; }
+                          return (
+                            <div style={{ marginTop: 8, padding: 10, background: "rgba(255,200,100,0.1)", borderRadius: 6, border: "1px solid rgba(255,180,80,0.4)" }}>
+                              <div style={{ fontSize: 12, marginBottom: 6 }}>This binding has custom YAML. After changing entity to <code>{p.newEntityId}</code>:</div>
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button type="button" className="primary" style={{ fontSize: 11 }} onClick={() => {
+                                  if (!project) return;
+                                  const p2 = clone(project);
+                                  const abs2 = (p2 as any).action_bindings || [];
+                                  const ab2 = abs2.find((a: any) => a?.widget_id === p.widgetId && a?.event === p.event);
+                                  if (ab2?.call) {
+                                    ab2.call = { ...ab2.call, entity_id: p.newEntityId, data: { ...(ab2.call.data || {}), entity_id: p.newEntityId } };
+                                    setProject(p2, true);
+                                    setProjectDirty(true);
+                                  }
+                                  setActionEntityChangePending(null);
+                                }}>Keep current YAML</button>
+                                <button type="button" className="secondary" style={{ fontSize: 11 }} onClick={() => {
+                                  if (!project) return;
+                                  const p2 = clone(project);
+                                  const abs2 = (p2 as any).action_bindings || [];
+                                  const ab2 = abs2.find((a: any) => a?.widget_id === p.widgetId && a?.event === p.event);
+                                  if (ab2?.call) {
+                                    ab2.call = { ...ab2.call, entity_id: p.newEntityId, data: { ...(ab2.call.data || {}), entity_id: p.newEntityId } };
+                                    if (ab2.yaml_override !== undefined) delete ab2.yaml_override;
+                                    setProject(p2, true);
+                                    setProjectDirty(true);
+                                  }
+                                  setActionEntityChangePending(null);
+                                }}>Reset to auto-generated</button>
+                                <button type="button" className="ghost" style={{ fontSize: 11 }} onClick={() => setActionEntityChangePending(null)}>Cancel</button>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {editingLinkOverride?.widgetId === widgetId && (
                           <div style={{ marginTop: 8, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 4 }}>
-                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Custom YAML (used by compiler instead of generated). Leave empty to use generated.</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Custom YAML for this display binding (used by compiler instead of generated).</div>
                             <textarea value={editingOverrideYaml} onChange={(e) => setEditingOverrideYaml(e.target.value)} rows={4} style={{ width: "100%", fontFamily: "monospace", fontSize: 11, boxSizing: "border-box" }} placeholder="e.g. - lvgl.label.update:&#10;    id: my_id&#10;    text: !lambda return x;" />
                             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                               <button type="button" onClick={() => {
                                 if (!project) return;
                                 const p2 = clone(project);
-                                if (editingLinkOverride?.widgetId === widgetId) {
-                                  const links = (p2 as any).links || [];
-                                  const ln = links.find((l: any) => l?.target?.widget_id === editingLinkOverride.widgetId && l?.source?.entity_id === editingLinkOverride.entityId && String(l?.source?.attribute || "") === editingLinkOverride.attribute && l?.target?.action === editingLinkOverride.action);
-                                  if (ln?.target) { ln.target = { ...ln.target, yaml_override: editingOverrideYaml.trim() || undefined }; setProject(p2, true); setProjectDirty(true); }
-                                }
-                                if (editingActionOverride?.widgetId === widgetId) {
-                                  const abs = (p2 as any).action_bindings || [];
-                                  const ab = abs.find((a: any) => a?.widget_id === editingActionOverride.widgetId && a?.event === editingActionOverride.event);
-                                  if (ab) { ab.yaml_override = editingOverrideYaml.trim() || undefined; setProject(p2, true); setProjectDirty(true); }
-                                }
-                                setEditingLinkOverride(null); setEditingActionOverride(null); setEditingOverrideYaml("");
+                                const links = (p2 as any).links || [];
+                                const ln = links.find((l: any) => l?.target?.widget_id === editingLinkOverride.widgetId && l?.source?.entity_id === editingLinkOverride.entityId && String(l?.source?.attribute || "") === editingLinkOverride.attribute && l?.target?.action === editingLinkOverride.action);
+                                if (ln?.target) { ln.target = { ...ln.target, yaml_override: editingOverrideYaml.trim() || undefined }; setProject(p2, true); setProjectDirty(true); }
+                                setEditingLinkOverride(null); setEditingOverrideYaml("");
                               }}>Save</button>
-                              <button type="button" className="secondary" onClick={() => { setEditingLinkOverride(null); setEditingActionOverride(null); setEditingOverrideYaml(""); }}>Cancel</button>
+                              <button type="button" className="secondary" onClick={() => { setEditingLinkOverride(null); setEditingOverrideYaml(""); }}>Cancel</button>
                             </div>
                           </div>
                         )}
@@ -4011,11 +4071,8 @@ function deleteSelected() {
                   return (
                     <>
                       <div style={{ marginTop: 10 }}>
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}><span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from schema/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your custom events and action overrides.</div>
-                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                          Generated YAML (read-only)
-                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" }}>Auto</span>
-                        </div>
+                        <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}><span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = generated at compile; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = stored in project. One box per event; edit and Save to store.</div>
+                        <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4 }}>Full widget preview</div>
                         {widgetYamlPreviewLoading && (
                           <div className="muted" style={{ padding: 10, fontSize: 12 }}>Loading…</div>
                         )}
@@ -4052,7 +4109,7 @@ function deleteSelected() {
                               borderRadius: 6,
                               fontSize: 11,
                               fontFamily: "ui-monospace, monospace",
-                              maxHeight: 320,
+                              maxHeight: 280,
                               overflow: "auto",
                               whiteSpace: "pre-wrap",
                               wordBreak: "break-word",
@@ -4060,26 +4117,6 @@ function deleteSelected() {
                             }}>
                               {widgetYamlPreview || "(empty)"}
                             </pre>
-                            {(() => {
-                              const actionBindings = (project as any)?.action_bindings || [];
-                              const withOverride = actionBindings.filter((ab: any) => String(ab?.widget_id) === widgetId && ab?.yaml_override);
-                              const hasCustomEvents = eventOptions.some((ev) => customEvents[ev]?.trim());
-                              if (!hasCustomEvents && withOverride.length === 0) return null;
-                              return (
-                                <div style={{ marginTop: 12, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.08)", border: "1px solid rgba(100,160,255,0.25)" }}>
-                                  <div style={{ fontSize: 11, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                    <span style={{ fontWeight: 600 }}>User-defined</span>
-                                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }}>Edited</span>
-                                  </div>
-                                  {hasCustomEvents && (
-                                    <div style={{ fontSize: 11, marginBottom: 6 }}>Custom events (below) are included in the preview above.</div>
-                                  )}
-                                  {withOverride.length > 0 && (
-                                    <div style={{ fontSize: 11 }}>Action binding(s) with custom YAML: {withOverride.map((ab: any) => ab.event).join(", ")}.</div>
-                                  )}
-                                </div>
-                              );
-                            })()}
                             <button
                               type="button"
                               className="secondary"
@@ -4105,49 +4142,47 @@ function deleteSelected() {
                       </div>
                       <div style={{ marginTop: 16, padding: 10, borderRadius: 6, background: "rgba(100,160,255,0.06)", border: "1px solid rgba(100,160,255,0.2)" }}>
                         <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                          Custom Events
-                          <span className="muted" style={{ fontSize: 10 }}>Empty / Auto = from binding; Edited = your override. Draft until Save.</span>
+                          Action events
+                          <span className="muted" style={{ fontSize: 10 }}>Empty / Auto / Edited. One box per event; Reset = back to Auto, Save = store.</span>
                         </div>
                         {widgetEventError && (
                           <div className="error" style={{ padding: 8, fontSize: 11, borderRadius: 6, marginBottom: 8 }}>{widgetEventError}</div>
                         )}
-                        <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>Effective content per event. Edit in textarea; Reset = back to Auto, Save = validate and store override.</div>
                         {(() => {
                           const actionBindings = (project as any)?.action_bindings || [];
                           return eventOptions.map((ev) => {
                             const snippet = widgetYamlEventSnippets[ev];
                             const effectiveFromApi = (snippet?.yaml ?? "").trim();
+                            const source = (snippet?.source ?? "empty") as string;
                             const abForEvent = actionBindings.find((ab: any) => String(ab?.widget_id) === widgetId && ab?.event === ev);
                             const storedOverride = (customEvents[ev] ?? "").trim() || (abForEvent?.yaml_override ?? "").trim();
                             const draftKey = `${widgetId}:${ev}`;
-                            const draftValue = widgetEventDrafts[draftKey] ?? storedOverride ?? effectiveFromApi ?? "";
-                            const hasOverride = !!storedOverride;
-                            const badgeLabel = hasOverride ? "Edited" : (effectiveFromApi ? "Auto" : "Empty");
-                            const badgeStyle = !effectiveFromApi && !hasOverride
+                            const hasStored = !!storedOverride;
+                            const displayValue = hasStored ? (storedOverride || effectiveFromApi) : effectiveFromApi;
+                            const draftValue = widgetEventDrafts[draftKey] !== undefined ? widgetEventDrafts[draftKey] : displayValue;
+                            const badgeLabel = hasStored ? "Edited" : (source === "auto" ? "Auto" : "Empty");
+                            const badgeStyle = source === "empty" && !hasStored
                               ? { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }
-                              : hasOverride
+                              : hasStored
                                 ? { background: "rgba(100,160,255,0.25)", color: "rgba(200,220,255,0.95)" }
                                 : { background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" };
-                            const hasValue = !!effectiveFromApi || !!storedOverride || !!draftValue.trim();
+                            const hasValue = !!draftValue.trim() || !!effectiveFromApi || !!storedOverride;
+                            const isDirty = hasStored ? (draftValue.trim() !== storedOverride) : (draftValue.trim() !== effectiveFromApi);
                             return (
                               <details key={ev} style={{ marginBottom: 6 }} open={hasValue}>
                                 <summary style={{ cursor: "pointer", fontSize: 12, padding: "6px 0", color: hasValue ? "rgba(200,220,255,0.95)" : "#888", display: "flex", alignItems: "center", gap: 8 }}>
                                   {ev}
                                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, ...badgeStyle }}>{badgeLabel}</span>
-                                  {hasValue && "✓"}
+                                  {isDirty && <span className="muted" style={{ fontSize: 10 }}>unsaved</span>}
+                                  {hasValue && !isDirty && "✓"}
                                 </summary>
-                                {effectiveFromApi && !storedOverride ? (
-                                  <pre style={{ fontSize: 10, fontFamily: "ui-monospace, monospace", background: "rgba(0,0,0,0.25)", padding: 8, borderRadius: 4, marginBottom: 8, whiteSpace: "pre-wrap", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                    {effectiveFromApi}
-                                  </pre>
-                                ) : null}
                                 <textarea
                                   value={draftValue}
                                   onChange={(e) => {
                                     setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }));
                                     setWidgetEventError(null);
                                   }}
-                                  placeholder={effectiveFromApi ? "Override with custom YAML (leave empty to keep Auto)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
+                                  placeholder={source === "auto" ? "Auto-generated (edit to customize and Save)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
                                   style={{
                                     width: "100%",
                                     minHeight: 80,
@@ -4224,6 +4259,7 @@ function deleteSelected() {
                                       }
                                       setProject(p2, true);
                                       setProjectDirty(true);
+                                      setWidgetEventDrafts((prev) => { const next = { ...prev }; delete next[draftKey]; return next; });
                                     }}
                                   >
                                     Save
