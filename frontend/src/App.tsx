@@ -4241,8 +4241,9 @@ function deleteSelected() {
                                       const p2 = clone(project);
                                       const pg = (p2 as any).pages?.[safePageIndex];
                                       const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
+                                      if (!Array.isArray((p2 as any).action_bindings)) (p2 as any).action_bindings = [];
                                       const abs = (p2 as any).action_bindings;
-                                      const ab = Array.isArray(abs) ? abs.find((x: any) => String(x?.widget_id) === widgetId && x?.event === ev) : null;
+                                      const ab = abs.find((x: any) => String(x?.widget_id) === widgetId && x?.event === ev) ?? null;
                                       if (ab) {
                                         if (toSave) ab.yaml_override = toSave;
                                         else if (ab.yaml_override !== undefined) delete ab.yaml_override;
@@ -4260,6 +4261,15 @@ function deleteSelected() {
                                       setProject(p2, true);
                                       setProjectDirty(true);
                                       setWidgetEventDrafts((prev) => { const next = { ...prev }; delete next[draftKey]; return next; });
+                                      // Refetch widget preview with updated project so main YAML and event_snippets (badge) update immediately
+                                      setWidgetYamlPreviewLoading(true);
+                                      previewWidgetYaml(p2, widgetId, safePageIndex)
+                                        .then(({ yaml: newYaml, event_snippets: newSnippets }) => {
+                                          setWidgetYamlPreview(newYaml);
+                                          setWidgetYamlEventSnippets(newSnippets ?? {});
+                                        })
+                                        .catch(() => {})
+                                        .finally(() => setWidgetYamlPreviewLoading(false));
                                     }}
                                   >
                                     Save

@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.164
+
+- **Widget YAML Save fix**: After Save, explicitly refetch the widget preview so the main YAML block and event badge (Auto/Edited) update immediately. Ensure `action_bindings` is an array before updating. Fixes main widget YAML not changing and badge not updating from Auto to Edited after Save.
+
 ## v0.70.163
 
 - **Widget YAML (action events)**: One text box per event (like Components). Content is auto-generated when a binding exists (shown as Auto) or stored when edited (Edited). Empty when no binding. Reset = back to Auto; Save = validate and store. Compiler uses stored block when Edited, else generates at compile time.
