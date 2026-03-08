@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.162
+
+- **Components / LVGL compile**: LVGL block is now stored with leading indent preserved (`rstrip()` instead of `strip()` in compiler sections) so emitted YAML is valid. Fixes `yaml.scanner.ScannerError: mapping values are not allowed here` at `buffer_size: 100%`.
+- **Tests**: Component section tests now use a YAML loader that supports `!secret`/`!lambda` when validating compile output. New test `test_lvgl_widget_yaml_compiles()` asserts LVGL config (buffer_size, disp_bg_color), pages, and widget YAML compile and parse correctly.
+
 ## v0.70.161
 
 - **YAML parse (Components)**: Section content is now validated by reconstructing ESPHome-style YAML (`esphome:\n` + content) so it matches the recipe structure. Fixes "mapping values are not allowed here" when saving the esphome section (e.g. with `project:`, `on_boot:`).

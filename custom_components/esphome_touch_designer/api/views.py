@@ -83,6 +83,24 @@ def list_builtin_recipes() -> list[dict]:
 _TOP_LEVEL_KEY_RE = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)\s*:(?:\s*(?:#.*)?)?$")
 
 
+def _section_full_block(key: str, body: str) -> str:
+    """Form full section block for storage/display: 'key:\\n' + body (user sees header + correct indent). Preserve body leading indent."""
+    return key + ":\n" + (body or "").rstrip()
+
+
+def _section_body_from_value(value: str | None, key: str) -> str:
+    """Extract body from stored value. If value is full block (starts with 'key:'), return lines after first (indent preserved); else return value (legacy body-only)."""
+    if not value or not value.strip():
+        return ""
+    s = value.strip()
+    if s.startswith(key + ":") or s.startswith(key + " :"):
+        lines = s.splitlines()
+        if len(lines) <= 1:
+            return ""
+        return "\n".join(lines[1:]).rstrip()
+    return value
+
+
 def _parse_recipe_into_sections(recipe_text: str) -> dict[str, str]:
     """Split recipe YAML into top-level key -> content (content = lines under key, indent preserved)."""
     sections: dict[str, str] = {}
@@ -842,10 +860,10 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
     if locks_yaml.strip():
         out["globals"] = _strip_section_key(locks_yaml, "globals")
 
-    # LVGL (full body: config + pages)
+    # LVGL (full body: config + pages); keep leading indent (rstrip only).
     pages_yaml = _compile_lvgl_pages_schema_driven(project)
     if pages_yaml.strip():
-        out["lvgl"] = pages_yaml.strip()
+        out["lvgl"] = pages_yaml.rstrip()
 
     # Font, image
     if fonts_yaml.strip():
@@ -1023,7 +1041,7 @@ def _build_default_section_pieces(
             elif key == "logger":
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
-            pieces[key] = (content or "").strip()
+            pieces[key] = _section_full_block(key, (content or "").rstrip())
     if device is not None and getattr(device, "slug", None):
         _substitute_device_name_in_sections(pieces, device.slug)
     return pieces
@@ -1036,6 +1054,11 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
     Else: build default pieces (recipe+compiler), set project.sections.
     """
     if isinstance(project.get("sections"), dict) and project["sections"]:
+        # Migrate legacy body-only sections to full block (key:\n + body) for display and compile.
+        for sk in list(project["sections"].keys()):
+            v = project["sections"][sk]
+            if v and not v.strip().startswith(sk + ":"):
+                project["sections"][sk] = _section_full_block(sk, v)
         return
     overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
     recipe_sections = _parse_recipe_into_sections(recipe_text)
@@ -1061,7 +1084,7 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
             elif key == "logger":
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
-            pieces[key] = (content or "").strip()
+            pieces[key] = _section_full_block(key, (content or "").rstrip())
     project["sections"] = pieces
     if device is not None and getattr(device, "slug", None):
         _substitute_device_name_in_sections(project["sections"], device.slug)
@@ -1087,7 +1110,8 @@ def _build_section_engine_pieces(
     stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
-        content = stored.get(key) or overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
+        raw = stored.get(key) or overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
+        content = _section_body_from_value(raw, key) if raw else (raw or "")
         if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
             content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
@@ -1103,7 +1127,7 @@ def _build_section_engine_pieces(
             elif key == "logger":
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
-            pieces[key] = (content or "").strip()
+            pieces[key] = _section_full_block(key, (content or "").rstrip())
             if key not in overrides and key not in stored:
                 user_edited.discard(key)
     return pieces, user_edited
@@ -1119,7 +1143,7 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
         compiler_pieces["script"] = (compiler_pieces.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
     for k, v in compiler_pieces.items():
-        pieces[k] = v
+        pieces[k] = _section_full_block(k, (v or "").rstrip())
     header = (
         "---\n"
         f"# Generated by {DOMAIN} v{_integration_version()}\n"
@@ -1131,7 +1155,8 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     for key in SECTION_ORDER:
         if key not in pieces:
             continue
-        content = pieces[key]
+        block = pieces[key]
+        content = _section_body_from_value(block, key)
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
             if re.search(r"^\s*name\s*:", content, re.MULTILINE):
                 content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
@@ -3332,11 +3357,8 @@ class ParseYamlView(HomeAssistantView):
             return self.json({"ok": True})
         try:
             import yaml as _yaml
-            # Section content from Components panel is the value of a top-level key (e.g. esphome:)
-            # — same as recipe: "esphome:\n  name: ...\n  project:\n    ...". Validate by
-            # reconstructing that: one top-level key + content (content already has correct indent).
-            full = "esphome:\n" + content
-            _yaml.safe_load(full)
+            # Section content from Components panel is the full block (e.g. "esphome:\n  name: ...") — valid YAML as-is.
+            _yaml.safe_load(content)
             return self.json({"ok": True})
         except _yaml.YAMLError as e:
             line_no = None
