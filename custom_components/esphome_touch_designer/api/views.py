@@ -3340,6 +3340,25 @@ class ValidateYamlView(HomeAssistantView):
                     pass
 
 
+def _parse_yaml_syntax(content: str) -> None:
+    """Parse YAML for syntax check only. Raises yaml.YAMLError on invalid YAML.
+    Uses a dedicated loader that accepts ESPHome !secret and !lambda tags."""
+    import yaml as _yaml
+
+    class _ESPHomeSafeLoader(_yaml.SafeLoader):
+        pass
+
+    def _tag_constructor(loader, node):
+        if isinstance(node, _yaml.ScalarNode):
+            return loader.construct_scalar(node)
+        return str(node)
+
+    _yaml.add_constructor("!secret", _tag_constructor, _ESPHomeSafeLoader)
+    _yaml.add_constructor("!lambda", _tag_constructor, _ESPHomeSafeLoader)
+
+    _yaml.load(content, Loader=_ESPHomeSafeLoader)
+
+
 class ParseYamlView(HomeAssistantView):
     """Lightweight YAML syntax check only (no ESPHome validation). POST { \"yaml\": \"...\" }."""
 
@@ -3357,15 +3376,7 @@ class ParseYamlView(HomeAssistantView):
             return self.json({"ok": True})
         try:
             import yaml as _yaml
-            loader = _yaml.SafeLoader
-            # ESPHome uses !secret / !lambda; allow them so parse succeeds.
-            def _tag_constructor(loader, node):
-                return getattr(node, "value", str(node))
-            if "!secret" in content:
-                _yaml.add_constructor("!secret", _tag_constructor, loader)
-            if "!lambda" in content:
-                _yaml.add_constructor("!lambda", _tag_constructor, loader)
-            _yaml.load(content, Loader=loader)
+            _parse_yaml_syntax(content)
             return self.json({"ok": True})
         except _yaml.YAMLError as e:
             line_no = None

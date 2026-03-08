@@ -27,6 +27,7 @@ for mod in (
 from custom_components.esphome_touch_designer.api.views import (
     _preview_widget_yaml,
     _compile_to_esphome_yaml_section_based,
+    _parse_yaml_syntax,
 )
 from custom_components.esphome_touch_designer.storage import DeviceProject, _default_project
 
@@ -112,6 +113,32 @@ def test_preview_event_snippets_empty():
     print("  preview event_snippets empty: OK")
 
 
+def test_parse_widget_yaml_with_lambda_and_secret():
+    """Widget action YAML with !lambda, !secret, and comments parses successfully."""
+    yaml_with_lambda = """then:
+  # Test 2
+  - lambda: id(etd_ui_lock_until) = millis() + 500;
+  - delay: 150ms
+  - homeassistant.action:
+      action: climate.set_temperature
+      data:
+        entity_id: "climate.grimwood_all_thermostats"
+        temperature: !lambda return (float)x;
+"""
+    _parse_yaml_syntax(yaml_with_lambda)
+    print("  parse widget YAML (!lambda + comment): OK")
+
+    yaml_with_secret = """then:
+  - homeassistant.service:
+      service: light.turn_on
+      data:
+        entity_id: !secret light_id
+        brightness: 128
+"""
+    _parse_yaml_syntax(yaml_with_secret)
+    print("  parse widget YAML (!secret): OK")
+
+
 def test_compile_uses_stored_override():
     """Full compile uses yaml_override for the widget event (stored block in output)."""
     recipe_path = REPO_ROOT / "custom_components/esphome_touch_designer/recipes/builtin/jc1060p470_esp32p4_1024x600.yaml"
@@ -153,8 +180,9 @@ def test_compile_uses_stored_override():
 
 
 def main():
-    print("Testing action YAML (preview + compile)...")
+    print("Testing action YAML (preview + compile + parse)...")
     try:
+        test_parse_widget_yaml_with_lambda_and_secret()
         test_preview_event_snippets_auto()
         test_preview_event_snippets_edited()
         test_preview_event_snippets_empty()

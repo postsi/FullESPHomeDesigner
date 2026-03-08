@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.166
+
+- **YAML parse (!lambda/!secret) fix**: Use dedicated `_ESPHomeSafeLoader` class with constructors for `!secret` and `!lambda` instead of modifying SafeLoader. Fixes "could not determine a constructor for the tag '!lambda'" when saving action YAML with comments and ESPHome tags.
+- **Tests**: New `test_parse_widget_yaml_with_lambda_and_secret()` covers parse of action YAML with !lambda, !secret, and comments.
+
 ## v0.70.165
 
 - **Widget YAML Reset**: Reset now deletes the draft and refetches the preview so the auto-generated YAML is restored when a binding exists.
