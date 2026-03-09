@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.175
+
+- **WiFi fan arcs visible on canvas**: Arc indicator (filled part) no longer falls back to the track color (`style.bg_color`). It now uses `indicator.bg_color` when set, otherwise a visible default (#10b981), so dark-track arcs (e.g. WiFi fan) show five green 90° rings. Knob is hidden when `adjustable: false`. Unit test `arcIndicatorColor.test.ts` added to guard the rule.
+
 ## v0.70.174
 
 - **WiFi fan canvas**: Arc preview now uses **arc_width** from props and scales radius by widget size so all five concentric rings render (no longer one circle). Smaller arcs get smaller knobs so inner rings stay visible. Group container has explicit width/height so the transformer can resize it.

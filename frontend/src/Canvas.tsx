@@ -939,7 +939,8 @@ const stageRef = useRef<any>(null);
       const knobX = cx + r * Math.cos((knobAngleDeg * Math.PI) / 180);
       const knobY = cy + r * Math.sin((knobAngleDeg * Math.PI) / 180);
       const bgStroke = toFillColor(s.bg_color ?? p.bg_color, "#1f2937");
-      const indStroke = toFillColor((w.indicator || {}).bg_color ?? s.bg_color, "#10b981");
+      // Indicator (filled part) must use a visible color; never fall back to bg_color or track matches fill (invisible).
+      const indStroke = toFillColor((w.indicator || {}).bg_color, "#10b981");
       const knobFill = toFillColor(knobDef.bg_color ?? s.bg_color, "#e5e7eb");
       const innerR = r - trackW / 2;
       const outerR = r + trackW / 2;
@@ -996,7 +997,9 @@ const stageRef = useRef<any>(null);
               listening={false}
             />
           )}
-          <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          {p.adjustable !== false && (
+            <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
+          )}
           {simHandleArc}
           {/* ESPHome/LVGL arc has no built-in value label; device shows only arc + knob. A separate label widget is used if value text is needed. */}
         </Group>
