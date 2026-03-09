@@ -1049,17 +1049,12 @@ def _build_default_section_pieces(
 
 def _ensure_project_sections(project: dict, device: object | None, recipe_text: str) -> None:
     """Ensure project has 'sections' (full section YAML). Mutates project in place.
-    If project.sections exists and is a dict, leave as is.
-    Else if project has section_overrides (legacy): build pieces from recipe+compiler+overrides, set project.sections.
-    Else: build default pieces (recipe+compiler), set project.sections.
+    Uses stored project.sections for keys that have content; fills missing/empty keys
+    from compiler (esphome_components, HA bindings) and recipe. This ensures
+    compiler-generated sections (e.g. interval, time from prebuilts) appear in the
+    Components panel even when project.sections was previously saved without them.
     """
-    if isinstance(project.get("sections"), dict) and project["sections"]:
-        # Migrate legacy body-only sections to full block (key:\n + body) for display and compile.
-        for sk in list(project["sections"].keys()):
-            v = project["sections"][sk]
-            if v and not v.strip().startswith(sk + ":"):
-                project["sections"][sk] = _section_full_block(sk, v)
-        return
+    stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
     recipe_sections = _parse_recipe_into_sections(recipe_text)
     compiler_sections = _build_compiler_sections(project, device)
@@ -1068,7 +1063,14 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
         compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
-        content = overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
+        # Prefer stored (saved in Components), then legacy overrides, then compiler (prebuilts, HA bindings), then recipe
+        stored_body = _section_body_from_value(stored.get(key), key) if stored.get(key) else None
+        content = (
+            (stored_body if (stored_body or "").strip() else None)
+            or overrides.get(key)
+            or compiler_sections.get(key)
+            or recipe_sections.get(key)
+        )
         if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
             content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:

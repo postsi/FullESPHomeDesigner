@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.169
+
+- **Components panel / Interval**: Merge compiler output (prebuilts, HA bindings) into sections even when `project.sections` exists. Previously, when sections were saved, the panel returned early and never merged in new compiler-generated sections like `interval` and `time` from prebuilts. Fixes Interval (and Time) appearing empty in Components while compiled YAML has them.
+
 ## v0.70.168
 
 - **Clock / prebuilt labels**: Add explicit `text_font` (montserrat_24 for clock/time, montserrat_16 for IP/Host name, montserrat_14/24 for Date+time) so labels render on device. Fixes "nothing visible" when dropping clock or other label prebuilts.
