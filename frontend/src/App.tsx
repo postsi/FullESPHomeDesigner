@@ -1301,9 +1301,11 @@ if (baseId.startsWith("glance_card")) {
     const pages = (project as any)?.pages ?? [];
     const overrides: Record<string, { text?: string; value?: number; checked?: boolean }> = {};
     const widgetTypeById: Record<string, string> = {};
+    const containerToSpinboxChildId: Record<string, string> = {};
     for (const page of pages) {
       for (const w of page?.widgets ?? []) {
         if (w?.id) widgetTypeById[w.id] = w.type ?? "label";
+        if ((w as any)?.parent_id && (w as any)?.type === "spinbox" && w?.id) containerToSpinboxChildId[(w as any).parent_id] = w.id;
       }
     }
     for (const ln of links) {
@@ -1336,15 +1338,18 @@ if (baseId.startsWith("glance_card")) {
         raw = (data.state || "").toLowerCase() === "on";
       }
       if (action === "label_text") {
+        const displayTargetId = widgetTypeById[widgetId] === "container" && containerToSpinboxChildId[widgetId]
+          ? containerToSpinboxChildId[widgetId]
+          : widgetId;
         if (typeof raw === "number" && !Number.isNaN(raw)) {
           const n = raw * scale;
           const s = fmt.replace("%.2f", n.toFixed(2)).replace("%.1f", n.toFixed(1)).replace("%.0f", String(Math.round(n)));
-          overrides[widgetId] = { ...overrides[widgetId], text: s };
-          if (widgetTypeById[widgetId] === "spinbox") overrides[widgetId] = { ...overrides[widgetId], value: n };
+          overrides[displayTargetId] = { ...overrides[displayTargetId], text: s };
+          if (widgetTypeById[displayTargetId] === "spinbox") overrides[displayTargetId] = { ...overrides[displayTargetId], value: n };
         } else {
           const fallback = kind === "attribute_number" ? "--" : String(raw ?? "");
-          const existing = overrides[widgetId]?.text ?? "";
-          if (fallback !== "" || existing === "") overrides[widgetId] = { ...overrides[widgetId], text: fallback || existing || "" };
+          const existing = overrides[displayTargetId]?.text ?? "";
+          if (fallback !== "" || existing === "") overrides[displayTargetId] = { ...overrides[displayTargetId], text: fallback || existing || "" };
         }
       } else if (action === "label_number") {
         if (typeof raw === "number" && !Number.isNaN(raw)) {

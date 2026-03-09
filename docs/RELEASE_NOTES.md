@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.183
+
+- **Composite "Spinbox with +/-" display binding**: When a display link targets the composite (container), the backend now redirects to the spinbox child: sensor `on_value` emits `lvgl.spinbox.update` for the child and lock globals use the child id. Frontend liveOverrides apply value/text to the spinbox child when the link targets the container, so the bound value appears on canvas, simulator, and device.
+
 ## v0.70.182
 
 - **Sensor on_value compile fix**: Display binding targets now use a scalar `id` (widget_id extracted from dict/list if needed). Containers and obj widgets no longer get `lvgl.label.update`; that branch is skipped to avoid "ID doesn't inherit from lv_label_t".

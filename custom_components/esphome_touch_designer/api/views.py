@@ -369,6 +369,22 @@ def _compile_ha_bindings(project: dict) -> str:
     dropdown_options_by_id = _dropdown_options_map()
     roller_options_by_id = _roller_options_map()
 
+    # Container id -> spinbox child id (for "Spinbox with +/-" prebuilt: link targets container, we update the spinbox child)
+    def _container_spinbox_child_map() -> dict[str, str]:
+        out: dict[str, str] = {}
+        for page in project.get("pages") or []:
+            if not isinstance(page, dict):
+                continue
+            for w in page.get("widgets") or []:
+                if not isinstance(w, dict):
+                    continue
+                pid = w.get("parent_id")
+                if pid and str(w.get("type") or "") == "spinbox" and w.get("id"):
+                    out[str(pid)] = str(w["id"])
+        return out
+
+    container_spinbox_child = _container_spinbox_child_map()
+
     def emit_lvgl_updates(kind: str, entity_id: str, attr: str) -> str:
         # After caller adds "  ": "- if:" at 8, condition/then at 12, lambda/- lvgl at 14, id/text at 18 (2 under lvgl key)
         i0, i1, i2, i3 = "      ", "          ", "            ", "                "  # 6,10,12,16 -> 8,12,14,18
@@ -388,11 +404,20 @@ def _compile_ha_bindings(project: dict) -> str:
             scale = tgt.get("scale")
             fmt = tgt.get("format")
 
+            # For display (label_text): if target is a container with a spinbox child, we update the child; lock id must match.
+            wtype_for_target = widget_type_by_id.get(wid) or "label"
+            if action == "label_text" and wtype_for_target == "container" and container_spinbox_child.get(wid):
+                display_wid = container_spinbox_child[wid]
+                lock_wid_safe = _safe_id(display_wid)
+            else:
+                display_wid = wid
+                lock_wid_safe = wid_safe
+
             sid = _slugify_entity_id(entity_id)
             outs.append(f"{i0}- if:\n")
             outs.append(f"{i1}condition:\n")
             outs.append(
-                f"{i2}lambda: 'return (millis() > id(etd_ui_lock_until)) && (millis() > id(etd_lock_{sid})) && (millis() > id(etd_lock_{sid}_{wid_safe}));'\n"
+                f"{i2}lambda: 'return (millis() > id(etd_ui_lock_until)) && (millis() > id(etd_lock_{sid})) && (millis() > id(etd_lock_{sid}_{lock_wid_safe}));'\n"
             )
             outs.append(f"{i1}then:\n")
 
@@ -429,10 +454,10 @@ def _compile_ha_bindings(project: dict) -> str:
                 else:
                     outs.append(f"{i3}value: !lambda return x;\n")
             elif action == "label_text":
-                wtype = widget_type_by_id.get(wid) or "label"
+                wtype = widget_type_by_id.get(display_wid) or "label"
                 if wtype == "button":
                     outs.append(f"{i2}- lvgl.button.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if kind in ("state", "attribute_text"):
                         outs.append(f"{i3}text: !lambda return x;\n")
                     else:
@@ -441,9 +466,9 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
                 elif wtype == "dropdown" and kind in ("state", "attribute_text"):
                     # Dropdown expects selected_index (int); HA sends text. Map text -> index from widget options.
-                    opts = dropdown_options_by_id.get(wid) or []
+                    opts = dropdown_options_by_id.get(display_wid) or []
                     outs.append(f"{i2}- lvgl.dropdown.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     # Emit lambda that returns index of x in options (C++: escape " and \ in option strings)
                     parts = []
                     for idx, opt in enumerate(opts):
@@ -455,7 +480,7 @@ def _compile_ha_bindings(project: dict) -> str:
                 elif wtype == "spinbox":
                     # Spinbox expects value (float). HA sends number or string; scale applied.
                     outs.append(f"{i2}- lvgl.spinbox.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if kind in ("attribute_number", "state") or (kind in ("attribute_text",) and attr):
                         if isinstance(scale, (int, float)) and float(scale) != 1.0:
                             outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
@@ -466,16 +491,16 @@ def _compile_ha_bindings(project: dict) -> str:
                 elif wtype == "bar":
                     # Bar expects value (int). HA sends number; scale applied.
                     outs.append(f"{i2}- lvgl.bar.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if isinstance(scale, (int, float)) and float(scale) != 1.0:
                         outs.append(f"{i3}value: !lambda return (x * {float(scale)});\n")
                     else:
                         outs.append(f"{i3}value: !lambda return x;\n")
                 elif wtype == "roller" and kind in ("state", "attribute_text"):
                     # Roller expects selected_index (int); HA sends text. Map text -> index from widget options.
-                    opts = roller_options_by_id.get(wid) or []
+                    opts = roller_options_by_id.get(display_wid) or []
                     outs.append(f"{i2}- lvgl.roller.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     parts = []
                     for idx, opt in enumerate(opts):
                         esc = str(opt).replace("\\", "\\\\").replace('"', '\\"')
@@ -485,7 +510,7 @@ def _compile_ha_bindings(project: dict) -> str:
                     outs.append(f"{i3}selected_index: !lambda '{lambda_body}'\n")
                 elif wtype == "textarea":
                     outs.append(f"{i2}- lvgl.textarea.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if kind in ("state", "attribute_text"):
                         outs.append(f"{i3}text: !lambda return x;\n")
                     else:
@@ -494,7 +519,7 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
                 elif wtype == "qrcode":
                     outs.append(f"{i2}- lvgl.qrcode.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if kind in ("state", "attribute_text"):
                         outs.append(f"{i3}text: !lambda return x;\n")
                     else:
@@ -506,7 +531,7 @@ def _compile_ha_bindings(project: dict) -> str:
                     continue
                 else:
                     outs.append(f"{i2}- lvgl.label.update:\n")
-                    outs.append(f"{i3}id: {wid}\n")
+                    outs.append(f"{i3}id: {display_wid}\n")
                     if kind in ("state", "attribute_text"):
                         outs.append(f"{i3}text: !lambda return x;\n")
                     else:
@@ -1073,6 +1098,33 @@ def _compile_ui_lock_globals(project: dict) -> str:
     # Per-link locks are keyed by (entity_id, widget_id) so that UI-originated
     # service calls can suppress only the specific widget updates that would
     # otherwise “rubber-band”.
+    # Container -> spinbox child (display link to "Spinbox with +/-" targets container; lock is for the spinbox)
+    def _container_spinbox_child_map() -> dict[str, str]:
+        out: dict[str, str] = {}
+        for page in project.get("pages") or []:
+            if not isinstance(page, dict):
+                continue
+            for w in page.get("widgets") or []:
+                if not isinstance(w, dict):
+                    continue
+                pid = w.get("parent_id")
+                if pid and str(w.get("type") or "") == "spinbox" and w.get("id"):
+                    out[str(pid)] = str(w["id"])
+        return out
+
+    def _widget_type_map_flat() -> dict[str, str]:
+        m: dict[str, str] = {}
+        for page in project.get("pages") or []:
+            if not isinstance(page, dict):
+                continue
+            for w in page.get("widgets") or []:
+                if isinstance(w, dict) and w.get("id"):
+                    m[str(w["id"])] = str(w.get("type") or "label")
+        return m
+
+    container_spinbox_child = _container_spinbox_child_map()
+    widget_type_by_id = _widget_type_map_flat()
+
     link_pairs: set[tuple[str, str]] = set()
     links = project.get("links") or []
     if isinstance(links, list):
@@ -1082,9 +1134,22 @@ def _compile_ui_lock_globals(project: dict) -> str:
             src = ln.get("source") or {}
             tgt = ln.get("target") or {}
             eid = str(src.get("entity_id") or "").strip()
-            wid = str(tgt.get("widget_id") or "").strip()
-            if eid and "." in eid and wid:
-                link_pairs.add((eid, _safe_id(wid)))
+            raw_wid = tgt.get("widget_id")
+            if isinstance(raw_wid, dict) and "id" in raw_wid:
+                wid = str(raw_wid.get("id") or "").strip()
+            elif isinstance(raw_wid, list) and raw_wid:
+                first = raw_wid[0]
+                wid = str(first.get("id", "") or "").strip() if isinstance(first, dict) else str(first or "").strip()
+            else:
+                wid = str(raw_wid or "").strip()
+            if not eid or "." not in eid or not wid:
+                continue
+            action = str(tgt.get("action") or "").strip()
+            if action == "label_text" and (widget_type_by_id.get(wid) or "label") == "container" and container_spinbox_child.get(wid):
+                lock_wid = _safe_id(container_spinbox_child[wid])
+            else:
+                lock_wid = _safe_id(wid)
+            link_pairs.add((eid, lock_wid))
 
     out: list[str] = []
     out.append("globals:\n")
