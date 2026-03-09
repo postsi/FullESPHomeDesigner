@@ -2418,7 +2418,7 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
                     f"{body}y: {y_val}\n"
                     f"{body}width: {w_val}\n"
                     f"{body}height: {h_val}\n"
-                    f"{body}styles: id(etd_cp_{wid_safe})\n"
+                    f"{body}styles: etd_cp_{wid_safe}\n"
                     f"{body}on_click:\n"
                     f"{body}  then:\n"
                     f"{body}  - script.execute: etd_cp_{wid_safe}_cycle\n"

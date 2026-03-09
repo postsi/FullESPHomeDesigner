@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.186
+
+- **Colour picker styles fix**: Emit `styles: etd_cp_<id>` (style definition ID only) instead of `styles: id(etd_cp_<id>)`. ESPHome LVGL expects the ID of the style definition; the `id()` form is for C++/lambdas and caused "The character '(' cannot be used" on compile.
+
 ## v0.70.185
 
 - **Globals/script indentation fix**: Merged globals and script sections (lock + colour-picker) no longer lose leading indent: merge uses `.rstrip()` only so compiled YAML stays valid. When adding the manage_run_and_sleep script stub to an empty script section, the body no longer gets a leading newline, avoiding over-indented script output. Test suite: added "color picker (globals+script)" case and indentation check for `globals:`/`script:` so this class of bug is caught.
