@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.200
+
+- **Colour picker: HA → button colour connection fixed**
+  - The display binding (Set button colour from light `rgb_color`) now updates the **button widget** directly with `lvgl.obj.update` (id: widget id, bg_color from parsed value) instead of updating the shared style. When you change the light colour in Home Assistant (or on first connect), the colour picker button now updates to match.
+
 ## v0.70.199
 
 - **Colour picker HA binding YAML fix**: Corrected indentation of the `lvgl.style.update` / `lvgl.widget.redraw` blocks inside the `on_value` if/then so ESPHome parses one action per item (fixes “Cannot have two actions in one item. Key 'lvgl.style.update' overrides 'id'!”).

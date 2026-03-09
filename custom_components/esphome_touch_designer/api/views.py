@@ -561,23 +561,24 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "button_bg_color":
-                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button only when value looks valid
-                # (avoid overwriting with black when light is off / attribute empty or "unknown")
+                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button widget directly
+                # so HA-driven changes always apply (style update was not applying to the button when HA sent updates).
+                # Only apply when value looks valid to avoid black when light off / empty / "unknown".
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype != "color_picker":
                     continue
                 i4 = "                  "  # 18 spaces for condition lambda / then list
-                # Keys under then-list actions must be indented 4+ spaces under action name so ESPHome parses one action per item
-                i5 = "                        "  # 24 spaces -> 26 after caller's "  "; id/bg_color under lvgl.style.update
-                i6 = "                          "  # 26 spaces -> 28 after "  "; lambda body under bg_color
+                # Keys under then-list actions indented 4+ under action name so ESPHome parses one action per item
+                i5 = "                        "  # 24 spaces -> 26 after caller's "  "
+                i6 = "                          "  # 26 spaces -> 28 after "  " for lambda body
                 outs.append(f"{i2}- if:\n")
                 outs.append(f"{i3}condition:\n")
                 outs.append(
                     f'{i4}lambda: "return x.size() >= 9 && x.find(\'[\') != std::string::npos && x.find(\']\') != std::string::npos;"\n'
                 )
                 outs.append(f"{i3}then:\n")
-                outs.append(f"{i4}- lvgl.style.update:\n")
-                outs.append(f"{i5}id: etd_cp_{wid_safe}\n")
+                outs.append(f"{i4}- lvgl.obj.update:\n")
+                outs.append(f"{i5}id: {wid}\n")
                 outs.append(f"{i5}bg_color: !lambda |-\n")
                 outs.append(f"{i6}int r=0,g=0,b=0;\n")
                 outs.append(f"{i6}if (x.size() >= 5) {{\n")
