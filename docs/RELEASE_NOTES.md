@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.178
+
+- **Colour picker in Widgets panel**: Colour picker added to the Prebuilt widgets list so it appears in the Widgets tab (not only in Std LVGL). Drag or click to add.
+
 ## v0.70.177
 
 - **Colour picker widget**: New widget in the palette (Colour picker). Renders on canvas as a coloured button; in simulator, clicking it opens a modal with a hue gradient strip and hue/saturation sliders. Picking a colour updates the widget’s colour and project state. Hue/saturation state is lifted to App level so React hooks are used correctly.

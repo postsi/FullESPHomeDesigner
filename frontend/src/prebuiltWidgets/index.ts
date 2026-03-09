@@ -206,6 +206,26 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     },
   },
   {
+    id: "prebuilt_color_picker",
+    title: "Colour picker",
+    description: "Colour swatch; in simulator tap to open hue/saturation picker.",
+    build: ({ x, y }) => {
+      const id = uid("color_picker");
+      return {
+        widgets: [{
+          id,
+          type: "color_picker",
+          x,
+          y,
+          w: 80,
+          h: 36,
+          props: { value: 0x4080ff },
+          style: { bg_color: 0x4080ff, radius: 8 },
+        }],
+      };
+    },
+  },
+  {
     id: "prebuilt_ip",
     title: "IP address",
     description: "Displays device IP address. Auto-updates from ESPHome wifi_info.",
