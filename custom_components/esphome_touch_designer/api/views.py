@@ -972,18 +972,29 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
             else:
                 out[k] = v
 
-    # Script
-    scripts_yaml = _compile_scripts(project)
-    if scripts_yaml.strip():
-        out["script"] = _strip_section_key(scripts_yaml, "script")
-
-    # Globals (lock vars)
+    # Globals (lock vars + color picker cycle indices)
     locks_yaml = _compile_ui_lock_globals(project)
-    if locks_yaml.strip():
-        out["globals"] = _strip_section_key(locks_yaml, "globals")
+    cpicker_defaults = _collect_color_picker_defaults(project)
+    cpicker_globals_yaml = _compile_color_picker_globals(cpicker_defaults)
+    if locks_yaml.strip() or cpicker_globals_yaml.strip():
+        combined = (_strip_section_key(locks_yaml, "globals") or "").rstrip()
+        if cpicker_globals_yaml.strip():
+            cpicker_part = _strip_section_key(cpicker_globals_yaml, "globals").strip()
+            combined = (combined + "\n" + cpicker_part).strip() if combined else cpicker_part
+        out["globals"] = combined
+
+    # Script (project scripts + color picker tap-to-cycle scripts)
+    scripts_yaml = _compile_scripts(project)
+    cpicker_scripts_yaml = _compile_color_picker_scripts(cpicker_defaults)
+    if scripts_yaml.strip() or cpicker_scripts_yaml.strip():
+        combined = (_strip_section_key(scripts_yaml, "script") or "").rstrip()
+        if cpicker_scripts_yaml.strip():
+            cpicker_part = _strip_section_key(cpicker_scripts_yaml, "script").strip()
+            combined = (combined + "\n" + cpicker_part).strip() if combined else cpicker_part
+        out["script"] = combined
 
     # LVGL (full body: config + pages); keep leading indent (rstrip only).
-    pages_yaml = _compile_lvgl_pages_schema_driven(project)
+    pages_yaml = _compile_lvgl_pages_schema_driven(project, cpicker_defaults=cpicker_defaults)
     if pages_yaml.strip():
         out["lvgl"] = pages_yaml.rstrip()
 
@@ -2047,7 +2058,91 @@ def _emit_style_dict(indent: str, d: dict, key_filter: set | None = None) -> str
     return "".join(out)
 
 
-def _compile_lvgl_config_body(project: dict) -> str:
+def _collect_color_picker_defaults(project: dict) -> list[tuple[str, str, int]]:
+    """Collect (wid, wid_safe, initial_color) for color_picker widgets that have no on_click (need default tap-to-cycle)."""
+    pages = project.get("pages") or []
+    action_bindings_by_widget: dict[str, list[dict]] = {}
+    for ab in project.get("action_bindings") or []:
+        if not isinstance(ab, dict):
+            continue
+        wid = str(ab.get("widget_id") or "").strip()
+        if wid:
+            action_bindings_by_widget.setdefault(wid, []).append(ab)
+    has_on_click: set[str] = set()
+    for wid, ab_list in action_bindings_by_widget.items():
+        for ab in ab_list:
+            if str(ab.get("event") or "").strip().lower() == "on_click":
+                has_on_click.add(wid)
+                break
+    out: list[tuple[str, str, int]] = []
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        for w in page.get("widgets") or []:
+            if not isinstance(w, dict) or str(w.get("type") or "") != "color_picker":
+                continue
+            wid = str(w.get("id") or "").strip()
+            if not wid or wid in has_on_click:
+                continue
+            custom = w.get("custom_events") or {}
+            if isinstance(custom, dict) and (custom.get("on_click") or ""):
+                has_on_click.add(wid)
+                continue
+            wid_safe = _safe_id(wid)
+            props = w.get("props") or {}
+            style = w.get("style") or {}
+            raw = props.get("value") or style.get("bg_color") or 0x4080FF
+            if isinstance(raw, str) and raw.strip().startswith("#"):
+                s = raw.strip()
+                if re.match(r"^#[0-9A-Fa-f]{6}$", s):
+                    initial = int(s[1:7], 16)
+                elif re.match(r"^#[0-9A-Fa-f]{3}$", s):
+                    r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+                    initial = r << 16 | g << 8 | b
+                else:
+                    initial = 0x4080FF
+            else:
+                initial = int(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else 0x4080FF
+            out.append((wid, wid_safe, initial))
+    return out
+
+
+def _compile_color_picker_globals(cpicker_defaults: list[tuple[str, str, int]]) -> str:
+    """Emit globals for color picker cycle index (one per widget that needs default on_click)."""
+    if not cpicker_defaults:
+        return ""
+    out = ["globals:\n"]
+    for _wid, wid_safe, _initial in cpicker_defaults:
+        out.append(f"  - id: etd_cp_{wid_safe}_idx\n")
+        out.append("    type: int\n")
+        out.append("    restore_value: no\n")
+        out.append("    initial_value: '0'\n")
+    return "".join(out).rstrip() + "\n" if len(out) > 1 else ""
+
+
+def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) -> str:
+    """Emit script: entries for color picker tap-to-cycle (one per widget)."""
+    if not cpicker_defaults:
+        return ""
+    colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 0x4080FF]
+    out = ["script:\n"]
+    for _wid, wid_safe, _initial in cpicker_defaults:
+        script_id = f"etd_cp_{wid_safe}_cycle"
+        style_id = f"etd_cp_{wid_safe}"
+        out.append(f"  - id: {script_id}\n")
+        out.append("    then:\n")
+        out.append(f"      - lambda: id(etd_cp_{wid_safe}_idx) = (id(etd_cp_{wid_safe}_idx) + 1) % 8;\n")
+        for i, col in enumerate(colors):
+            out.append("      - if:\n")
+            out.append(f"          condition:\n            lambda: 'return id(etd_cp_{wid_safe}_idx) == {i};'\n")
+            out.append("          then:\n")
+            out.append("            - lvgl.style.update:\n")
+            out.append(f"                id: {style_id}\n")
+            out.append(f"                bg_color: 0x{col:06X}\n")
+    return "".join(out).rstrip() + "\n" if len(out) > 1 else ""
+
+
+def _compile_lvgl_config_body(project: dict, cpicker_styles: list[dict] | None = None) -> str:
     """Emit LVGL main config, style_definitions, theme, gradients (no pages/top_layer)."""
     lc = project.get("lvgl_config") or {}
     main = lc.get("main") or {}
@@ -2067,7 +2162,9 @@ def _compile_lvgl_config_body(project: dict) -> str:
         out.append(f"  buffer_size: {buf}\n")
 
     # style_definitions: list of { id: "...", ...style_props (nested state blocks allowed) }
-    style_defs = lc.get("style_definitions") or []
+    style_defs = list(lc.get("style_definitions") or [])
+    if cpicker_styles:
+        style_defs = style_defs + cpicker_styles
     if isinstance(style_defs, list) and style_defs:
         out.append("  style_definitions:\n")
         for sd in style_defs:
@@ -2211,13 +2308,16 @@ def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> 
     return "\n".join(out_lines), event_snippets
 
 
-def _compile_lvgl_pages_schema_driven(project: dict) -> str:
+def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tuple[str, str, int]] | None = None) -> str:
     """Compile LVGL pages from the project model.
 
     v0.18: supports container-style parenting via `parent_id` and emits nested
     `widgets:` blocks where applicable.
     v0.71: emits lvgl_config (main, style_definitions, theme, gradients) then pages, then top_layer.
     """
+    cpicker_defaults = cpicker_defaults or []
+    cpicker_by_wid = {wid: (wid_safe, initial) for (wid, wid_safe, initial) in cpicker_defaults}
+    cpicker_styles = [{"id": f"etd_cp_{wid_safe}", "bg_color": initial} for (_w, wid_safe, initial) in cpicker_defaults]
 
     pages = project.get("pages") or []
     if not isinstance(pages, list) or not pages:
@@ -2271,14 +2371,59 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
             w_emit = dict(w)
-            if wtype == "color_picker":
+            if wtype == "color_picker" and wid in cpicker_by_wid:
+                # Emit button with named style + default on_click (tap cycles colour on device)
+                wid_safe, _initial = cpicker_by_wid[wid]
+                x_val = int(w.get("x", 0))
+                y_val = int(w.get("y", 0))
+                w_val = int(w.get("w", 100))
+                h_val = int(w.get("h", 50))
+                align = str((w.get("props") or {}).get("align", "TOP_LEFT") or "TOP_LEFT").strip().upper()
+                if align and align != "TOP_LEFT" and parent_w is not None and parent_h is not None:
+                    pw2, ph2 = parent_w // 2, parent_h // 2
+                    if align == "CENTER":
+                        x_val = x_val + w_val // 2 - pw2
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "TOP_MID":
+                        x_val = x_val + w_val // 2 - pw2
+                    elif align == "TOP_RIGHT":
+                        x_val = x_val + w_val - parent_w
+                    elif align == "LEFT_MID":
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "RIGHT_MID":
+                        x_val = x_val + w_val - parent_w
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "BOTTOM_LEFT":
+                        y_val = y_val + h_val - parent_h
+                    elif align == "BOTTOM_MID":
+                        x_val = x_val + w_val // 2 - pw2
+                        y_val = y_val + h_val - parent_h
+                    elif align == "BOTTOM_RIGHT":
+                        x_val = x_val + w_val - parent_w
+                        y_val = y_val + h_val - parent_h
+                body = indent + "    "
+                raw = (
+                    f"{indent}- button:\n"
+                    f"{body}id: {wid}\n"
+                    f"{body}x: {x_val}\n"
+                    f"{body}y: {y_val}\n"
+                    f"{body}width: {w_val}\n"
+                    f"{body}height: {h_val}\n"
+                    f"{body}styles: id(etd_cp_{wid_safe})\n"
+                    f"{body}on_click:\n"
+                    f"{body}  then:\n"
+                    f"{body}  - script.execute: etd_cp_{wid_safe}_cycle\n"
+                )
+            elif wtype == "color_picker":
                 # Emit as button with bg_color from props.value (current colour). Do not emit props.value — button has no value key.
                 props = w_emit.get("props") or {}
                 style = w_emit.get("style") or {}
                 w_emit["style"] = dict(style)
                 w_emit["style"]["bg_color"] = props.get("value") or style.get("bg_color") or 0x4080FF
                 w_emit["props"] = {k: v for k, v in props.items() if k != "value"}
-            raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
+                raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
+            else:
+                raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)
             out_lines = []
             for ln in lines:
@@ -2361,8 +2506,8 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         return out
 
     out: list[str] = []
-    # Emit main config, style_definitions, theme, gradients (from lvgl_config)
-    out.append(_compile_lvgl_config_body(project))
+    # Emit main config, style_definitions, theme, gradients (from lvgl_config + color picker styles)
+    out.append(_compile_lvgl_config_body(project, cpicker_styles=cpicker_styles))
 
     disp_bg = project.get("disp_bg_color") or ((project.get("lvgl_config") or {}).get("main") or {}).get("disp_bg_color")
     disp_bg_hex: int | None = None  # 0xRRGGBB for page bg_color

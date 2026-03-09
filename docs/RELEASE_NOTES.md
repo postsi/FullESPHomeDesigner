@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.184
+
+- **Colour picker on device**: When a colour picker has no on_click (no action binding, no custom event), the compiler now injects a default on_click so that tapping the swatch on the device cycles through 8 preset colours (red, green, blue, yellow, magenta, cyan, white, blue). Uses a named style (lvgl.style.update), a global index, and a script; the button uses `styles: id(etd_cp_<id>)` and `script.execute: etd_cp_<id>_cycle`.
+
 ## v0.70.183
 
 - **Composite "Spinbox with +/-" display binding**: When a display link targets the composite (container), the backend now redirects to the spinbox child: sensor `on_value` emits `lvgl.spinbox.update` for the child and lock globals use the child id. Frontend liveOverrides apply value/text to the spinbox child when the link targets the container, so the bound value appears on canvas, simulator, and device.
