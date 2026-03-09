@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.196
+
+- **Colour picker: swatch update, opaque overlay, integration service for light**
+  - **Swatch** now updates when you change hue/sat: use `lvgl.obj.update` with `bg_color` lambda instead of refresh (refresh was unreliable on the container).
+  - **Overlay** is fully opaque (`bg_opa: 100%`) so content underneath no longer shows through.
+  - **Apply → set light colour**: device calls integration service **`esphome_touch_designer.set_light_rgb`** (entity_id, red, green, blue) instead of a HA script; the integration then calls `light.turn_on` with `rgb_color`. No script required in HA.
+  - Adding a display binding **"Set button colour"** to a light auto-creates an action binding **"On apply"** → `esphome_touch_designer.set_light_rgb` so it appears in the bindings list. Colour picker events include **on_apply** in the Binding Builder.
+
 ## v0.70.195
 
 - **Colour picker on device: Sat slider, swatch, Apply**

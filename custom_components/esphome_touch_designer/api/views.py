@@ -2266,14 +2266,14 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
         out.append(f"          id: {_wid}\n")
         entity_id = cpicker_entity_by_wid.get(_wid)
         if entity_id and entity_id.startswith("light."):
+            # ESPHome homeassistant.action does not accept a list for rgb_color; call our integration's service (scalars only)
             out.append("      - homeassistant.action:\n")
-            out.append("          action: light.turn_on\n")
+            out.append("          action: esphome_touch_designer.set_light_rgb\n")
             out.append("          data:\n")
             out.append(f"            entity_id: {json.dumps(entity_id)}\n")
-            out.append(f"            rgb_color:\n")
-            out.append(f"              - !lambda 'return (id(etd_cp_{wid_safe}_result) >> 16) & 0xFF;'\n")
-            out.append(f"              - !lambda 'return (id(etd_cp_{wid_safe}_result) >> 8) & 0xFF;'\n")
-            out.append(f"              - !lambda 'return id(etd_cp_{wid_safe}_result) & 0xFF;'\n")
+            out.append(f"            red: !lambda 'return (id(etd_cp_{wid_safe}_result) >> 16) & 0xFF;'\n")
+            out.append(f"            green: !lambda 'return (id(etd_cp_{wid_safe}_result) >> 8) & 0xFF;'\n")
+            out.append(f"            blue: !lambda 'return id(etd_cp_{wid_safe}_result) & 0xFF;'\n")
         # Cancel: hide overlay
         out.append(f"  - id: etd_cp_{wid_safe}_cancel\n")
         out.append("    then:\n")
@@ -2341,6 +2341,20 @@ def _emit_color_picker_overlay_yaml(
     v = "                    "
     swatch_id = f"etd_cp_swatch_{wid_safe}"
     slider_id = f"etd_cp_slider_{wid_safe}"
+    # Snippet to update swatch bg_color from current hue/sat (use lvgl.obj.update; refresh often fails on container)
+    _swatch_update = [
+        f"{v}- lvgl.obj.update:\n",
+        f"{v}    id: {swatch_id}\n",
+        f"{v}    bg_color: !lambda |-\n",
+        f"{v}      float h = id(etd_cp_{wid_safe}_hue) / 360.0f;\n",
+        f"{v}      float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
+        f"{v}      float v = 1.0f;\n",
+        f"{v}      float c = v * s, x_ = c * (1.0f - fabs(fmod(h * 6.0f, 2.0f) - 1.0f)), m = v - c;\n",
+        f"{v}      float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{v}      float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
+        f"{v}      float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{v}      return lv_color_hex(((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255));\n",
+    ]
     # Hue gradient strip: 36 tappable segments (like simulator's linear-gradient strip)
     strip_segment_w = 7
     strip_h = 18
@@ -2355,7 +2369,7 @@ def _emit_color_picker_overlay_yaml(
         f"{ii}width: {overlay_w}\n",
         f"{ii}height: {overlay_h}\n",
         f"{ii}bg_color: 0x333333\n",
-        f"{ii}bg_opa: 90%\n",
+        f"{ii}bg_opa: 100%\n",
         f"{ii}widgets:\n",
         # Label "Hue" above strip (match simulator); text_color so visible on dark overlay
         f"{iii}- label:\n",
@@ -2385,9 +2399,8 @@ def _emit_color_picker_overlay_yaml(
             f"{v}- lvgl.slider.update:\n",
             f"{v}    id: {slider_id}\n",
             f"{v}    value: {hue_deg}\n",
-            f"{v}- lvgl.widget.refresh:\n",
-            f"{v}    id: {swatch_id}\n",
         ])
+        out_lines.extend(_swatch_update)
     # Slider for hue (horizontal, like simulator)
     out_lines.extend([
         f"{iii}- slider:\n",
@@ -2402,8 +2415,9 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}on_release:\n",
         f"{iv}  then:\n",
         f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = x;\n",
-        f"{v}- lvgl.widget.refresh:\n",
-        f"{v}    id: {swatch_id}\n",
+    ])
+    out_lines.extend(_swatch_update)
+    out_lines.extend([
         # Label "Sat" (visible on dark bg)
         f"{iii}- label:\n",
         f"{iv}text: Sat\n",
@@ -2425,8 +2439,9 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}on_release:\n",
         f"{iv}  then:\n",
         f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n",
-        f"{v}- lvgl.widget.refresh:\n",
-        f"{v}    id: {swatch_id}\n",
+    ])
+    out_lines.extend(_swatch_update)
+    out_lines.extend([
         # Preview swatch (current colour, like simulator); border so visible on any bg
         f"{iii}- container:\n",
         f"{iv}id: {swatch_id}\n",

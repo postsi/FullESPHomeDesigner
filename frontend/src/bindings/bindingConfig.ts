@@ -54,6 +54,7 @@ export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   spinbox: ["on_change"],
   textarea: ["on_value", "on_ready", "on_focus", "on_defocus"],
   qrcode: [],
+  color_picker: ["on_click", "on_apply"],
 };
 
 /** Event key -> human label. */
@@ -65,6 +66,7 @@ export const EVENT_LABELS: Record<string, string> = {
   on_ready: "On ready",
   on_focus: "On focus",
   on_defocus: "On defocus",
+  on_apply: "On apply (colour picker)",
 };
 
 /** Services relevant to each HA domain (for action binding service dropdown). */
@@ -115,6 +117,12 @@ export const SERVICES_BY_DOMAIN: Record<string, { service: string; label: string
   ],
   input_number: [
     { service: "input_number.set_value", label: "Set value" },
+  ],
+  script: [
+    { service: "script.turn_on", label: "Run" },
+  ],
+  esphome_touch_designer: [
+    { service: "set_light_rgb", label: "Set light RGB (colour picker)" },
   ],
 };
 

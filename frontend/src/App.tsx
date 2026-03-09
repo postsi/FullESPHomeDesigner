@@ -4089,6 +4089,19 @@ function deleteSelected() {
                                 (finalProject as any).action_bindings.push({ widget_id: actionWidgetId, event: a.event, call: a.call });
                               }
                             }
+                            if (act === "button_bg_color") {
+                              (finalProject as any).action_bindings = (finalProject as any).action_bindings || [];
+                              (finalProject as any).action_bindings.push({
+                                widget_id: finalWid,
+                                event: "on_apply",
+                                call: {
+                                  domain: "esphome_touch_designer",
+                                  service: "set_light_rgb",
+                                  entity_id: ent,
+                                  data: {},
+                                },
+                              });
+                            }
                             if (renameResult.ok && renameResult.newId) {
                               setProject(finalProject, true);
                               setSelectedWidgetIds([renameResult.newId]);
