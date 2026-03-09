@@ -2114,17 +2114,60 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
                     out_lines.append(indent + ln)
             out = "".join(out_lines)
         else:
-            wid = w.get("id") or "w"
-            out = "".join(
-                [
-                    f"{indent}- container:\n",
+            # No schema: emit bar/arc from props (e.g. prebuilt WiFi bar/fan) or fallback to container
+            wid = str(w.get("id") or "w")
+            props = w.get("props") or {}
+            style = w.get("style") or {}
+            if wtype == "bar":
+                lines = [
+                    f"{indent}- bar:\n",
                     f"{indent}    id: {wid}\n",
                     f"{indent}    x: {int(w.get('x', 0))}\n",
                     f"{indent}    y: {int(w.get('y', 0))}\n",
                     f"{indent}    width: {int(w.get('w', 100))}\n",
                     f"{indent}    height: {int(w.get('h', 50))}\n",
+                    f"{indent}    min_value: {int(props.get('min_value', 0))}\n",
+                    f"{indent}    max_value: {int(props.get('max_value', 100))}\n",
+                    f"{indent}    value: {int(props.get('value', 0))}\n",
                 ]
-            )
+                if style.get("bg_color") is not None:
+                    bc = _hex_color_for_yaml(style["bg_color"])
+                    if bc is not None:
+                        lines.append(f"{indent}    bg_color: 0x{int(bc):06X}\n")
+                out = "".join(lines)
+            elif wtype == "arc":
+                lines = [
+                    f"{indent}- arc:\n",
+                    f"{indent}    id: {wid}\n",
+                    f"{indent}    x: {int(w.get('x', 0))}\n",
+                    f"{indent}    y: {int(w.get('y', 0))}\n",
+                    f"{indent}    width: {int(w.get('w', 100))}\n",
+                    f"{indent}    height: {int(w.get('h', 50))}\n",
+                    f"{indent}    min_value: {int(props.get('min_value', 0))}\n",
+                    f"{indent}    max_value: {int(props.get('max_value', 100))}\n",
+                    f"{indent}    value: {int(props.get('value', 0))}\n",
+                    f"{indent}    adjustable: {str(bool(props.get('adjustable', False))).lower()}\n",
+                ]
+                if props.get("start_angle") is not None:
+                    lines.append(f"{indent}    start_angle: {int(props.get('start_angle', 135))}\n")
+                if props.get("end_angle") is not None:
+                    lines.append(f"{indent}    end_angle: {int(props.get('end_angle', 45))}\n")
+                if style.get("bg_color") is not None:
+                    bc = _hex_color_for_yaml(style["bg_color"])
+                    if bc is not None:
+                        lines.append(f"{indent}    bg_color: 0x{int(bc):06X}\n")
+                out = "".join(lines)
+            else:
+                out = "".join(
+                    [
+                        f"{indent}- container:\n",
+                        f"{indent}    id: {wid}\n",
+                        f"{indent}    x: {int(w.get('x', 0))}\n",
+                        f"{indent}    y: {int(w.get('y', 0))}\n",
+                        f"{indent}    width: {int(w.get('w', 100))}\n",
+                        f"{indent}    height: {int(w.get('h', 50))}\n",
+                    ]
+                )
 
         # Children: nest under `widgets:`. ESPHome LVGL supports this for containers and many widgets.
         wid = str(w.get("id") or "")

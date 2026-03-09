@@ -132,9 +132,9 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     },
   },
   {
-    id: "prebuilt_wifi",
-    title: "WiFi strength",
-    description: "Classic fan-style WiFi bars. Auto-updates from ESPHome wifi_signal sensor.",
+    id: "prebuilt_wifi_bar",
+    title: "WiFi bar",
+    description: "Four vertical bars for WiFi strength. Auto-updates from ESPHome wifi_signal sensor.",
     build: ({ x, y }) => {
       const barH = [8, 14, 20, 26];
       const barW = 6;
@@ -155,8 +155,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
           style: { bg_color: bgDark, radius: 2 },
         });
       }
-      // Thresholds for bars: -80dBm=1bar, -70dBm=2bars, -60dBm=3bars, -50dBm=4bars
-      // WiFi signal ranges from ~-30dBm (excellent) to ~-90dBm (poor)
+      // Thresholds: -90, -75, -65, -55 dBm for 1–4 bars
       const intervalYaml = `
 interval:
   - interval: 5s
@@ -172,6 +171,70 @@ interval:
           value: !lambda 'return id(etd_wifi_signal).state > -65 ? 100 : 0;'
       - lvgl.bar.update:
           id: ${barIds[3]}
+          value: !lambda 'return id(etd_wifi_signal).state > -55 ? 100 : 0;'
+`;
+      return {
+        widgets: wrapInGroup(x, y, raw),
+        esphome_components: [ESPHOME_WIFI_SIGNAL, intervalYaml],
+      };
+    },
+  },
+  {
+    id: "prebuilt_wifi_fan",
+    title: "WiFi fan",
+    description: "90° fan (center at bottom) with 5 arcs. Auto-updates from ESPHome wifi_signal sensor.",
+    build: ({ x, y }) => {
+      // LVGL: 0°=right, 90°=bottom, 180°=left, 270°=top. 90° fan centered on top = 225° to 315°
+      const startAngle = 225;
+      const endAngle = 315;
+      const arcIds: string[] = [];
+      const raw: any[] = [];
+      const sizes = [16, 24, 32, 40, 48]; // concentric arcs, innermost to outer
+      const groupW = 56;
+      const groupH = 56;
+      for (let i = 0; i < 5; i++) {
+        const aid = uid("wifi_fan_arc");
+        arcIds.push(aid);
+        const sz = sizes[i];
+        const ax = (groupW - sz) / 2;
+        const ay = (groupH - sz) / 2;
+        raw.push({
+          id: aid,
+          type: "arc",
+          x: ax,
+          y: ay,
+          w: sz,
+          h: sz,
+          props: {
+            min_value: 0,
+            max_value: 100,
+            value: 100,
+            start_angle: startAngle,
+            end_angle: endAngle,
+            adjustable: false,
+          },
+          style: { bg_color: bgDark },
+        });
+      }
+      // Thresholds: -90, -80, -70, -65, -55 dBm for 1–5 arcs
+      const intervalYaml = `
+interval:
+  - interval: 5s
+    then:
+      - lvgl.arc.update:
+          id: ${arcIds[0]}
+          value: !lambda 'return id(etd_wifi_signal).state > -90 ? 100 : 0;'
+      - lvgl.arc.update:
+          id: ${arcIds[1]}
+          value: !lambda 'return id(etd_wifi_signal).state > -80 ? 100 : 0;'
+      - lvgl.arc.update:
+          id: ${arcIds[2]}
+          value: !lambda 'return id(etd_wifi_signal).state > -70 ? 100 : 0;'
+      - lvgl.arc.update:
+          id: ${arcIds[3]}
+          value: !lambda 'return id(etd_wifi_signal).state > -65 ? 100 : 0;'
+      - lvgl.arc.update:
+          id: ${arcIds[4]}
           value: !lambda 'return id(etd_wifi_signal).state > -55 ? 100 : 0;'
 `;
       return {

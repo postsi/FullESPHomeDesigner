@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.170
+
+- **Prebuilt: WiFi bar and WiFi fan**: Renamed "WiFi strength" to **WiFi bar** (four vertical bars). Added **WiFi fan** (90° fan, center at bottom, five arcs). Both use `etd_wifi_signal` and 5s interval. Compiler now emits `bar` and `arc` widgets when schema is missing (with `start_angle`/`end_angle` for arc).
+- **Prebuilt panel**: Removed YAML snippet button from each prebuilt widget.
+
 ## v0.70.169
 
 - **Components panel / Interval**: Merge compiler output (prebuilts, HA bindings) into sections even when `project.sections` exists. Previously, when sections were saved, the panel returned early and never merged in new compiler-generated sections like `interval` and `time` from prebuilts. Fixes Interval (and Time) appearing empty in Components while compiled YAML has them.

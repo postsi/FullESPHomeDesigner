@@ -305,7 +305,6 @@ async function onUploadAssetFile(file: File) {
 
 const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [paletteTab, setPaletteTab] = useState<"std" | "cards" | "widgets">("std");
-  const [snippetModalPrebuilt, setSnippetModalPrebuilt] = useState<PrebuiltWidget | null>(null);
   const [inspectorTab, setInspectorTab] = useState<"properties" | "bindings" | "builder" | "yaml">("properties");
   const [editingWidgetId, setEditingWidgetId] = useState<string>("");
   useEffect(() => {
@@ -3188,35 +3187,12 @@ function deleteSelected() {
                         setInspectorTab("properties");
                       }}
                       title={pw.description ? `${pw.description} (drag or click to add)` : "Drag or click to add"}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
+                      style={{ display: "flex", alignItems: "center", minWidth: 0 }}
                     >
                       <span style={{ flex: 1, minWidth: 0 }}>{pw.title}</span>
-                      <button
-                        type="button"
-                        className="secondary"
-                        draggable={false}
-                        style={{ flexShrink: 0, padding: "2px 6px", fontSize: 10 }}
-                        title="View YAML snippet"
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSnippetModalPrebuilt(pw); }}
-                      >
-                        YAML
-                      </button>
                     </div>
                   ))}
                 </div>
-                {snippetModalPrebuilt && (
-                  <div className="modalBackdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setSnippetModalPrebuilt(null)}>
-                    <div className="panelContent" style={{ maxWidth: 480, maxHeight: "80vh", overflow: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
-                      <div className="sectionTitle" style={{ marginBottom: 8 }}>YAML snippet — {snippetModalPrebuilt.title}</div>
-                      <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>{snippetModalPrebuilt.description}</p>
-                      <pre style={{ background: "#1e293b", padding: 12, borderRadius: 8, fontSize: 11, overflow: "auto", whiteSpace: "pre-wrap", marginBottom: 12 }}>{snippetModalPrebuilt.yamlSnippet || "No snippet for this widget. Use the Bindings panel to link entities and actions."}</pre>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button type="button" className="secondary" onClick={() => { const t = snippetModalPrebuilt.yamlSnippet || ""; if (t) navigator.clipboard.writeText(t); setToast({ type: "ok", msg: "Copied to clipboard" }); }}>Copy</button>
-                        <button type="button" className="secondary" onClick={() => setSnippetModalPrebuilt(null)}>Close</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             )}
             <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>Drag onto canvas. Hold <code>ALT</code> to disable snapping.</div>
