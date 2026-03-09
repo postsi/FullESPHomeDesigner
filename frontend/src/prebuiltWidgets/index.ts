@@ -139,11 +139,9 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const barH = [8, 14, 20, 26];
       const barW = 6;
       const gap = 6;
-      const barIds: string[] = [];
       const raw: any[] = [];
       for (let i = 0; i < 4; i++) {
         const bid = uid("wifi_bar");
-        barIds.push(bid);
         raw.push({
           id: bid,
           type: "bar",
@@ -155,27 +153,10 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
           style: { bg_color: bgDark, radius: 2 },
         });
       }
-      // Thresholds: -90, -75, -65, -55 dBm for 1–4 bars
-      const intervalYaml = `
-interval:
-  - interval: 5s
-    then:
-      - lvgl.bar.update:
-          id: ${barIds[0]}
-          value: !lambda 'return id(etd_wifi_signal).state > -90 ? 100 : 0;'
-      - lvgl.bar.update:
-          id: ${barIds[1]}
-          value: !lambda 'return id(etd_wifi_signal).state > -75 ? 100 : 0;'
-      - lvgl.bar.update:
-          id: ${barIds[2]}
-          value: !lambda 'return id(etd_wifi_signal).state > -65 ? 100 : 0;'
-      - lvgl.bar.update:
-          id: ${barIds[3]}
-          value: !lambda 'return id(etd_wifi_signal).state > -55 ? 100 : 0;'
-`;
+      // Interval is generated at compile time from actual widget IDs (avoids stale IDs after paste/reload)
       return {
         widgets: wrapInGroup(x, y, raw),
-        esphome_components: [ESPHOME_WIFI_SIGNAL, intervalYaml],
+        esphome_components: [ESPHOME_WIFI_SIGNAL],
       };
     },
   },
@@ -187,14 +168,12 @@ interval:
       // LVGL: 0°=right, 90°=bottom, 180°=left, 270°=top. 90° fan centered on top = 225° to 315°
       const startAngle = 225;
       const endAngle = 315;
-      const arcIds: string[] = [];
       const raw: any[] = [];
       const sizes = [16, 24, 32, 40, 48]; // concentric arcs, innermost to outer
       const groupW = 56;
       const groupH = 56;
       for (let i = 0; i < 5; i++) {
         const aid = uid("wifi_fan_arc");
-        arcIds.push(aid);
         const sz = sizes[i];
         const ax = (groupW - sz) / 2;
         const ay = (groupH - sz) / 2;
@@ -216,30 +195,10 @@ interval:
           style: { bg_color: bgDark },
         });
       }
-      // Thresholds: -90, -80, -70, -65, -55 dBm for 1–5 arcs
-      const intervalYaml = `
-interval:
-  - interval: 5s
-    then:
-      - lvgl.arc.update:
-          id: ${arcIds[0]}
-          value: !lambda 'return id(etd_wifi_signal).state > -90 ? 100 : 0;'
-      - lvgl.arc.update:
-          id: ${arcIds[1]}
-          value: !lambda 'return id(etd_wifi_signal).state > -80 ? 100 : 0;'
-      - lvgl.arc.update:
-          id: ${arcIds[2]}
-          value: !lambda 'return id(etd_wifi_signal).state > -70 ? 100 : 0;'
-      - lvgl.arc.update:
-          id: ${arcIds[3]}
-          value: !lambda 'return id(etd_wifi_signal).state > -65 ? 100 : 0;'
-      - lvgl.arc.update:
-          id: ${arcIds[4]}
-          value: !lambda 'return id(etd_wifi_signal).state > -55 ? 100 : 0;'
-`;
+      // Interval is generated at compile time from actual widget IDs (avoids stale IDs after paste/reload)
       return {
         widgets: wrapInGroup(x, y, raw),
-        esphome_components: [ESPHOME_WIFI_SIGNAL, intervalYaml],
+        esphome_components: [ESPHOME_WIFI_SIGNAL],
       };
     },
   },

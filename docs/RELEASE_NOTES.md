@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.171
+
+- **WiFi bar / WiFi fan – fix stale IDs**: Interval blocks for WiFi bar and WiFi fan are no longer stored in the project with fixed widget IDs. They are generated at **compile time** from the current project’s widget IDs. Fixes "Couldn't find ID 'wifi_bar_xxx'" (and wifi_fan_arc_xxx) when IDs in stored intervals didn’t match the widgets in the compiled LVGL pages (e.g. after paste, reload, or multiple drops). Stored WiFi bar/fan interval blocks are ignored; the compiler emits one interval per group of 4 bars or 5 arcs.
+
 ## v0.70.170
 
 - **Prebuilt: WiFi bar and WiFi fan**: Renamed "WiFi strength" to **WiFi bar** (four vertical bars). Added **WiFi fan** (90° fan, center at bottom, five arcs). Both use `etd_wifi_signal` and 5s interval. Compiler now emits `bar` and `arc` widgets when schema is missing (with `start_angle`/`end_angle` for arc).

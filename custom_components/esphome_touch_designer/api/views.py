@@ -746,12 +746,89 @@ def _merge_scripts_into_rest(rest: str, scripts_yaml: str) -> str:
     return "".join(new_lines)
 
 
+def _all_widgets_flat(project: dict) -> list[dict]:
+    """Return a flat list of all widgets from pages and top_layer, each with '_parent_id' set."""
+    out: list[dict] = []
+
+    def collect(widgets: list, parent_id: str = "") -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            w_copy = dict(w)
+            w_copy["_parent_id"] = parent_id
+            out.append(w_copy)
+            collect(w.get("widgets") or [], w.get("id") or "")
+
+    for page in project.get("pages") or []:
+        if isinstance(page, dict):
+            collect(page.get("widgets") or [], "")
+    top_layer = (project.get("lvgl_config") or {}).get("top_layer") or {}
+    collect(top_layer.get("widgets") or [], "")
+
+    return out
+
+
+def _compile_wifi_prebuilt_intervals(project: dict) -> str:
+    """Generate interval YAML for WiFi bar and WiFi fan from current project widget IDs.
+    Avoids stale IDs when stored esphome_components had intervals from an older widget set.
+    """
+    widgets = _all_widgets_flat(project)
+    by_parent: dict[str, list[dict]] = {}
+    for w in widgets:
+        pid = str(w.get("_parent_id") or "")
+        by_parent.setdefault(pid, []).append(w)
+
+    lines: list[str] = []
+    WIFI_BAR_THRESHOLDS = (-90, -75, -65, -55)
+    for pid, group in by_parent.items():
+        bars = [w for w in group if w.get("type") == "bar" and (w.get("id") or "").startswith("wifi_bar_")]
+        if len(bars) != 4:
+            continue
+        bars.sort(key=lambda w: str(w.get("id") or ""))
+        for i, w in enumerate(bars):
+            wid = w.get("id") or ""
+            thresh = WIFI_BAR_THRESHOLDS[i]
+            lines.append(f"      - lvgl.bar.update:")
+            lines.append(f"          id: {wid}")
+            lines.append(f"          value: !lambda 'return id(etd_wifi_signal).state > {thresh} ? 100 : 0;'")
+
+    WIFI_FAN_THRESHOLDS = (-90, -80, -70, -65, -55)
+    for pid, group in by_parent.items():
+        arcs = [w for w in group if w.get("type") == "arc" and (w.get("id") or "").startswith("wifi_fan_arc_")]
+        if len(arcs) != 5:
+            continue
+        arcs.sort(key=lambda w: str(w.get("id") or ""))
+        for i, w in enumerate(arcs):
+            wid = w.get("id") or ""
+            thresh = WIFI_FAN_THRESHOLDS[i]
+            lines.append(f"      - lvgl.arc.update:")
+            lines.append(f"          id: {wid}")
+            lines.append(f"          value: !lambda 'return id(etd_wifi_signal).state > {thresh} ? 100 : 0;'")
+
+    if not lines:
+        return ""
+    return "interval:\n  - interval: 5s\n    then:\n" + "\n".join(lines) + "\n"
+
+
+def _is_wifi_bar_fan_interval_block(yaml_str: str) -> bool:
+    """True if this block is a WiFi bar or WiFi fan interval (skip; use compiler-generated IDs)."""
+    s = yaml_str.strip()
+    if "etd_wifi_signal" not in s:
+        return False
+    if "lvgl.bar.update" in s and "wifi_bar_" in s:
+        return True
+    if "lvgl.arc.update" in s and "wifi_fan_arc_" in s:
+        return True
+    return False
+
+
 def _compile_prebuilt_components(project: dict, include_user_components: bool = True) -> str:
     """Compile ESPHome components from prebuilt widgets (sensors, intervals, etc.).
 
     project.esphome_components is an array of raw YAML strings (or dicts with 'yaml' key).
     We deduplicate by checking for duplicate 'id:' lines to avoid emitting duplicate
     sensors/intervals when multiple prebuilts use the same shared component.
+    WiFi bar/fan intervals are generated from current widget IDs (not stored) to avoid stale IDs.
 
     When include_user_components is False (section-based compile), only prebuilt blocks are emitted.
     v0.70.136: added for prebuilt widget native functionality.
@@ -775,6 +852,10 @@ def _compile_prebuilt_components(project: dict, include_user_components: bool = 
         if not yaml_str:
             continue
 
+        # Skip WiFi bar/fan interval blocks; we generate these from current widget IDs below
+        if _is_wifi_bar_fan_interval_block(yaml_str):
+            continue
+
         # Extract all 'id: xxx' from the block for deduplication
         id_matches = re.findall(r"^\s*id:\s*(\S+)\s*$", yaml_str, re.MULTILINE)
         # Skip if ALL ids in this block are already seen (avoid duplicate sensors)
@@ -784,6 +865,11 @@ def _compile_prebuilt_components(project: dict, include_user_components: bool = 
             seen_ids.add(mid)
 
         out_blocks.append(yaml_str)
+
+    # Generate WiFi bar/fan intervals from current project widgets so IDs always match
+    wifi_interval_yaml = _compile_wifi_prebuilt_intervals(project)
+    if wifi_interval_yaml.strip():
+        out_blocks.append(wifi_interval_yaml.strip())
 
     auto_header = ""
     if out_blocks:
