@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.205
+
+- **Light card: colour picker and white picker**  
+  The Card Library Light card now uses the colour picker and white picker widgets instead of sliders when the light supports RGB and/or color_temp. Display links and apply scripts are generated from the link; no extra action bindings needed.
+
 ## v0.70.204
 
 - **White picker overlay: warm–cool bar row**  

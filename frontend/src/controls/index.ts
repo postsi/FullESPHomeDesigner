@@ -2201,7 +2201,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
   {
     id: "light_card",
     title: "Card Library • Light Card",
-    description: "Light card: toggle + brightness; optional color temp when supported. Binds to light.*",
+    description: "Light card: toggle + brightness; colour/white pickers when supported. Binds to light.*",
     entityDomain: "light",
     build: ({ entity_id, x = 20, y = 20, label = "Light", caps = null }) => {
       const ent = entity_id || "light.example";
@@ -2212,10 +2212,13 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       const lblBri = uid("lbl_light_bri");
       const colorModes = (caps?.attributes?.supported_color_modes as string[] | undefined) || [];
       const hasColorTemp = colorModes.includes("color_temp") || (caps?.attributes?.min_mireds != null && caps?.attributes?.max_mireds != null);
-      const minMireds = typeof caps?.attributes?.min_mireds === "number" ? caps.attributes.min_mireds : 153;
-      const maxMireds = typeof caps?.attributes?.max_mireds === "number" ? caps.attributes.max_mireds : 500;
-      const sldCt = uid("sld_light_ct");
-      const lblCt = uid("lbl_light_ct");
+      const hasRgb = colorModes.some((m: string) => ["rgb", "hs", "xy"].includes(m));
+      const pickerRowY = 142;
+      const pickerW = 80;
+      const pickerH = 36;
+      const pickerGap = 10;
+      const wpId = uid("wp_light");
+      const cpId = uid("cp_light");
       const cardW = 320;
       let cardH = 160;
       const pad = 12;
@@ -2226,19 +2229,42 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
         { id: sldId, type: "slider", x: x + pad, y: y + 94, w: cardW - 2 * pad - 50, h: 40, props: { min_value: 0, max_value: 255 } },
         { id: lblBri, type: "label", x: x + cardW - pad - 48, y: y + 94, w: 48, h: 40, props: { text: "0" }, style: { text_color: 0x888888 } },
       ];
-      if (hasColorTemp) {
+      if (hasColorTemp || hasRgb) {
         cardH = 208;
         widgets[0].h = cardH;
-        widgets.push(
-          { id: sldCt, type: "slider", x: x + pad, y: y + 142, w: cardW - 2 * pad - 50, h: 40, props: { min_value: minMireds, max_value: maxMireds } },
-          { id: lblCt, type: "label", x: x + cardW - pad - 48, y: y + 142, w: 48, h: 40, props: { text: "—" }, style: { text_color: 0x888888 } }
-        );
+        let pickerX = x + pad;
+        if (hasColorTemp) {
+          widgets.push({
+            id: wpId,
+            type: "white_picker",
+            x: pickerX,
+            y: y + pickerRowY,
+            w: pickerW,
+            h: pickerH,
+            props: { value: 326 },
+            style: { bg_color: 0xffd9bc, radius: 8 },
+          });
+          pickerX += pickerW + pickerGap;
+        }
+        if (hasRgb) {
+          widgets.push({
+            id: cpId,
+            type: "color_picker",
+            x: pickerX,
+            y: y + pickerRowY,
+            w: pickerW,
+            h: pickerH,
+            props: { value: 0x4080ff },
+            style: { bg_color: 0x4080ff, radius: 8 },
+          });
+        }
       }
       const bindings: any[] = entity_id
         ? [
             { entity_id, kind: "binary" },
             { entity_id, kind: "attribute_number", attribute: "brightness" },
             ...(hasColorTemp ? [{ entity_id, kind: "attribute_number", attribute: "color_temp" }] : []),
+            ...(hasRgb ? [{ entity_id, kind: "attribute_text", attribute: "rgb_color" }] : []),
           ]
         : [];
       const links: any[] = entity_id
@@ -2248,10 +2274,10 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
             { source: { entity_id, kind: "attribute_number", attribute: "brightness" }, target: { widget_id: sldId, action: "slider_value", scale: 1.0 } },
             { source: { entity_id, kind: "attribute_number", attribute: "brightness" }, target: { widget_id: lblBri, action: "label_text", format: "%.0f", scale: 1.0 } },
             ...(hasColorTemp
-              ? [
-                  { source: { entity_id, kind: "attribute_number", attribute: "color_temp" }, target: { widget_id: sldCt, action: "slider_value", scale: 1.0 } },
-                  { source: { entity_id, kind: "attribute_number", attribute: "color_temp" }, target: { widget_id: lblCt, action: "label_text", format: "%.0f", scale: 1.0 } },
-                ]
+              ? [{ source: { entity_id, kind: "attribute_number", attribute: "color_temp" }, target: { widget_id: wpId, action: "button_white_temp" } }]
+              : []),
+            ...(hasRgb
+              ? [{ source: { entity_id, kind: "attribute_text", attribute: "rgb_color" }, target: { widget_id: cpId, action: "button_bg_color" } }]
               : []),
           ]
         : [];
@@ -2259,9 +2285,7 @@ export const CONTROL_TEMPLATES: ControlTemplate[] = ([
       if (entity_id) {
         action_bindings.push({ widget_id: btnId, event: "on_click", call: { domain: "light", service: "toggle", entity_id: ent } });
         action_bindings.push({ widget_id: sldId, event: "on_release", call: { domain: "light", service: "turn_on", entity_id: ent, data: { brightness: "!lambda return (int)x;" } } });
-        if (hasColorTemp) {
-          action_bindings.push({ widget_id: sldCt, event: "on_release", call: { domain: "light", service: "turn_on", entity_id: ent, data: { color_temp: "!lambda return (int)x;" } } });
-        }
+        // Picker apply: compiler generates set_light_color_temp / set_light_rgb from links (button_white_temp / button_bg_color).
       }
       return { widgets, bindings, links, action_bindings };
     },
