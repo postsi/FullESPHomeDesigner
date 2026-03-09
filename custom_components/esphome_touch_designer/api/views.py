@@ -560,6 +560,22 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
                         outs.append(f"{i3}  args: [ 'x' ]\n")
 
+            elif action == "button_bg_color":
+                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button style
+                wtype = widget_type_by_id.get(wid) or "label"
+                if wtype != "color_picker":
+                    continue
+                i4 = "                  "  # 18 spaces for lambda body under bg_color
+                outs.append(f"{i2}- lvgl.style.update:\n")
+                outs.append(f"{i3}id: etd_cp_{wid_safe}\n")
+                outs.append(f"{i3}bg_color: !lambda |-\n")
+                outs.append(f"{i4}int r=0,g=0,b=0;\n")
+                outs.append(f"{i4}if (x.size() >= 5) {{\n")
+                outs.append(f"{i4}  sscanf(x.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
+                outs.append(f"{i4}  if (r==0 && g==0 && b==0) sscanf(x.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
+                outs.append(f"{i4}}}\n")
+                outs.append(f"{i4}return lv_color_hex((r<<16)|(g<<8)|b);\n")
+
             elif action == "obj_hidden":
                 expr = None
                 try:
@@ -1006,7 +1022,7 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
 
     # Script (project scripts + color picker tap-to-cycle scripts)
     scripts_yaml = _compile_scripts(project)
-    cpicker_scripts_yaml = _compile_color_picker_scripts(cpicker_defaults)
+    cpicker_scripts_yaml = _compile_color_picker_scripts(cpicker_defaults, project)
     if scripts_yaml.strip() or cpicker_scripts_yaml.strip():
         combined = (_strip_section_key(scripts_yaml, "script") or "").rstrip()
         if cpicker_scripts_yaml.strip():
@@ -2181,28 +2197,50 @@ def _compile_color_picker_globals(cpicker_defaults: list[tuple[str, str, int]]) 
     return "globals:\n" + "".join(out).rstrip() + "\n" if out else ""
 
 
-def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) -> str:
-    """Emit script: open overlay, apply (HSV->RGB + update style + hide), cancel (hide), and legacy cycle."""
+def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], project: dict) -> str:
+    """Emit script: open overlay, apply (HSV->RGB + update style + hide), cancel (hide), and legacy cycle.
+    When a display link 'Set button colour' exists for a colour picker to a light entity, Apply also calls light.turn_on with rgb_color."""
     if not cpicker_defaults:
         return ""
+    # Map color_picker widget_id -> entity_id for links with action button_bg_color (so Apply can send colour to HA)
+    cpicker_entity_by_wid: dict[str, str] = {}
+    for ln in project.get("links") or []:
+        if not isinstance(ln, dict):
+            continue
+        tgt = ln.get("target") or {}
+        if str(tgt.get("action") or "").strip() != "button_bg_color":
+            continue
+        raw_wid = tgt.get("widget_id")
+        if isinstance(raw_wid, dict) and "id" in raw_wid:
+            wid = str(raw_wid.get("id") or "").strip()
+        elif isinstance(raw_wid, list) and len(raw_wid):
+            wid = str(raw_wid[0] if not isinstance(raw_wid[0], dict) else raw_wid[0].get("id", "") or "").strip()
+        else:
+            wid = str(raw_wid or "").strip()
+        if not wid:
+            continue
+        src = ln.get("source") or {}
+        eid = str(src.get("entity_id") or "").strip()
+        if eid and "." in eid:
+            cpicker_entity_by_wid[wid] = eid
     colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 0x4080FF]
     out: list[str] = []
     for _wid, wid_safe, _initial in cpicker_defaults:
         style_id = f"etd_cp_{wid_safe}"
         overlay_id = f"etd_cp_overlay_{wid_safe}"
-        arc_id = f"etd_cp_arc_{wid_safe}"
+        slider_id = f"etd_cp_slider_{wid_safe}"
         bar_id = f"etd_cp_bar_{wid_safe}"
-        # Open overlay: sync arc/bar from hue/sat globals, then show overlay
+        # Open overlay: sync hue slider and sat bar from globals, then show overlay
         out.append(f"  - id: etd_cp_{wid_safe}_open\n")
         out.append("    then:\n")
-        out.append(f"      - lvgl.arc.update:\n")
-        out.append(f"          id: {arc_id}\n")
+        out.append(f"      - lvgl.slider.update:\n")
+        out.append(f"          id: {slider_id}\n")
         out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_hue);'\n")
         out.append(f"      - lvgl.bar.update:\n")
         out.append(f"          id: {bar_id}\n")
         out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_sat);'\n")
         out.append(f"      - lvgl.widget.show: {overlay_id}\n")
-        # Apply: HSV to RGB, update style, hide overlay
+        # Apply: HSV to RGB, update style, hide overlay; optionally call light.turn_on with rgb_color
         out.append(f"  - id: etd_cp_{wid_safe}_apply\n")
         out.append("    then:\n")
         out.append("      - lambda: |-\n")
@@ -2223,7 +2261,19 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) 
         out.append(f"      - lvgl.style.update:\n")
         out.append(f"          id: {style_id}\n")
         out.append(f"          bg_color: !lambda 'return lv_color_hex(id(etd_cp_{wid_safe}_result));'\n")
+        out.append(f"      - lvgl.widget.refresh:\n")
+        out.append(f"          id: {_wid}\n")
         out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
+        entity_id = cpicker_entity_by_wid.get(_wid)
+        if entity_id and entity_id.startswith("light."):
+            out.append("      - homeassistant.action:\n")
+            out.append("          action: light.turn_on\n")
+            out.append("          data:\n")
+            out.append(f"            entity_id: {json.dumps(entity_id)}\n")
+            out.append(f"            rgb_color:\n")
+            out.append(f"              - !lambda 'return (id(etd_cp_{wid_safe}_result) >> 16) & 0xFF;'\n")
+            out.append(f"              - !lambda 'return (id(etd_cp_{wid_safe}_result) >> 8) & 0xFF;'\n")
+            out.append(f"              - !lambda 'return id(etd_cp_{wid_safe}_result) & 0xFF;'\n")
         # Cancel: hide overlay
         out.append(f"  - id: etd_cp_{wid_safe}_cancel\n")
         out.append("    then:\n")
@@ -2290,7 +2340,7 @@ def _emit_color_picker_overlay_yaml(
     iv = "                "
     v = "                    "
     swatch_id = f"etd_cp_swatch_{wid_safe}"
-    arc_id = f"etd_cp_arc_{wid_safe}"
+    slider_id = f"etd_cp_slider_{wid_safe}"
     # Hue gradient strip: 36 tappable segments (like simulator's linear-gradient strip)
     strip_segment_w = 7
     strip_h = 18
@@ -2307,9 +2357,10 @@ def _emit_color_picker_overlay_yaml(
         f"{ii}bg_color: 0x333333\n",
         f"{ii}bg_opa: 90%\n",
         f"{ii}widgets:\n",
-        # Label "Hue" above strip (match simulator)
+        # Label "Hue" above strip (match simulator); text_color so visible on dark overlay
         f"{iii}- label:\n",
         f"{iv}text: Hue\n",
+        f"{iv}text_color: 0xFFFFFF\n",
         f"{iv}x: 20\n",
         f"{iv}y: 4\n",
         f"{iv}width: 240\n",
@@ -2331,20 +2382,20 @@ def _emit_color_picker_overlay_yaml(
             f"{iv}on_click:\n",
             f"{iv}  then:\n",
             f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = {hue_deg};\n",
-            f"{v}- lvgl.arc.update:\n",
-            f"{v}    id: {arc_id}\n",
+            f"{v}- lvgl.slider.update:\n",
+            f"{v}    id: {slider_id}\n",
             f"{v}    value: {hue_deg}\n",
             f"{v}- lvgl.widget.refresh:\n",
             f"{v}    id: {swatch_id}\n",
         ])
-    # Arc for fine hue (below strip)
+    # Slider for hue (horizontal, like simulator)
     out_lines.extend([
-        f"{iii}- arc:\n",
-        f"{iv}id: {arc_id}\n",
+        f"{iii}- slider:\n",
+        f"{iv}id: {slider_id}\n",
         f"{iv}x: 20\n",
         f"{iv}y: 44\n",
-        f"{iv}width: 100\n",
-        f"{iv}height: 100\n",
+        f"{iv}width: 240\n",
+        f"{iv}height: 24\n",
         f"{iv}min_value: 0\n",
         f"{iv}max_value: 360\n",
         f"{iv}value: 210\n",
@@ -2353,35 +2404,39 @@ def _emit_color_picker_overlay_yaml(
         f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = x;\n",
         f"{v}- lvgl.widget.refresh:\n",
         f"{v}    id: {swatch_id}\n",
-        # Label "Sat"
+        # Label "Sat" (visible on dark bg)
         f"{iii}- label:\n",
         f"{iv}text: Sat\n",
+        f"{iv}text_color: 0xFFFFFF\n",
         f"{iv}x: 20\n",
-        f"{iv}y: 148\n",
+        f"{iv}y: 72\n",
         f"{iv}width: 240\n",
         f"{iv}height: 16\n",
-        # Bar for saturation
+        # Bar for saturation (track visible)
         f"{iii}- bar:\n",
         f"{iv}id: etd_cp_bar_{wid_safe}\n",
         f"{iv}x: 20\n",
-        f"{iv}y: 166\n",
+        f"{iv}y: 90\n",
         f"{iv}width: 240\n",
         f"{iv}height: 24\n",
         f"{iv}min_value: 0\n",
         f"{iv}max_value: 100\n",
         f"{iv}value: 100\n",
+        f"{iv}bg_color: 0x555555\n",
         f"{iv}on_release:\n",
         f"{iv}  then:\n",
         f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n",
         f"{v}- lvgl.widget.refresh:\n",
         f"{v}    id: {swatch_id}\n",
-        # Preview swatch (current colour, like simulator)
+        # Preview swatch (current colour, like simulator); border so visible on any bg
         f"{iii}- container:\n",
         f"{iv}id: {swatch_id}\n",
         f"{iv}x: 20\n",
-        f"{iv}y: 196\n",
+        f"{iv}y: 120\n",
         f"{iv}width: 40\n",
         f"{iv}height: 40\n",
+        f"{iv}border_color: 0xFFFFFF\n",
+        f"{iv}border_width: 2\n",
         f"{iv}bg_color: !lambda |-\n",
         f"{iv}  float h = id(etd_cp_{wid_safe}_hue) / 360.0f;\n",
         f"{iv}  float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
@@ -2391,11 +2446,11 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}  float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
         f"{iv}  float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
         f"{iv}  return lv_color_hex(((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255));\n",
-        # Apply / Cancel
+        # Apply / Cancel (same row as swatch)
         f"{iii}- button:\n",
         f"{iv}text: Apply\n",
         f"{iv}x: 70\n",
-        f"{iv}y: 196\n",
+        f"{iv}y: 120\n",
         f"{iv}width: 100\n",
         f"{iv}height: 36\n",
         f"{iv}on_click:\n",
@@ -2404,7 +2459,7 @@ def _emit_color_picker_overlay_yaml(
         f"{iii}- button:\n",
         f"{iv}text: Cancel\n",
         f"{iv}x: 180\n",
-        f"{iv}y: 196\n",
+        f"{iv}y: 120\n",
         f"{iv}width: 80\n",
         f"{iv}height: 36\n",
         f"{iv}on_click:\n",

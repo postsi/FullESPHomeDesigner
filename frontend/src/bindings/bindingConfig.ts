@@ -3,7 +3,7 @@
  * Services listed per domain for action bindings (user sees only relevant options).
  */
 
-export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked";
+export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked" | "button_bg_color";
 
 /** Display target actions allowed per widget type (what property of the widget gets the HA value). */
 export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
@@ -23,6 +23,7 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   spinbox: ["label_text"],
   textarea: ["label_text"],
   qrcode: ["label_text"],
+  color_picker: ["button_bg_color", "label_text"],
 };
 
 /** Human-readable labels for display actions. */
@@ -32,6 +33,7 @@ export const DISPLAY_ACTION_LABELS: Record<DisplayAction, string> = {
   arc_value: "Set arc value",
   bar_value: "Set bar value",
   widget_checked: "Set on/off state",
+  button_bg_color: "Set button colour",
 };
 
 /** Events that can trigger an action binding, per widget type (ESPHome event names). */

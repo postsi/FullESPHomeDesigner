@@ -4059,13 +4059,17 @@ function deleteSelected() {
                             (p2 as any).bindings = (p2 as any).bindings || [];
                             (p2 as any).links = (p2 as any).links || [];
                             let kind: any = "state";
-                            if (act === "widget_checked") kind = "binary";
+                            let linkAttr = attr;
+                            if (act === "button_bg_color") {
+                              kind = "attribute_text";
+                              linkAttr = "rgb_color";
+                            } else if (act === "widget_checked") kind = "binary";
                             else if (attr) kind = "attribute_number";
-                            const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[attr];
-                            if (attr && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
-                            if (!attr && act === "label_text") kind = "state";
-                            (p2 as any).bindings.push({ entity_id: ent, kind, attribute: attr || undefined });
-                            (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: attr || "" }, target: { widget_id: wid, action: act, format: (bindFormat != null && String(bindFormat).trim() !== "") ? String(bindFormat).trim() : "%.1f", scale: bindScale } });
+                            const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[linkAttr || attr];
+                            if ((linkAttr || attr) && (typeof v === "string" || Array.isArray(v) || (v && typeof v === "object"))) kind = "attribute_text";
+                            if (!linkAttr && !attr && act === "label_text") kind = "state";
+                            (p2 as any).bindings.push({ entity_id: ent, kind, attribute: linkAttr || attr || undefined });
+                            (p2 as any).links.push({ source: { entity_id: ent, kind, attribute: linkAttr || attr || "" }, target: { widget_id: wid, action: act, format: (bindFormat != null && String(bindFormat).trim() !== "") ? String(bindFormat).trim() : "%.1f", scale: bindScale } });
                             const pageWidgets = (p2 as any).pages?.[safePageIndex]?.widgets || [];
                             const usedIds = new Set(pageWidgets.map((w: any) => w?.id).filter(Boolean));
                             const friendlyId = friendlyWidgetIdFromBinding(ent, attr || "state", usedIds);

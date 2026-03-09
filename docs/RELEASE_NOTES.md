@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.193
+
+- **Colour picker: HA binding and two-way light control**
+  - Display binding **"Set button colour"** for colour picker: bind a light entity so the button shows the light’s current colour (from `rgb_color`).
+  - When you tap **Apply** in the overlay, the chosen colour is sent to the bound light via `light.turn_on` (entity + `rgb_color`). No separate action binding needed.
+  - Adding a "Set button colour" link forces source to `attribute_text` / `rgb_color` so the device gets a Home Assistant text_sensor and the button stays in sync with the light.
+
 ## v0.70.192
 
 - **Colour picker overlay matches simulator on device**: The on-device colour picker overlay now mirrors the simulator: hue gradient strip (36 tappable segments), "Hue" / "Sat" labels, arc for fine hue, bar for saturation, live preview swatch (container with HSV→RGB lambda), and Apply/Cancel. Swatch refreshes when you change hue/sat via strip, arc, or bar.
