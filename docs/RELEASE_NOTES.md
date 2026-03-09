@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.191
+
+- **Colour picker compile fix (ESPHome 2026.2)**: Colour picker apply action now uses `lv_color_hex(id(etd_cp_*_result))` so the style `bg_color` receives `lv_color_t` instead of a raw int—fixes "could not convert from 'int' to 'lv_color_t'" when compiling.
+
 ## v0.70.190
 
 - **Full compile test with ESPHome**: The test script now runs `esphome config` on **every** compile output (empty screen, jc1060, no api key, colour picker, stored esphome stub). All five cases must pass so generated YAML is valid ESPHome.

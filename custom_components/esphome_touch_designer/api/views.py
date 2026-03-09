@@ -2221,7 +2221,7 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) 
         out.append("          id(etd_cp_" + wid_safe + "_result) = ((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255);\n")
         out.append(f"      - lvgl.style.update:\n")
         out.append(f"          id: {style_id}\n")
-        out.append(f"          bg_color: !lambda 'return id(etd_cp_{wid_safe}_result);'\n")
+        out.append(f"          bg_color: !lambda 'return lv_color_hex(id(etd_cp_{wid_safe}_result));'\n")
         out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         # Cancel: hide overlay
         out.append(f"  - id: etd_cp_{wid_safe}_cancel\n")
