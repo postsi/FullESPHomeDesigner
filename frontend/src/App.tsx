@@ -112,6 +112,15 @@ function friendlyWidgetIdFromBinding(entity_id: string, attribute: string, usedI
   return id;
 }
 
+/** If the given container is a "Spinbox with +/-" (has a single spinbox child), return that spinbox's id; else null. */
+function getSpinboxChildId(project: any, containerId: string): string | null {
+  const page = project?.pages?.[0];
+  const list = page?.widgets;
+  if (!Array.isArray(list)) return null;
+  const spinbox = list.find((w: any) => w?.parent_id === containerId && (w?.type === "spinbox"));
+  return spinbox?.id ?? null;
+}
+
 /** Rename a widget id everywhere in the project (page.widgets, links, parent_id). Returns updated project. */
 function renameWidgetInProject(
   proj: any,
@@ -3819,14 +3828,20 @@ function deleteSelected() {
                   const widgetId = selectedWidgetIds[0];
                   const selWidget = widgetsFlat.find((w: any) => w?.id === widgetId) ?? widgets.find((w: any) => w?.id === widgetId);
                   const widgetType = selWidget?.type || "container";
+                  const spinboxChildId = (widgetType === "container" && project) ? getSpinboxChildId(project, widgetId) : null;
                   const linksForWidget = ((project as any)?.links || []).filter(
                     (ln: any) => String(ln?.target?.widget_id || "").trim() === widgetId
                   );
                   const actionsForWidget = ((project as any)?.action_bindings || []).filter(
-                    (ab: any) => String(ab?.widget_id || "").trim() === widgetId
+                    (ab: any) => {
+                      const abWid = String(ab?.widget_id || "").trim();
+                      return abWid === widgetId || (spinboxChildId != null && abWid === spinboxChildId);
+                    }
                   );
+                  const actionBindingMatches = (a: any, evt: string) =>
+                    (String(a?.widget_id) === widgetId || (spinboxChildId != null && String(a?.widget_id) === spinboxChildId)) && a?.event === evt;
                   const displayActions = getDisplayActionsForType(widgetType);
-                  const eventOptions = getEventsForType(widgetType);
+                  const eventOptions = spinboxChildId ? getEventsForType("spinbox") : getEventsForType(widgetType);
                   const bindDomain = domainFromEntityId(bindEntity || actionEntity || "");
                   const serviceOptions = getServicesForDomain(bindDomain);
                   const filteredEntities = entities.filter(
@@ -3895,7 +3910,7 @@ function deleteSelected() {
                                         if (!project) return;
                                         const p2 = clone(project);
                                         const abs = (p2 as any).action_bindings || [];
-                                        const ab = abs.find((a: any) => a?.widget_id === widgetId && a?.event === ev);
+                                        const ab = abs.find((a: any) => actionBindingMatches(a, ev));
                                         if (ab?.call) {
                                           ab.call = { ...ab.call, entity_id: newId, data: { ...(ab.call.data || {}), entity_id: newId } };
                                           setProject(p2, true);
@@ -3910,7 +3925,7 @@ function deleteSelected() {
                                       <option key={e.entity_id} value={e.entity_id}>{e.entity_id}</option>
                                     ))}
                                   </select>
-                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const abs = (p2 as any).action_bindings || []; const aIdx = abs.findIndex((a: any) => a?.widget_id === widgetId && a?.event === ev); if (aIdx >= 0) { abs.splice(aIdx, 1); (p2 as any).action_bindings = abs; setProject(p2, true); setProjectDirty(true); setActionEntityChangePending((p) => p?.widgetId === widgetId && p?.event === ev ? null : p); } }} title="Delete this binding">Delete</button>
+                                  <button type="button" className="danger" style={{ marginLeft: 4, fontSize: 10 }} onClick={() => { if (!project) return; const p2 = clone(project); const abs = (p2 as any).action_bindings || []; const aIdx = abs.findIndex((a: any) => actionBindingMatches(a, ev)); if (aIdx >= 0) { abs.splice(aIdx, 1); (p2 as any).action_bindings = abs; setProject(p2, true); setProjectDirty(true); setActionEntityChangePending((p) => p?.widgetId === widgetId && p?.event === ev ? null : p); } }} title="Delete this binding">Delete</button>
                                 </li>
                               );
                             })}
@@ -3919,7 +3934,9 @@ function deleteSelected() {
                         {actionEntityChangePending && (() => {
                           const p = actionEntityChangePending;
                           const abs = (project as any)?.action_bindings || [];
-                          const ab = abs.find((a: any) => String(a?.widget_id) === p.widgetId && a?.event === p.event);
+                          const pendingMatch = (a: any, evt: string) =>
+                            (String(a?.widget_id) === widgetId || (spinboxChildId != null && String(a?.widget_id) === spinboxChildId)) && a?.event === evt;
+                          const ab = abs.find((a: any) => pendingMatch(a, p.event));
                           if (!ab) { setActionEntityChangePending(null); return null; }
                           return (
                             <div style={{ marginTop: 8, padding: 10, background: "rgba(255,200,100,0.1)", borderRadius: 6, border: "1px solid rgba(255,180,80,0.4)" }}>
@@ -3929,7 +3946,7 @@ function deleteSelected() {
                                   if (!project) return;
                                   const p2 = clone(project);
                                   const abs2 = (p2 as any).action_bindings || [];
-                                  const ab2 = abs2.find((a: any) => a?.widget_id === p.widgetId && a?.event === p.event);
+                                  const ab2 = abs2.find((a: any) => pendingMatch(a, p.event));
                                   if (ab2?.call) {
                                     ab2.call = { ...ab2.call, entity_id: p.newEntityId, data: { ...(ab2.call.data || {}), entity_id: p.newEntityId } };
                                     setProject(p2, true);
@@ -3941,7 +3958,7 @@ function deleteSelected() {
                                   if (!project) return;
                                   const p2 = clone(project);
                                   const abs2 = (p2 as any).action_bindings || [];
-                                  const ab2 = abs2.find((a: any) => a?.widget_id === p.widgetId && a?.event === p.event);
+                                  const ab2 = abs2.find((a: any) => pendingMatch(a, p.event));
                                   if (ab2?.call) {
                                     ab2.call = { ...ab2.call, entity_id: p.newEntityId, data: { ...(ab2.call.data || {}), entity_id: p.newEntityId } };
                                     if (ab2.yaml_override !== undefined) delete ab2.yaml_override;
@@ -4056,13 +4073,16 @@ function deleteSelected() {
                             const finalProject = renameResult.ok && renameResult.newId ? renameResult.project : p2;
                             const finalWid = renameResult.newId ?? wid;
                             if (createMatchingActions) {
-                              const effectiveType = (widgetType === "container" || !INPUT_WIDGET_TYPES.includes(widgetType as any) && !CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any))
-                                ? (act === "arc_value" ? "arc" : act === "slider_value" ? "slider" : act === "bar_value" ? "bar" : act === "widget_checked" ? "button" : widgetType)
-                                : widgetType;
+                              const actionWidgetId = spinboxChildId ?? finalWid;
+                              const effectiveType = spinboxChildId
+                                ? "spinbox"
+                                : (widgetType === "container" || !INPUT_WIDGET_TYPES.includes(widgetType as any) && !CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any))
+                                  ? (act === "arc_value" ? "arc" : act === "slider_value" ? "slider" : act === "bar_value" ? "bar" : act === "widget_checked" ? "button" : widgetType)
+                                  : widgetType;
                               const actions = getMatchingActionBindings(effectiveType, ent, kind, attr || "");
                               (finalProject as any).action_bindings = (finalProject as any).action_bindings || [];
                               for (const a of actions) {
-                                (finalProject as any).action_bindings.push({ widget_id: finalWid, event: a.event, call: a.call });
+                                (finalProject as any).action_bindings.push({ widget_id: actionWidgetId, event: a.event, call: a.call });
                               }
                             }
                             if (renameResult.ok && renameResult.newId) {
@@ -4074,6 +4094,7 @@ function deleteSelected() {
                             setProjectDirty(true);
                           }}>Add display binding</button>
                           {((INPUT_WIDGET_TYPES.includes(widgetType as any) || OPTION_SELECT_WIDGET_TYPES.includes(widgetType as any) || CLICK_TOGGLE_WIDGET_TYPES.includes(widgetType as any)) ||
+                            spinboxChildId ||
                             ["arc_value", "slider_value", "bar_value", "widget_checked"].includes(bindAction)) && (
                             <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer", fontSize: 12, color: "#b8bfc9" }}>
                               <input type="checkbox" checked={createMatchingActions} onChange={(e)=>setCreateMatchingActions(e.target.checked)} />
@@ -4142,13 +4163,14 @@ function deleteSelected() {
                               <button disabled={!project || !selectedWidgetIds.length || !actionService || !actionEntity} onClick={() => {
                                 if (!project) return;
                                 const wid = selectedWidgetIds[0];
+                                const actionWid = spinboxChildId ?? wid;
                                 const [domain, service] = actionService.split(".");
                                 if (!domain || !service) return;
                                 const p2 = clone(project);
                                 (p2 as any).action_bindings = (p2 as any).action_bindings || [];
                                 const ent = String(actionEntity || "").trim();
                                 (p2 as any).action_bindings.push({
-                                  widget_id: wid,
+                                  widget_id: actionWid,
                                   event: eventOptions.includes(actionEvent) ? actionEvent : eventOptions[0],
                                   call: {
                                     domain,
