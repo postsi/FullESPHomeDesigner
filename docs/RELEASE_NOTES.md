@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.192
+
+- **Colour picker overlay matches simulator on device**: The on-device colour picker overlay now mirrors the simulator: hue gradient strip (36 tappable segments), "Hue" / "Sat" labels, arc for fine hue, bar for saturation, live preview swatch (container with HSV→RGB lambda), and Apply/Cancel. Swatch refreshes when you change hue/sat via strip, arc, or bar.
+
 ## v0.70.191
 
 - **Colour picker compile fix (ESPHome 2026.2)**: Colour picker apply action now uses `lv_color_hex(id(etd_cp_*_result))` so the style `bg_color` receives `lv_color_t` instead of a raw int—fixes "could not convert from 'int' to 'lv_color_t'" when compiling.

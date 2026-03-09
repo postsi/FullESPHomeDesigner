@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import colorsys
 import json
 import tempfile
 from pathlib import Path
@@ -2277,75 +2278,140 @@ def _emit_color_picker_overlay_yaml(
     btn_w: int,
     btn_h: int,
 ) -> str:
-    """Emit YAML for one colour picker overlay. Positioned relative to the button, clamped to display."""
+    """Emit YAML for one colour picker overlay. Matches simulator: hue gradient strip, labels, arc, bar, preview swatch, Apply/Cancel."""
     overlay_w, overlay_h = 280, 240
-    # Center overlay on the button, then clamp so it stays on screen
     center_x = btn_x + btn_w // 2
     center_y = btn_y + btn_h // 2
-    overlay_x = center_x - overlay_w // 2
-    overlay_y = center_y - overlay_h // 2
-    overlay_x = max(0, min(overlay_x, disp_w - overlay_w))
-    overlay_y = max(0, min(overlay_y, disp_h - overlay_h))
-    # top_layer: "    widgets:\n" (4 spaces); list item 6 spaces; container value 10; nested widgets same rule
-    i = "      "  # list item "- container:" (6 spaces)
-    ii = "          "  # container value: id, hidden, widgets (10 spaces)
-    iii = "            "  # nested list item "- arc:" etc. (12 spaces)
-    iv = "                "  # arc/bar/button value: id, x, on_release (16 spaces, > "arc" at col 14)
-    v = "                    "  # then: list item "- lambda:" (20 spaces)
-    return (
-        f"{i}- container:\n"
-        f"{ii}id: etd_cp_overlay_{wid_safe}\n"
-        f"{ii}hidden: true\n"
-        f"{ii}x: {overlay_x}\n"
-        f"{ii}y: {overlay_y}\n"
-        f"{ii}width: {overlay_w}\n"
-        f"{ii}height: {overlay_h}\n"
-        f"{ii}bg_color: 0x333333\n"
-        f"{ii}bg_opa: 90%\n"  # 230/255 ~ 90%; ESPHome expects percentage with %
-        f"{ii}widgets:\n"
-        f"{iii}- arc:\n"
-        f"{iv}id: etd_cp_arc_{wid_safe}\n"
-        f"{iv}x: 20\n"
-        f"{iv}y: 20\n"
-        f"{iv}width: 100\n"
-        f"{iv}height: 100\n"
-        f"{iv}min_value: 0\n"
-        f"{iv}max_value: 360\n"
-        f"{iv}value: 210\n"
-        f"{iv}on_release:\n"
-        f"{iv}  then:\n"
-        f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = x;\n"
-        f"{iii}- bar:\n"
-        f"{iv}id: etd_cp_bar_{wid_safe}\n"
-        f"{iv}x: 20\n"
-        f"{iv}y: 130\n"
-        f"{iv}width: 240\n"
-        f"{iv}height: 24\n"
-        f"{iv}min_value: 0\n"
-        f"{iv}max_value: 100\n"
-        f"{iv}value: 100\n"
-        f"{iv}on_release:\n"
-        f"{iv}  then:\n"
-        f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n"
-        f"{iii}- button:\n"
-        f"{iv}text: Apply\n"
-        f"{iv}x: 20\n"
-        f"{iv}y: 180\n"
-        f"{iv}width: 110\n"
-        f"{iv}height: 36\n"
-        f"{iv}on_click:\n"
-        f"{iv}  then:\n"
-        f"{v}- script.execute: etd_cp_{wid_safe}_apply\n"
-        f"{iii}- button:\n"
-        f"{iv}text: Cancel\n"
-        f"{iv}x: 150\n"
-        f"{iv}y: 180\n"
-        f"{iv}width: 110\n"
-        f"{iv}height: 36\n"
-        f"{iv}on_click:\n"
-        f"{iv}  then:\n"
-        f"{v}- script.execute: etd_cp_{wid_safe}_cancel\n"
-    )
+    overlay_x = max(0, min(center_x - overlay_w // 2, disp_w - overlay_w))
+    overlay_y = max(0, min(center_y - overlay_h // 2, disp_h - overlay_h))
+    i = "      "
+    ii = "          "
+    iii = "            "
+    iv = "                "
+    v = "                    "
+    swatch_id = f"etd_cp_swatch_{wid_safe}"
+    arc_id = f"etd_cp_arc_{wid_safe}"
+    # Hue gradient strip: 36 tappable segments (like simulator's linear-gradient strip)
+    strip_segment_w = 7
+    strip_h = 18
+    strip_y = 22
+    strip_x_start = 20
+    out_lines = [
+        f"{i}- container:\n",
+        f"{ii}id: etd_cp_overlay_{wid_safe}\n",
+        f"{ii}hidden: true\n",
+        f"{ii}x: {overlay_x}\n",
+        f"{ii}y: {overlay_y}\n",
+        f"{ii}width: {overlay_w}\n",
+        f"{ii}height: {overlay_h}\n",
+        f"{ii}bg_color: 0x333333\n",
+        f"{ii}bg_opa: 90%\n",
+        f"{ii}widgets:\n",
+        # Label "Hue" above strip (match simulator)
+        f"{iii}- label:\n",
+        f"{iv}text: Hue\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 4\n",
+        f"{iv}width: 240\n",
+        f"{iv}height: 16\n",
+    ]
+    for seg_i in range(36):
+        hue_deg = seg_i * 10
+        r, g, b = colorsys.hsv_to_rgb(hue_deg / 360.0, 1.0, 1.0)
+        hex_col = (int(r * 255) << 16) | (int(g * 255) << 8) | int(b * 255)
+        seg_x = strip_x_start + seg_i * strip_segment_w
+        out_lines.extend([
+            f"{iii}- button:\n",
+            f"{iv}id: etd_cp_strip_{wid_safe}_{seg_i}\n",
+            f"{iv}x: {seg_x}\n",
+            f"{iv}y: {strip_y}\n",
+            f"{iv}width: {strip_segment_w}\n",
+            f"{iv}height: {strip_h}\n",
+            f"{iv}bg_color: 0x{hex_col:06X}\n",
+            f"{iv}on_click:\n",
+            f"{iv}  then:\n",
+            f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = {hue_deg};\n",
+            f"{v}- lvgl.arc.update:\n",
+            f"{v}    id: {arc_id}\n",
+            f"{v}    value: {hue_deg}\n",
+            f"{v}- lvgl.widget.refresh:\n",
+            f"{v}    id: {swatch_id}\n",
+        ])
+    # Arc for fine hue (below strip)
+    out_lines.extend([
+        f"{iii}- arc:\n",
+        f"{iv}id: {arc_id}\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 44\n",
+        f"{iv}width: 100\n",
+        f"{iv}height: 100\n",
+        f"{iv}min_value: 0\n",
+        f"{iv}max_value: 360\n",
+        f"{iv}value: 210\n",
+        f"{iv}on_release:\n",
+        f"{iv}  then:\n",
+        f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = x;\n",
+        f"{v}- lvgl.widget.refresh:\n",
+        f"{v}    id: {swatch_id}\n",
+        # Label "Sat"
+        f"{iii}- label:\n",
+        f"{iv}text: Sat\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 148\n",
+        f"{iv}width: 240\n",
+        f"{iv}height: 16\n",
+        # Bar for saturation
+        f"{iii}- bar:\n",
+        f"{iv}id: etd_cp_bar_{wid_safe}\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 166\n",
+        f"{iv}width: 240\n",
+        f"{iv}height: 24\n",
+        f"{iv}min_value: 0\n",
+        f"{iv}max_value: 100\n",
+        f"{iv}value: 100\n",
+        f"{iv}on_release:\n",
+        f"{iv}  then:\n",
+        f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n",
+        f"{v}- lvgl.widget.refresh:\n",
+        f"{v}    id: {swatch_id}\n",
+        # Preview swatch (current colour, like simulator)
+        f"{iii}- container:\n",
+        f"{iv}id: {swatch_id}\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 196\n",
+        f"{iv}width: 40\n",
+        f"{iv}height: 40\n",
+        f"{iv}bg_color: !lambda |-\n",
+        f"{iv}  float h = id(etd_cp_{wid_safe}_hue) / 360.0f;\n",
+        f"{iv}  float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
+        f"{iv}  float v = 1.0f;\n",
+        f"{iv}  float c = v * s, x_ = c * (1.0f - fabs(fmod(h * (1.0f/60.0f), 2.0f) - 1.0f)), m = v - c;\n",
+        f"{iv}  float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{iv}  float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
+        f"{iv}  float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{iv}  return lv_color_hex(((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255));\n",
+        # Apply / Cancel
+        f"{iii}- button:\n",
+        f"{iv}text: Apply\n",
+        f"{iv}x: 70\n",
+        f"{iv}y: 196\n",
+        f"{iv}width: 100\n",
+        f"{iv}height: 36\n",
+        f"{iv}on_click:\n",
+        f"{iv}  then:\n",
+        f"{v}- script.execute: etd_cp_{wid_safe}_apply\n",
+        f"{iii}- button:\n",
+        f"{iv}text: Cancel\n",
+        f"{iv}x: 180\n",
+        f"{iv}y: 196\n",
+        f"{iv}width: 80\n",
+        f"{iv}height: 36\n",
+        f"{iv}on_click:\n",
+        f"{iv}  then:\n",
+        f"{v}- script.execute: etd_cp_{wid_safe}_cancel\n",
+    ])
+    return "".join(out_lines)
 
 
 def _compile_lvgl_config_body(project: dict, cpicker_styles: list[dict] | None = None) -> str:
