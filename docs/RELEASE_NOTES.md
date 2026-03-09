@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.203
+
+- **White picker widget**  
+  New widget type for lights with warm–cool white (color_temp): swatch similar to the colour picker, bound to the light’s `color_temp` (mireds). Display action “Set white temperature” and on_apply → `esphome_touch_designer.set_light_color_temp`. Frontend: binding config, light domain color_temp recommendation, canvas swatch from mireds, prebuilt “White picker”, and auto on_apply when adding a display binding.
+
 ## v0.70.202
 
 - **Colour picker: accept HA rgb_color as tuple**  

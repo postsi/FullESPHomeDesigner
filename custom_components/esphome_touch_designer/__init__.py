@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, SERVICE_SET_LIGHT_RGB
+from .const import DOMAIN, SERVICE_SET_LIGHT_RGB, SERVICE_SET_LIGHT_COLOR_TEMP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +18,13 @@ SET_LIGHT_RGB_SCHEMA = vol.Schema(
         vol.Required("red"): vol.All(vol.Coerce(int), vol.Range(0, 255)),
         vol.Required("green"): vol.All(vol.Coerce(int), vol.Range(0, 255)),
         vol.Required("blue"): vol.All(vol.Coerce(int), vol.Range(0, 255)),
+    }
+)
+
+SET_LIGHT_COLOR_TEMP_SCHEMA = vol.Schema(
+    {
+        vol.Required("entity_id"): cv.entity_id,
+        vol.Required("color_temp"): vol.All(vol.Coerce(int), vol.Range(1, 1000)),
     }
 )
 
@@ -36,11 +43,28 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             blocking=True,
         )
 
+    async def async_set_light_color_temp(call: ServiceCall) -> None:
+        """Set a light's white temperature in mireds (for ESPHome white picker Apply)."""
+        entity_id = call.data["entity_id"]
+        color_temp = call.data["color_temp"]
+        await hass.services.async_call(
+            "light",
+            "turn_on",
+            {"entity_id": entity_id, "color_temp": color_temp},
+            blocking=True,
+        )
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_SET_LIGHT_RGB,
         async_set_light_rgb,
         schema=SET_LIGHT_RGB_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_LIGHT_COLOR_TEMP,
+        async_set_light_color_temp,
+        schema=SET_LIGHT_COLOR_TEMP_SCHEMA,
     )
     return True
 

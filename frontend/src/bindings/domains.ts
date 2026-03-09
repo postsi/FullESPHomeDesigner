@@ -19,6 +19,7 @@ export const DOMAIN_PRESETS: DomainPreset[] = [
     { kind: "state", note: "state (on/off)" },
     { kind: "attribute_number", attribute: "brightness", note: "brightness (0-255)" },
     { kind: "attribute_text", attribute: "rgb_color", note: "rgb_color" },
+    { kind: "attribute_number", attribute: "color_temp", note: "color_temp (mireds)" },
   ]},
   { domain: "switch", title: "Switch", recommended: [
     { kind: "state", note: "state (on/off)" },

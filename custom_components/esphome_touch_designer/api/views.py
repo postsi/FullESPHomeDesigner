@@ -591,6 +591,30 @@ def _compile_ha_bindings(project: dict) -> str:
                 outs.append(f"{i4}- lvgl.widget.redraw:\n")
                 outs.append(f"{i5}id: {wid}\n")
 
+            elif action == "button_white_temp":
+                # HA color_temp (mireds) -> update white picker button; x is numeric from attribute_number sensor
+                wtype = widget_type_by_id.get(wid) or "label"
+                if wtype != "white_picker":
+                    continue
+                sensor_id = f"ha_num_{_safe_id(entity_id)}_{_safe_id(attr or 'attr')}"
+                i4 = "                  "
+                i5 = "                        "
+                i6 = "                          "
+                outs.append(f"{i2}- if:\n")
+                outs.append(f"{i3}condition:\n")
+                outs.append(f'{i4}lambda: "return x >= 153 && x <= 500;"\n')
+                outs.append(f"{i3}then:\n")
+                outs.append(f"{i4}- lvgl.obj.update:\n")
+                outs.append(f"{i5}id: {wid}\n")
+                outs.append(f"{i5}bg_color: !lambda |-\n")
+                outs.append(f"{i6}float m = id({sensor_id}).state;\n")
+                outs.append(f"{i6}float t = (m - 153.0f) / (500.0f - 153.0f);\n")
+                outs.append(f"{i6}if (t < 0.0f) t = 0.0f; if (t > 1.0f) t = 1.0f;\n")
+                outs.append(f"{i6}int r = 255, g = (int)(255.0f - 75.0f * t), b = (int)(255.0f - 135.0f * t);\n")
+                outs.append(f"{i6}return lv_color_hex((r<<16)|(g<<8)|b);\n")
+                outs.append(f"{i4}- lvgl.widget.redraw:\n")
+                outs.append(f"{i5}id: {wid}\n")
+
             elif action == "obj_hidden":
                 expr = None
                 try:
@@ -1024,39 +1048,52 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
             else:
                 out[k] = v
 
-    # Globals (lock vars + color picker cycle indices)
+    # Globals (lock vars + color picker + white picker)
     locks_yaml = _compile_ui_lock_globals(project)
     cpicker_defaults = _collect_color_picker_defaults(project)
+    wpicker_defaults = _collect_white_picker_defaults(project)
     cpicker_globals_yaml = _compile_color_picker_globals(cpicker_defaults)
-    if locks_yaml.strip() or cpicker_globals_yaml.strip():
+    wpicker_globals_yaml = _compile_white_picker_globals(wpicker_defaults)
+    if locks_yaml.strip() or cpicker_globals_yaml.strip() or wpicker_globals_yaml.strip():
         combined = (_strip_section_key(locks_yaml, "globals") or "").rstrip()
         if cpicker_globals_yaml.strip():
             cpicker_part = _strip_section_key(cpicker_globals_yaml, "globals").rstrip()
             combined = (combined + "\n" + cpicker_part).rstrip() if combined else cpicker_part
+        if wpicker_globals_yaml.strip():
+            wpicker_part = _strip_section_key(wpicker_globals_yaml, "globals").rstrip()
+            combined = (combined + "\n" + wpicker_part).rstrip() if combined else wpicker_part
         out["globals"] = combined
 
-    # Script (project scripts + color picker tap-to-cycle scripts)
+    # Script (project scripts + color picker + white picker scripts)
     scripts_yaml = _compile_scripts(project)
     cpicker_scripts_yaml = _compile_color_picker_scripts(cpicker_defaults, project)
-    if scripts_yaml.strip() or cpicker_scripts_yaml.strip():
+    wpicker_scripts_yaml = _compile_white_picker_scripts(wpicker_defaults, project)
+    if scripts_yaml.strip() or cpicker_scripts_yaml.strip() or wpicker_scripts_yaml.strip():
         combined = (_strip_section_key(scripts_yaml, "script") or "").rstrip()
         if cpicker_scripts_yaml.strip():
             cpicker_part = _strip_section_key(cpicker_scripts_yaml, "script").rstrip()
             combined = (combined + "\n" + cpicker_part).rstrip() if combined else cpicker_part
+        if wpicker_scripts_yaml.strip():
+            wpicker_part = _strip_section_key(wpicker_scripts_yaml, "script").rstrip()
+            combined = (combined + "\n" + wpicker_part).rstrip() if combined else wpicker_part
         out["script"] = combined
 
-    # Interval: colour picker HA sync (so button updates when light colour changes in HA)
+    # Interval: colour picker + white picker HA sync
     cpicker_interval_yaml = _compile_color_picker_sync_interval(project, cpicker_defaults)
-    if cpicker_interval_yaml.strip():
-        interval_body = _strip_section_key(cpicker_interval_yaml, "interval").rstrip()
-        if interval_body:
-            if "interval" in out:
-                out["interval"] = out["interval"].rstrip() + "\n\n" + interval_body
-            else:
-                out["interval"] = interval_body
+    wpicker_interval_yaml = _compile_white_picker_sync_interval(project, wpicker_defaults)
+    for interval_yaml in (cpicker_interval_yaml, wpicker_interval_yaml):
+        if interval_yaml.strip():
+            interval_body = _strip_section_key(interval_yaml, "interval").rstrip()
+            if interval_body:
+                if "interval" in out:
+                    out["interval"] = out["interval"].rstrip() + "\n\n" + interval_body
+                else:
+                    out["interval"] = interval_body
 
     # LVGL (full body: config + pages); keep leading indent (rstrip only).
-    pages_yaml = _compile_lvgl_pages_schema_driven(project, cpicker_defaults=cpicker_defaults)
+    pages_yaml = _compile_lvgl_pages_schema_driven(
+        project, cpicker_defaults=cpicker_defaults, wpicker_defaults=wpicker_defaults
+    )
     if pages_yaml.strip():
         out["lvgl"] = pages_yaml.rstrip()
 
@@ -1633,7 +1670,7 @@ PALETTE_WIDGET_TYPES = frozenset({
     "tileview",
 })
 # Widget types we compile and edit but do not show in Std LVGL palette (e.g. designer-only widgets).
-EXTRA_WIDGET_TYPES = frozenset({"color_picker"})
+EXTRA_WIDGET_TYPES = frozenset({"color_picker", "white_picker"})
 COMPILABLE_WIDGET_TYPES = PALETTE_WIDGET_TYPES | EXTRA_WIDGET_TYPES
 
 
@@ -2378,6 +2415,281 @@ def _compile_color_picker_sync_interval(project: dict, cpicker_defaults: list[tu
     return "interval:\n" + "\n".join(lines) + "\n"
 
 
+# --- White picker (warm/cool white temp, mireds 153-500) ---
+
+MIREDS_MIN, MIREDS_MAX = 153, 500
+
+
+def _mireds_to_rgb_hex(mireds: int) -> int:
+    """Convert mireds (153=cool, 500=warm) to approximate RGB for swatch (0xRRGGBB)."""
+    t = (mireds - MIREDS_MIN) / (MIREDS_MAX - MIREDS_MIN)
+    t = max(0.0, min(1.0, t))
+    r, g, b = 255, int(255 - 75 * t), int(255 - 135 * t)
+    return (r << 16) | (g << 8) | b
+
+
+def _collect_white_picker_defaults(project: dict) -> list[tuple[str, str, int]]:
+    """Collect (wid, wid_safe, initial_mireds) for white_picker widgets that have no on_click action binding."""
+    pages = project.get("pages") or []
+    action_bindings_by_widget = {}
+    for ab in project.get("action_bindings") or []:
+        if not isinstance(ab, dict):
+            continue
+        wid = str(ab.get("widget_id") or "").strip()
+        if wid:
+            action_bindings_by_widget.setdefault(wid, []).append(ab)
+    has_on_click = set()
+    for wid, ab_list in action_bindings_by_widget.items():
+        for ab in ab_list:
+            if str(ab.get("event") or "").strip().lower() == "on_click":
+                has_on_click.add(wid)
+                break
+    out: list[tuple[str, str, int]] = []
+
+    def walk(widgets: list) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            if str(w.get("type") or "") == "white_picker":
+                wid = str(w.get("id") or "").strip()
+                if not wid or wid in has_on_click:
+                    continue
+                wid_safe = _safe_id(wid)
+                props = w.get("props") or {}
+                raw = props.get("value")
+                if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+                    initial = int(max(MIREDS_MIN, min(MIREDS_MAX, raw)))
+                else:
+                    initial = 326
+                out.append((wid, wid_safe, initial))
+            walk(w.get("widgets") or [])
+
+    for page in pages:
+        if isinstance(page, dict):
+            walk(page.get("widgets") or [])
+    return out
+
+
+def _compile_white_picker_globals(wpicker_defaults: list[tuple[str, str, int]]) -> str:
+    if not wpicker_defaults:
+        return ""
+    out = []
+    for _wid, wid_safe, initial_m in wpicker_defaults:
+        out.append(f"  - id: etd_wp_{wid_safe}_mireds\n")
+        out.append("    type: int\n")
+        out.append("    restore_value: no\n")
+        out.append(f"    initial_value: '{initial_m}'\n")
+    return "globals:\n" + "".join(out).rstrip() + "\n" if out else ""
+
+
+def _compile_white_picker_scripts(wpicker_defaults: list[tuple[str, str, int]], project: dict) -> str:
+    if not wpicker_defaults:
+        return ""
+    wpicker_entity_by_wid: dict[str, str] = {}
+    for ln in project.get("links") or []:
+        if not isinstance(ln, dict):
+            continue
+        tgt = ln.get("target") or {}
+        if str(tgt.get("action") or "").strip() != "button_white_temp":
+            continue
+        raw_wid = tgt.get("widget_id")
+        wid = _extract_widget_id(raw_wid)
+        if not wid:
+            continue
+        src = ln.get("source") or {}
+        eid = str(src.get("entity_id") or "").strip()
+        if eid and "." in eid and eid.startswith("light."):
+            wpicker_entity_by_wid[wid] = eid
+
+    out = []
+    for _wid, wid_safe, initial_mireds in wpicker_defaults:
+        style_id = f"etd_wp_{wid_safe}"
+        overlay_id = f"etd_wp_overlay_{wid_safe}"
+        slider_id = f"etd_wp_slider_{wid_safe}"
+        out.append(f"  - id: etd_wp_{wid_safe}_open\n")
+        out.append("    then:\n")
+        out.append(f"      - lvgl.slider.update:\n")
+        out.append(f"          id: {slider_id}\n")
+        out.append(f"          value: !lambda 'return id(etd_wp_{wid_safe}_mireds);'\n")
+        out.append(f"      - lvgl.widget.show: {overlay_id}\n")
+        out.append(f"  - id: etd_wp_{wid_safe}_apply\n")
+        out.append("    then:\n")
+        out.append(f"      - lvgl.style.update:\n")
+        out.append(f"          id: {style_id}\n")
+        out.append(f"          bg_color: !lambda |-\n")
+        out.append(f"            int m = id(etd_wp_{wid_safe}_mireds);\n")
+        out.append(f"            float t = (m - {MIREDS_MIN}) / (float)({MIREDS_MAX} - {MIREDS_MIN});\n")
+        out.append("            if (t < 0) t = 0; if (t > 1) t = 1;\n")
+        out.append("            int r = 255, g = (int)(255 - 75*t), b = (int)(255 - 135*t);\n")
+        out.append("            return lv_color_hex((r<<16)|(g<<8)|b);\n")
+        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
+        out.append(f"      - lvgl.widget.redraw:\n")
+        out.append(f"          id: {_wid}\n")
+        entity_id = wpicker_entity_by_wid.get(_wid)
+        if entity_id:
+            out.append("      - homeassistant.action:\n")
+            out.append("          action: esphome_touch_designer.set_light_color_temp\n")
+            out.append("          data:\n")
+            out.append(f"            entity_id: {json.dumps(entity_id)}\n")
+            out.append(f"            color_temp: !lambda 'return id(etd_wp_{wid_safe}_mireds);'\n")
+        out.append(f"  - id: etd_wp_{wid_safe}_cancel\n")
+        out.append("    then:\n")
+        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
+        entity_id = wpicker_entity_by_wid.get(_wid)
+        if entity_id:
+            sensor_id = f"ha_num_{_safe_id(entity_id)}_color_temp"
+            out.append(f"  - id: etd_wp_{wid_safe}_sync_ha_mireds\n")
+            out.append("    then:\n")
+            out.append("      - if:\n")
+            out.append("          condition:\n")
+            out.append("            lambda: |-\n")
+            out.append(f"              float m = id({sensor_id}).state;\n")
+            out.append(f"              return m >= {MIREDS_MIN} && m <= {MIREDS_MAX};\n")
+            out.append("          then:\n")
+            out.append("            - lambda: id(etd_wp_" + wid_safe + "_mireds) = (int)id(" + sensor_id + ").state;\n")
+            out.append("            - lvgl.style.update:\n")
+            out.append(f"                id: {style_id}\n")
+            out.append("                bg_color: !lambda |-\n")
+            out.append(f"                  int m = id(etd_wp_{wid_safe}_mireds);\n")
+            out.append(f"                  float t = (m - {MIREDS_MIN}) / (float)({MIREDS_MAX} - {MIREDS_MIN});\n")
+            out.append("                  if (t < 0) t = 0; if (t > 1) t = 1;\n")
+            out.append("                  int r = 255, g = (int)(255 - 75*t), b = (int)(255 - 135*t);\n")
+            out.append("                  return lv_color_hex((r<<16)|(g<<8)|b);\n")
+            out.append("            - lvgl.widget.redraw:\n")
+            out.append(f"                id: {_wid}\n")
+    return "script:\n" + "".join(out).rstrip() + "\n" if out else ""
+
+
+def _extract_widget_id(raw_wid) -> str:
+    if isinstance(raw_wid, dict) and "id" in raw_wid:
+        return str(raw_wid.get("id") or "").strip()
+    if isinstance(raw_wid, list) and raw_wid:
+        first = raw_wid[0]
+        return str(first.get("id", "") or "").strip() if isinstance(first, dict) else str(first or "").strip()
+    return str(raw_wid or "").strip()
+
+
+def _compile_white_picker_sync_interval(project: dict, wpicker_defaults: list[tuple[str, str, int]]) -> str:
+    wpicker_entity_by_wid = {}
+    for ln in project.get("links") or []:
+        if not isinstance(ln, dict):
+            continue
+        tgt = ln.get("target") or {}
+        if str(tgt.get("action") or "").strip() != "button_white_temp":
+            continue
+        wid = _extract_widget_id(tgt.get("widget_id"))
+        if not wid:
+            continue
+        eid = str((ln.get("source") or {}).get("entity_id") or "").strip()
+        if eid and "." in eid and eid.startswith("light."):
+            wpicker_entity_by_wid[wid] = eid
+    sync_scripts = [f"etd_wp_{wid_safe}_sync_ha_mireds" for _wid, wid_safe, _ in wpicker_defaults if wpicker_entity_by_wid.get(_wid)]
+    if not sync_scripts:
+        return ""
+    lines = ["  - interval: 5s", "    then:"]
+    for sid in sync_scripts:
+        lines.append(f"      - script.execute: {sid}")
+    return "interval:\n" + "\n".join(lines) + "\n"
+
+
+def _emit_white_picker_overlay_yaml(
+    wid_safe: str,
+    disp_w: int,
+    disp_h: int,
+    btn_x: int,
+    btn_y: int,
+    btn_w: int,
+    btn_h: int,
+) -> str:
+    overlay_w, overlay_h = 260, 200
+    center_x = btn_x + btn_w // 2
+    center_y = btn_y + btn_h // 2
+    overlay_x = max(0, min(center_x - overlay_w // 2, disp_w - overlay_w))
+    overlay_y = max(0, min(center_y - overlay_h // 2, disp_h - overlay_h))
+    i, ii, iii, iv, v = "      ", "          ", "            ", "                ", "                    "
+    swatch_id = f"etd_wp_swatch_{wid_safe}"
+    slider_id = f"etd_wp_slider_{wid_safe}"
+    _swatch_update = [
+        f"{v}- lvgl.obj.update:\n",
+        f"{v}    id: {swatch_id}\n",
+        f"{v}    bg_color: !lambda |-\n",
+        f"{v}      int m = id(etd_wp_{wid_safe}_mireds);\n",
+        f"{v}      float t = (m - {MIREDS_MIN}.0f) / ({MIREDS_MAX} - {MIREDS_MIN});\n",
+        f"{v}      if (t < 0) t = 0; if (t > 1) t = 1;\n",
+        f"{v}      int r = 255, g = (int)(255 - 75*t), b = (int)(255 - 135*t);\n",
+        f"{v}      return lv_color_hex((r<<16)|(g<<8)|b);\n",
+    ]
+    out_lines = [
+        f"{i}- container:\n",
+        f"{ii}id: etd_wp_overlay_{wid_safe}\n",
+        f"{ii}hidden: true\n",
+        f"{ii}x: {overlay_x}\n",
+        f"{ii}y: {overlay_y}\n",
+        f"{ii}width: {overlay_w}\n",
+        f"{ii}height: {overlay_h}\n",
+        f"{ii}bg_color: 0x333333\n",
+        f"{ii}bg_opa: 100%\n",
+        f"{ii}widgets:\n",
+        f"{iii}- label:\n",
+        f"{iv}text: White temp (mireds)\n",
+        f"{iv}text_color: 0xFFFFFF\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 4\n",
+        f"{iv}width: 220\n",
+        f"{iv}height: 16\n",
+        f"{iii}- slider:\n",
+        f"{iv}id: {slider_id}\n",
+        f"{iv}x: 20\n",
+        f"{iv}y: 28\n",
+        f"{iv}width: 220\n",
+        f"{iv}height: 24\n",
+        f"{iv}min_value: {MIREDS_MIN}\n",
+        f"{iv}max_value: {MIREDS_MAX}\n",
+        f"{iv}value: 326\n",
+        f"{iv}on_release:\n",
+        f"{iv}  then:\n",
+        f"{v}- lambda: id(etd_wp_{wid_safe}_mireds) = (int)x;\n",
+    ]
+    out_lines.extend(_swatch_update)
+    out_lines.extend([
+        f"{iii}- button:\n",
+        f"{iv}id: {swatch_id}\n",
+        f'{iv}text: " "\n',
+        f"{iv}x: 20\n",
+        f"{iv}y: 60\n",
+        f"{iv}width: 40\n",
+        f"{iv}height: 40\n",
+        f"{iv}border_color: 0xFFFFFF\n",
+        f"{iv}border_width: 2\n",
+        f"{iv}bg_opa: 100%\n",
+        f"{iv}bg_color: !lambda |-\n",
+        f"{iv}  int m = id(etd_wp_{wid_safe}_mireds);\n",
+        f"{iv}  float t = (m - {MIREDS_MIN}.0f) / ({MIREDS_MAX} - {MIREDS_MIN});\n",
+        f"{iv}  if (t < 0) t = 0; if (t > 1) t = 1;\n",
+        f"{iv}  int r = 255, g = (int)(255 - 75*t), b = (int)(255 - 135*t);\n",
+        f"{iv}  return lv_color_hex((r<<16)|(g<<8)|b);\n",
+        f"{iii}- button:\n",
+        f"{iv}text: Apply\n",
+        f"{iv}x: 70\n",
+        f"{iv}y: 60\n",
+        f"{iv}width: 100\n",
+        f"{iv}height: 36\n",
+        f"{iv}on_click:\n",
+        f"{iv}  then:\n",
+        f"{v}- script.execute: etd_wp_{wid_safe}_apply\n",
+        f"{iii}- button:\n",
+        f"{iv}text: Cancel\n",
+        f"{iv}x: 180\n",
+        f"{iv}y: 60\n",
+        f"{iv}width: 80\n",
+        f"{iv}height: 36\n",
+        f"{iv}on_click:\n",
+        f"{iv}  then:\n",
+        f"{v}- script.execute: etd_wp_{wid_safe}_cancel\n",
+    ])
+    return "".join(out_lines)
+
+
 def _widget_bounds_by_id(project: dict, widget_id: str) -> tuple[int, int, int, int]:
     """Return (x, y, width, height) for the first widget with id == widget_id in project pages. Default (0, 0, 80, 36) if not found."""
     for page in project.get("pages") or []:
@@ -2571,7 +2883,11 @@ def _emit_color_picker_overlay_yaml(
     return "".join(out_lines)
 
 
-def _compile_lvgl_config_body(project: dict, cpicker_styles: list[dict] | None = None) -> str:
+def _compile_lvgl_config_body(
+    project: dict,
+    cpicker_styles: list[dict] | None = None,
+    wpicker_styles: list[dict] | None = None,
+) -> str:
     """Emit LVGL main config, style_definitions, theme, gradients (no pages/top_layer)."""
     lc = project.get("lvgl_config") or {}
     main = lc.get("main") or {}
@@ -2594,6 +2910,8 @@ def _compile_lvgl_config_body(project: dict, cpicker_styles: list[dict] | None =
     style_defs = list(lc.get("style_definitions") or [])
     if cpicker_styles:
         style_defs = style_defs + cpicker_styles
+    if wpicker_styles:
+        style_defs = style_defs + wpicker_styles
     if isinstance(style_defs, list) and style_defs:
         out.append("  style_definitions:\n")
         for sd in style_defs:
@@ -2737,7 +3055,11 @@ def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> 
     return "\n".join(out_lines), event_snippets
 
 
-def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tuple[str, str, int]] | None = None) -> str:
+def _compile_lvgl_pages_schema_driven(
+    project: dict,
+    cpicker_defaults: list[tuple[str, str, int]] | None = None,
+    wpicker_defaults: list[tuple[str, str, int]] | None = None,
+) -> str:
     """Compile LVGL pages from the project model.
 
     v0.18: supports container-style parenting via `parent_id` and emits nested
@@ -2745,8 +3067,14 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
     v0.71: emits lvgl_config (main, style_definitions, theme, gradients) then pages, then top_layer.
     """
     cpicker_defaults = cpicker_defaults or []
+    wpicker_defaults = wpicker_defaults or []
     cpicker_by_wid = {wid: (wid_safe, initial) for (wid, wid_safe, initial) in cpicker_defaults}
     cpicker_styles = [{"id": f"etd_cp_{wid_safe}", "bg_color": initial} for (_w, wid_safe, initial) in cpicker_defaults]
+    wpicker_by_wid = {wid: (wid_safe, initial_m) for (wid, wid_safe, initial_m) in wpicker_defaults}
+    wpicker_styles = [
+        {"id": f"etd_wp_{wid_safe}", "bg_color": _mireds_to_rgb_hex(initial_m)}
+        for (_w, wid_safe, initial_m) in wpicker_defaults
+    ]
 
     pages = project.get("pages") or []
     if not isinstance(pages, list) or not pages:
@@ -2851,6 +3179,57 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
                 w_emit["style"]["bg_color"] = props.get("value") or style.get("bg_color") or 0x4080FF
                 w_emit["props"] = {k: v for k, v in props.items() if k != "value"}
                 raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
+            elif wtype == "white_picker" and wid in wpicker_by_wid:
+                wid_safe, _initial_m = wpicker_by_wid[wid]
+                x_val = int(w.get("x", 0))
+                y_val = int(w.get("y", 0))
+                w_val = int(w.get("w", 100))
+                h_val = int(w.get("h", 50))
+                align = str((w.get("props") or {}).get("align", "TOP_LEFT") or "TOP_LEFT").strip().upper()
+                if align and align != "TOP_LEFT" and parent_w is not None and parent_h is not None:
+                    pw2, ph2 = parent_w // 2, parent_h // 2
+                    if align == "CENTER":
+                        x_val = x_val + w_val // 2 - pw2
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "TOP_MID":
+                        x_val = x_val + w_val // 2 - pw2
+                    elif align == "TOP_RIGHT":
+                        x_val = x_val + w_val - parent_w
+                    elif align == "LEFT_MID":
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "RIGHT_MID":
+                        x_val = x_val + w_val - parent_w
+                        y_val = y_val + h_val // 2 - ph2
+                    elif align == "BOTTOM_LEFT":
+                        y_val = y_val + h_val - parent_h
+                    elif align == "BOTTOM_MID":
+                        x_val = x_val + w_val // 2 - pw2
+                        y_val = y_val + h_val - parent_h
+                    elif align == "BOTTOM_RIGHT":
+                        x_val = x_val + w_val - parent_w
+                        y_val = y_val + h_val - parent_h
+                body = indent + "    "
+                raw = (
+                    f"{indent}- button:\n"
+                    f"{body}id: {wid}\n"
+                    f"{body}x: {x_val}\n"
+                    f"{body}y: {y_val}\n"
+                    f"{body}width: {w_val}\n"
+                    f"{body}height: {h_val}\n"
+                    f"{body}styles: etd_wp_{wid_safe}\n"
+                    f"{body}on_click:\n"
+                    f"{body}  then:\n"
+                    f"{body}  - script.execute: etd_wp_{wid_safe}_open\n"
+                )
+            elif wtype == "white_picker":
+                props = w_emit.get("props") or {}
+                style = w_emit.get("style") or {}
+                initial_m = int(props.get("value", 326))
+                initial_m = max(MIREDS_MIN, min(MIREDS_MAX, initial_m))
+                w_emit["style"] = dict(style)
+                w_emit["style"]["bg_color"] = _mireds_to_rgb_hex(initial_m)
+                w_emit["props"] = {k: v for k, v in props.items() if k != "value"}
+                raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             else:
                 raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)
@@ -2936,7 +3315,7 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
 
     out: list[str] = []
     # Emit main config, style_definitions, theme, gradients (from lvgl_config + color picker styles)
-    out.append(_compile_lvgl_config_body(project, cpicker_styles=cpicker_styles))
+    out.append(_compile_lvgl_config_body(project, cpicker_styles=cpicker_styles, wpicker_styles=wpicker_styles))
 
     disp_bg = project.get("disp_bg_color") or ((project.get("lvgl_config") or {}).get("main") or {}).get("disp_bg_color")
     disp_bg_hex: int | None = None  # 0xRRGGBB for page bg_color
@@ -2986,7 +3365,7 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
     top_layer = (project.get("lvgl_config") or {}).get("top_layer") or {}
     tl_widgets = top_layer.get("widgets") or []
     has_tl = isinstance(tl_widgets, list) and tl_widgets
-    if has_tl or cpicker_defaults:
+    if has_tl or cpicker_defaults or wpicker_defaults:
         recipe_id = str((project.get("hardware") or {}).get("recipe_id", "") or (project.get("device") or {}).get("hardware_recipe_id", "") or "")
         m = re.search(r"(\d{3,4})x(\d{3,4})", recipe_id, re.I) if recipe_id else None
         disp_w, disp_h = (int(m.group(1)), int(m.group(2))) if m else (480, 320)
@@ -3001,6 +3380,9 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
         for wid, wid_safe, _initial in cpicker_defaults:
             btn_x, btn_y, btn_w, btn_h = _widget_bounds_by_id(project, wid)
             out.append(_emit_color_picker_overlay_yaml(wid_safe, disp_w, disp_h, btn_x, btn_y, btn_w, btn_h))
+        for wid, wid_safe, _initial_m in wpicker_defaults:
+            btn_x, btn_y, btn_w, btn_h = _widget_bounds_by_id(project, wid)
+            out.append(_emit_white_picker_overlay_yaml(wid_safe, disp_w, disp_h, btn_x, btn_y, btn_w, btn_h))
 
     return "".join(out)
 

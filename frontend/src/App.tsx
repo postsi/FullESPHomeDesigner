@@ -3483,15 +3483,16 @@ function deleteSelected() {
 
                     const id = uid(type);
                     const isColorPicker = String(type).toLowerCase() === "color_picker";
+                    const isWhitePicker = String(type).toLowerCase() === "white_picker";
                     const w = {
                       id,
                       type,
                       x,
                       y,
-                      w: isColorPicker ? 80 : 120,
-                      h: isColorPicker ? 36 : 48,
-                      props: isColorPicker ? { value: 0x4080FF } : {},
-                      style: isColorPicker ? { bg_color: 0x4080FF, radius: 8 } : {},
+                      w: isColorPicker || isWhitePicker ? 80 : 120,
+                      h: isColorPicker || isWhitePicker ? 36 : 48,
+                      props: isColorPicker ? { value: 0x4080FF } : isWhitePicker ? { value: 326 } : {},
+                      style: isColorPicker ? { bg_color: 0x4080FF, radius: 8 } : isWhitePicker ? { bg_color: 0xFFD9BC, radius: 8 } : {},
                       events: {},
                     };
                     if (!pg) { console.log('[ETD onDropCreate] No page, aborting'); return; }
@@ -4063,6 +4064,9 @@ function deleteSelected() {
                             if (act === "button_bg_color") {
                               kind = "attribute_text";
                               linkAttr = "rgb_color";
+                            } else if (act === "button_white_temp") {
+                              kind = "attribute_number";
+                              linkAttr = "color_temp";
                             } else if (act === "widget_checked") kind = "binary";
                             else if (attr) kind = "attribute_number";
                             const v = entities.find((x)=>x.entity_id===ent)?.attributes?.[linkAttr || attr];
@@ -4097,6 +4101,19 @@ function deleteSelected() {
                                 call: {
                                   domain: "esphome_touch_designer",
                                   service: "set_light_rgb",
+                                  entity_id: ent,
+                                  data: {},
+                                },
+                              });
+                            }
+                            if (act === "button_white_temp") {
+                              (finalProject as any).action_bindings = (finalProject as any).action_bindings || [];
+                              (finalProject as any).action_bindings.push({
+                                widget_id: finalWid,
+                                event: "on_apply",
+                                call: {
+                                  domain: "esphome_touch_designer",
+                                  service: "set_light_color_temp",
                                   entity_id: ent,
                                   data: {},
                                 },

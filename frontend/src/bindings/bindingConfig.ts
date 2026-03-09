@@ -3,7 +3,7 @@
  * Services listed per domain for action bindings (user sees only relevant options).
  */
 
-export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked" | "button_bg_color";
+export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked" | "button_bg_color" | "button_white_temp";
 
 /** Display target actions allowed per widget type (what property of the widget gets the HA value). */
 export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
@@ -24,6 +24,7 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   textarea: ["label_text"],
   qrcode: ["label_text"],
   color_picker: ["button_bg_color", "label_text"],
+  white_picker: ["button_white_temp", "label_text"],
 };
 
 /** Human-readable labels for display actions. */
@@ -34,6 +35,7 @@ export const DISPLAY_ACTION_LABELS: Record<DisplayAction, string> = {
   bar_value: "Set bar value",
   widget_checked: "Set on/off state",
   button_bg_color: "Set button colour",
+  button_white_temp: "Set white temperature",
 };
 
 /** Events that can trigger an action binding, per widget type (ESPHome event names). */
@@ -55,6 +57,7 @@ export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   textarea: ["on_value", "on_ready", "on_focus", "on_defocus"],
   qrcode: [],
   color_picker: ["on_click", "on_apply"],
+  white_picker: ["on_click", "on_apply"],
 };
 
 /** Event key -> human label. */
@@ -66,7 +69,7 @@ export const EVENT_LABELS: Record<string, string> = {
   on_ready: "On ready",
   on_focus: "On focus",
   on_defocus: "On defocus",
-  on_apply: "On apply (colour picker)",
+  on_apply: "On apply",
 };
 
 /** Services relevant to each HA domain (for action binding service dropdown). */
@@ -123,6 +126,7 @@ export const SERVICES_BY_DOMAIN: Record<string, { service: string; label: string
   ],
   esphome_touch_designer: [
     { service: "set_light_rgb", label: "Set light RGB (colour picker)" },
+    { service: "set_light_color_temp", label: "Set light white temp (white picker)" },
   ],
 };
 

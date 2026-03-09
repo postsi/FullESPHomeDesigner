@@ -226,6 +226,26 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
     },
   },
   {
+    id: "prebuilt_white_picker",
+    title: "White picker",
+    description: "Warm–cool white swatch; tap to set color_temp (mireds) for lights.",
+    build: ({ x, y }) => {
+      const id = uid("white_picker");
+      return {
+        widgets: [{
+          id,
+          type: "white_picker",
+          x,
+          y,
+          w: 80,
+          h: 36,
+          props: { value: 326 },
+          style: { bg_color: 0xffd9bc, radius: 8 },
+        }],
+      };
+    },
+  },
+  {
     id: "prebuilt_spinbox_buttons",
     title: "Spinbox with +/-",
     description: "Native spinbox with - and + buttons that call lvgl.spinbox.decrement/increment. Bind spinbox on_change to HA entity.",

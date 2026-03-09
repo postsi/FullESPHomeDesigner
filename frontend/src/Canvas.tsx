@@ -319,9 +319,20 @@ const stageRef = useRef<any>(null);
     // Style helpers (schema-driven properties land in `style`). Support LVGL extras:
     // opacity (opa), shadow_ofs_x/y, shadow_width/color/opa/spread, clip_corner, border_side.
     const bg = toFillColor(s.bg_color ?? s.background_color ?? p.bg_color, "#111827");
-    const fillColor = (w.type && String(w.type).toLowerCase() === "color_picker")
+    const isColorPicker = w.type && String(w.type).toLowerCase() === "color_picker";
+    const isWhitePicker = w.type && String(w.type).toLowerCase() === "white_picker";
+    const fillColor = isColorPicker
       ? toFillColor(p.value ?? s.bg_color, "#4080FF")
-      : bg;
+      : isWhitePicker
+        ? (() => {
+            const m = Math.max(153, Math.min(500, Number(p.value ?? 326) || 326));
+            const t = (m - 153) / (500 - 153);
+            const r = 255;
+            const g = Math.round(255 - 75 * t);
+            const b = Math.round(255 - 135 * t);
+            return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+          })()
+        : bg;
     const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacityRaw = s.opa ?? p.opacity ?? 100;
@@ -353,6 +364,10 @@ const stageRef = useRef<any>(null);
       if (!simulationMode || !onSimulateUpdate && !onSimulateAction && !onOpenColorPicker) return;
       if (w.type === "color_picker" && onOpenColorPicker) {
         onOpenColorPicker(w.id, fillColor);
+        return;
+      }
+      if (w.type === "white_picker") {
+        // Simulator: no overlay in designer; device will show overlay
         return;
       }
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
@@ -555,8 +570,8 @@ const stageRef = useRef<any>(null);
 
     // Type-specific adornments
     const type = w.type.toLowerCase();
-    // Colour picker: show only the swatch (no label/text)
-    if (type === "color_picker") {
+    // Colour picker / white picker: show only the swatch (no label/text)
+    if (type === "color_picker" || type === "white_picker") {
       return <Group key={w.id}>{base}</Group>;
     }
     if (type.includes("label")) {
