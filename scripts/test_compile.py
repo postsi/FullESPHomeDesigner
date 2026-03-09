@@ -3,10 +3,20 @@
 Run the ESPHome Touch Designer compiler locally against dummy devices.
 No Home Assistant required. Usage (from repo root):
   python scripts/test_compile.py
+
+When esphome is installed in the same environment where you run this script (e.g.
+dev machine or CI sandbox—not on the Home Assistant server), it runs
+"esphome config <generated_yaml>" on every compile output. If any run reports
+"Failed config", the test fails (full output must be valid ESPHome YAML). The
+integration does not depend on esphome (manifest.json requirements stay empty).
 """
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Repo root = parent of scripts/
@@ -79,13 +89,23 @@ def _project_with_stored_esphome_manage_run() -> dict:
     return proj
 
 
-# Minimal recipe without "manage_run_and_sleep" (used to test stub is added from stored esphome)
+# Minimal recipe without "manage_run_and_sleep" (used to test stub is added from stored esphome).
+# Includes minimal display so lvgl config validates with "esphome config".
 _MINIMAL_RECIPE_NO_MANAGE_RUN = """esphome:
   name: __ETD_DEVICE_NAME__
   min_version: 2024.11.0
 esp32:
   variant: esp32s3
   flash_size: 16MB
+  framework:
+    type: esp-idf
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    id: stub_display
 """
 
 
@@ -157,6 +177,46 @@ def validate(yaml_text: str, device_slug: str = "hallway") -> list[str]:
     return errors
 
 
+def run_esphome_config(yaml_text: str, label: str) -> list[str]:
+    """Run `esphome config` on the generated YAML when esphome is available. Returns list of errors (empty if OK or esphome not found)."""
+    exe = shutil.which("esphome")
+    if not exe:
+        return []  # skip when esphome not installed
+    with tempfile.TemporaryDirectory(prefix="etd_compile_test_") as tmp:
+        config_path = Path(tmp) / "config.yaml"
+        config_path.write_text(yaml_text, encoding="utf-8")
+        # Minimal secrets so esphome doesn't fail on !secret wifi_ssid (WPA password must be >= 8 chars)
+        secrets_path = Path(tmp) / "secrets.yaml"
+        secrets_path.write_text(
+            "wifi_ssid: test\nwifi_password: testpass\n",
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        env["ESPHOME_CONFIG_DIR"] = tmp
+        try:
+            result = subprocess.run(
+                [exe, "config", str(config_path)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=tmp,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            return [f"{label}: esphome config timed out"]
+        except Exception as e:
+            return [f"{label}: esphome config failed to run: {e}"]
+        combined = (result.stderr or "") + "\n" + (result.stdout or "")
+        # Fail on any "Failed config" — the full compile output must be valid ESPHome YAML
+        if "Failed config" in combined:
+            err = (result.stderr or result.stdout or "").strip()
+            return [f"{label}: esphome config invalid: {err[:600]}"]
+        if result.returncode != 0:
+            # Exit code 2 with no "Failed config" can be warnings; don't fail
+            return []
+    return []
+
+
 def main() -> None:
     print("Testing compiler (no HA)...")
     cases = [
@@ -181,6 +241,16 @@ def main() -> None:
                 all_ok = False
             else:
                 print("OK (valid YAML, esphome first, name present, no marker)")
+            # When esphome is installed, validate every compile output with "esphome config"
+            if not errs:
+                esphome_errs = run_esphome_config(out, label)
+                if esphome_errs:
+                    print("ESPHOME CONFIG FAILED:")
+                    for e in esphome_errs:
+                        print(f"  - {e}")
+                    all_ok = False
+                elif shutil.which("esphome"):
+                    print("OK (esphome config validated)")
             # First 40 lines of output
             preview = "\n".join(out.splitlines()[:40])
             print(preview)

@@ -101,6 +101,26 @@ def _section_body_from_value(value: str | None, key: str) -> str:
     return value
 
 
+def _display_id_from_recipe(recipe_text: str) -> str | None:
+    """Return the first display id from recipe (e.g. 'stub_display') so lvgl can reference it, or None."""
+    if not recipe_text or "display:" not in recipe_text:
+        return None
+    in_display = False
+    for line in recipe_text.splitlines():
+        stripped = line.strip()
+        if re.match(r"^display\s*:", line.lstrip()):
+            in_display = True
+            continue
+        if in_display:
+            if stripped.startswith("id:") and ":" in stripped:
+                id_val = stripped.split(":", 1)[1].strip().split("#")[0].strip()
+                if id_val:
+                    return id_val
+            if line and not line[0].isspace() and _TOP_LEVEL_KEY_RE.match(line.lstrip()):
+                in_display = False
+    return None
+
+
 def _parse_recipe_into_sections(recipe_text: str) -> dict[str, str]:
     """Split recipe YAML into top-level key -> content (content = lines under key, indent preserved)."""
     sections: dict[str, str] = {}
@@ -1317,15 +1337,10 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     _ensure_project_sections(project, device, recipe_text)
     pieces = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
     compiler_pieces = _build_compiler_sections(project, device)
-    # Merge script: recipe/stored script + compiler script, so we don't drop recipe's manage_run_and_sleep
-    script_from_pieces = (pieces.get("script") or "").strip()
-    script_body_pieces = _section_body_from_value(script_from_pieces, "script") if script_from_pieces else ""
+    # Script: use compiler output only to avoid duplicate script ids (e.g. color picker). Recipe's manage_run_and_sleep is added via needs_stub below when missing.
     script_body_compiler = (compiler_pieces.get("script") or "").rstrip()
-    combined_script_body = (
-        (script_body_pieces.rstrip() + "\n" + script_body_compiler).rstrip()
-        if script_body_pieces.strip() and script_body_compiler
-        else (script_body_pieces or script_body_compiler or "").rstrip()
-    )
+    script_body_pieces = _section_body_from_value((pieces.get("script") or "").strip(), "script") if (pieces.get("script") or "").strip() else ""
+    combined_script_body = (script_body_compiler or script_body_pieces or "").rstrip()
     if combined_script_body:
         compiler_pieces["script"] = combined_script_body + "\n"
     # Add stub if output esphome (stored or recipe) references manage_run_and_sleep but script doesn't define it
@@ -1347,12 +1362,16 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
         f"# slug: {device.slug}\n"
         "\n"
     )
+    display_id = _display_id_from_recipe(recipe_text)
     out_parts = [header]
     for key in SECTION_ORDER:
         if key not in pieces:
             continue
         block = pieces[key]
         content = _section_body_from_value(block, key)
+        # Minimal stub recipe uses id stub_display; lvgl body has no displays key, so prepend for "esphome config" to pass
+        if key == "lvgl" and content and display_id == "stub_display" and "  displays:" not in content:
+            content = "  displays:\n  - " + display_id + "\n" + content
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
             if re.search(r"^\s*name\s*:", content, re.MULTILINE):
                 content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
@@ -2181,8 +2200,7 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) 
         out.append(f"      - lvgl.bar.update:\n")
         out.append(f"          id: {bar_id}\n")
         out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_sat);'\n")
-        out.append(f"      - lvgl.widget.show:\n")
-        out.append(f"          id: {overlay_id}\n")
+        out.append(f"      - lvgl.widget.show: {overlay_id}\n")
         # Apply: HSV to RGB, update style, hide overlay
         out.append(f"  - id: etd_cp_{wid_safe}_apply\n")
         out.append("    then:\n")
@@ -2204,13 +2222,11 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) 
         out.append(f"      - lvgl.style.update:\n")
         out.append(f"          id: {style_id}\n")
         out.append(f"          bg_color: !lambda 'return id(etd_cp_{wid_safe}_result);'\n")
-        out.append(f"      - lvgl.widget.hide:\n")
-        out.append(f"          id: {overlay_id}\n")
+        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         # Cancel: hide overlay
         out.append(f"  - id: etd_cp_{wid_safe}_cancel\n")
         out.append("    then:\n")
-        out.append(f"      - lvgl.widget.hide:\n")
-        out.append(f"          id: {overlay_id}\n")
+        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         # Legacy cycle script (optional; open is the default on_click now)
         out.append(f"  - id: etd_cp_{wid_safe}_cycle\n")
         out.append("    then:\n")
@@ -2270,11 +2286,12 @@ def _emit_color_picker_overlay_yaml(
     overlay_y = center_y - overlay_h // 2
     overlay_x = max(0, min(overlay_x, disp_w - overlay_w))
     overlay_y = max(0, min(overlay_y, disp_h - overlay_h))
-    i = "        "  # list item under top_layer widgets
-    ii = "          "
-    iii = "            "
-    iv = "              "
-    v = "                "  # list item under then:
+    # top_layer: "    widgets:\n" (4 spaces); list item 6 spaces; container value 10; nested widgets same rule
+    i = "      "  # list item "- container:" (6 spaces)
+    ii = "          "  # container value: id, hidden, widgets (10 spaces)
+    iii = "            "  # nested list item "- arc:" etc. (12 spaces)
+    iv = "                "  # arc/bar/button value: id, x, on_release (16 spaces, > "arc" at col 14)
+    v = "                    "  # then: list item "- lambda:" (20 spaces)
     return (
         f"{i}- container:\n"
         f"{ii}id: etd_cp_overlay_{wid_safe}\n"
@@ -2284,7 +2301,7 @@ def _emit_color_picker_overlay_yaml(
         f"{ii}width: {overlay_w}\n"
         f"{ii}height: {overlay_h}\n"
         f"{ii}bg_color: 0x333333\n"
-        f"{ii}bg_opa: 230\n"
+        f"{ii}bg_opa: 90%\n"  # 230/255 ~ 90%; ESPHome expects percentage with %
         f"{ii}widgets:\n"
         f"{iii}- arc:\n"
         f"{iv}id: etd_cp_arc_{wid_safe}\n"
@@ -2751,13 +2768,13 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
         m = re.search(r"(\d{3,4})x(\d{3,4})", recipe_id, re.I) if recipe_id else None
         disp_w, disp_h = (int(m.group(1)), int(m.group(2))) if m else (480, 320)
         out.append("  top_layer:\n")
-        out.append("    - id: top_layer\n")
-        out.append("      widgets:\n")
+        out.append("    id: top_layer\n")
+        out.append("    widgets:\n")
         if has_tl:
             tl_kids = children_map([w for w in tl_widgets if isinstance(w, dict)])
             tl_roots = [w for w in tl_widgets if isinstance(w, dict) and not w.get("parent_id")]
             for w in tl_roots:
-                out.append(emit_widget(w, "        ", tl_kids, disp_w, disp_h))
+                out.append(emit_widget(w, "      ", tl_kids, disp_w, disp_h))  # 6 spaces: 2 in from "widgets"
         for wid, wid_safe, _initial in cpicker_defaults:
             btn_x, btn_y, btn_w, btn_h = _widget_bounds_by_id(project, wid)
             out.append(_emit_color_picker_overlay_yaml(wid_safe, disp_w, disp_h, btn_x, btn_y, btn_w, btn_h))

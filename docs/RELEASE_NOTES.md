@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.190
+
+- **Full compile test with ESPHome**: The test script now runs `esphome config` on **every** compile output (empty screen, jc1060, no api key, colour picker, stored esphome stub). All five cases must pass so generated YAML is valid ESPHome.
+- **Colour picker / script fixes**: Overlay `bg_opa` uses percentage (`90%`) for ESPHome LVGL; `lvgl.widget.show` / `lvgl.widget.hide` use shorthand (`id` value); script section uses compiler output only to avoid duplicate script IDs (e.g. colour picker open/apply/cancel).
+- **Stored-stub test**: Minimal recipe includes i2c + ssd1306 display (id `stub_display`) and ESP32-S3–valid I2C pins (GPIO8/GPIO9). LVGL block gets `displays: [stub_display]` so `esphome config` validates.
+
 ## v0.70.189
 
 - **Colour picker overlay on device**: Tapping the colour picker button on the device now opens the hue/saturation overlay (arc + bar + Apply/Cancel) instead of only cycling the button colour. The compiler no longer excludes colour pickers that have legacy `custom_events.on_click` (old cycle YAML)—only an explicit **action binding** for `on_click` disables the overlay. Nested colour pickers (inside containers) are now included so they also get the overlay script and overlay in `top_layer`.
