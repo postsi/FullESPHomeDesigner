@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.185
+
+- **Globals/script indentation fix**: Merged globals and script sections (lock + colour-picker) no longer lose leading indent: merge uses `.rstrip()` only so compiled YAML stays valid. When adding the manage_run_and_sleep script stub to an empty script section, the body no longer gets a leading newline, avoiding over-indented script output. Test suite: added "color picker (globals+script)" case and indentation check for `globals:`/`script:` so this class of bug is caught.
+
 ## v0.70.184
 
 - **Colour picker on device**: When a colour picker has no on_click (no action binding, no custom event), the compiler now injects a default on_click so that tapping the swatch on the device cycles through 8 preset colours (red, green, blue, yellow, magenta, cyan, white, blue). Uses a named style (lvgl.style.update), a global index, and a script; the button uses `styles: id(etd_cp_<id>)` and `script.execute: etd_cp_<id>_cycle`.

@@ -52,12 +52,42 @@ def make_device(
     )
 
 
+def _project_with_color_picker() -> dict:
+    """Minimal project with one color_picker (no on_click) so compiler emits globals + script."""
+    from custom_components.esphome_touch_designer.storage import _default_project
+    proj = _default_project()
+    proj["pages"] = [{
+        "page_id": "main",
+        "name": "Main",
+        "widgets": [
+            {"id": "cp1", "type": "color_picker", "props": {"value": "#4080FF"}, "style": {}, "custom_events": {}},
+        ],
+    }]
+    return proj
+
+
 def validate(yaml_text: str, device_slug: str = "hallway") -> list[str]:
     errors = []
     lines = yaml_text.strip().splitlines()
 
     if "#__HA_BINDINGS__" in yaml_text:
         errors.append("Output contains literal #__HA_BINDINGS__")
+
+    # globals: and script: list items must be at 2 spaces (not 4), or parser fails with "mapping values not allowed"
+    for section_name in ("globals:", "script:"):
+        if section_name not in yaml_text:
+            continue
+        idx = yaml_text.find(section_name)
+        block = yaml_text[idx : idx + 800]
+        for line in block.splitlines()[1:]:
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
+            if line.startswith("    - "):
+                errors.append(
+                    f"Over-indented {section_name.strip()} section: list items must use 2 spaces, got 4"
+                )
+            break
 
     # First non-comment non-blank line after --- should be esphome:
     seen_doc_start = False
@@ -106,6 +136,7 @@ def main() -> None:
         ("empty screen", make_device()),
         ("jc1060 recipe", make_device(recipe_id="jc1060p470_esp32p4_1024x600", slug="test_jc")),
         ("no api key", make_device(api_key=None)),
+        ("color picker (globals+script)", make_device(project=_project_with_color_picker(), slug="cp_test")),
     ]
     all_ok = True
     for label, device in cases:

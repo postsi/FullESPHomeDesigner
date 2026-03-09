@@ -979,8 +979,8 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
     if locks_yaml.strip() or cpicker_globals_yaml.strip():
         combined = (_strip_section_key(locks_yaml, "globals") or "").rstrip()
         if cpicker_globals_yaml.strip():
-            cpicker_part = _strip_section_key(cpicker_globals_yaml, "globals").strip()
-            combined = (combined + "\n" + cpicker_part).strip() if combined else cpicker_part
+            cpicker_part = _strip_section_key(cpicker_globals_yaml, "globals").rstrip()
+            combined = (combined + "\n" + cpicker_part).rstrip() if combined else cpicker_part
         out["globals"] = combined
 
     # Script (project scripts + color picker tap-to-cycle scripts)
@@ -989,8 +989,8 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
     if scripts_yaml.strip() or cpicker_scripts_yaml.strip():
         combined = (_strip_section_key(scripts_yaml, "script") or "").rstrip()
         if cpicker_scripts_yaml.strip():
-            cpicker_part = _strip_section_key(cpicker_scripts_yaml, "script").strip()
-            combined = (combined + "\n" + cpicker_part).strip() if combined else cpicker_part
+            cpicker_part = _strip_section_key(cpicker_scripts_yaml, "script").rstrip()
+            combined = (combined + "\n" + cpicker_part).rstrip() if combined else cpicker_part
         out["script"] = combined
 
     # LVGL (full body: config + pages); keep leading indent (rstrip only).
@@ -1195,7 +1195,8 @@ def _build_default_section_pieces(
     compiler_sections = _build_compiler_sections(project, device)
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
+        current = (compiler_sections.get("script") or "").rstrip()
+        compiler_sections["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
         content = compiler_sections.get(key) or recipe_sections.get(key)
@@ -1233,7 +1234,8 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
     compiler_sections = _build_compiler_sections(project, device)
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
+        current = (compiler_sections.get("script") or "").rstrip()
+        compiler_sections["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
         # Prefer stored (saved in Components), then legacy overrides, then compiler (prebuilts, HA bindings), then recipe
@@ -1280,7 +1282,8 @@ def _build_section_engine_pieces(
 
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        compiler_sections["script"] = (compiler_sections.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
+        current = (compiler_sections.get("script") or "").rstrip()
+        compiler_sections["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
 
     stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     pieces: dict[str, str] = {}
@@ -1316,7 +1319,8 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     compiler_pieces = _build_compiler_sections(project, device)
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_pieces.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        compiler_pieces["script"] = (compiler_pieces.get("script") or "").rstrip() + "\n" + stub.rstrip() + "\n"
+        current = (compiler_pieces.get("script") or "").rstrip()
+        compiler_pieces["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
     for k, v in compiler_pieces.items():
         pieces[k] = _section_full_block(k, (v or "").rstrip())
     header = (
@@ -1337,6 +1341,11 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
                 content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
             else:
                 content = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER + "\n" + content.lstrip()
+        # Normalize globals/script indent: if body is over-indented (first list item at 4 spaces), strip 2 spaces from every line so ESPHome sees list at 2, keys at 4 (avoids "mapping values are not allowed")
+        if key in ("globals", "script") and content and "\n" in content:
+            first_line = content.splitlines()[0] if content.splitlines() else ""
+            if first_line.startswith("    ") and not first_line.startswith("      "):
+                content = "\n".join(ln[2:] if len(ln) >= 2 and ln.startswith("  ") else ln for ln in content.splitlines())
         if content and not content.startswith("  ") and "\n" in content:
             content = "\n".join("  " + ln if ln.strip() else ln for ln in content.splitlines())
         elif content and not content.startswith("  "):
