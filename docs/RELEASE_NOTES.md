@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.201
+
+- **Colour picker: react to HA light colour changes**
+  - **on_value path**: Lambda now reads from the text_sensor state (`id(ha_txt_…_rgb_color).state`) instead of trigger variable `x`, so the lvgl.obj.update action always gets the current value.
+  - **Periodic sync**: Added script `etd_cp_*_sync_ha_rgb` and a 5s interval that run it for each colour picker bound to a light. The button is updated from the sensor state every 5s, so it stays in sync even if HA doesn’t push attribute-only updates to the device.
+
 ## v0.70.200
 
 - **Colour picker: HA → button colour connection fixed**

@@ -561,14 +561,13 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "button_bg_color":
-                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button widget directly
-                # so HA-driven changes always apply (style update was not applying to the button when HA sent updates).
-                # Only apply when value looks valid to avoid black when light off / empty / "unknown".
+                # HA rgb_color -> update colour picker button. Read from sensor state in lambda so we don't
+                # rely on trigger var x being passed into the lvgl action (on_value may not pass x to nested actions).
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype != "color_picker":
                     continue
+                sensor_id = f"ha_txt_{_safe_id(entity_id)}_{_safe_id(attr or 'attr')}"
                 i4 = "                  "  # 18 spaces for condition lambda / then list
-                # Keys under then-list actions indented 4+ under action name so ESPHome parses one action per item
                 i5 = "                        "  # 24 spaces -> 26 after caller's "  "
                 i6 = "                          "  # 26 spaces -> 28 after "  " for lambda body
                 outs.append(f"{i2}- if:\n")
@@ -580,10 +579,11 @@ def _compile_ha_bindings(project: dict) -> str:
                 outs.append(f"{i4}- lvgl.obj.update:\n")
                 outs.append(f"{i5}id: {wid}\n")
                 outs.append(f"{i5}bg_color: !lambda |-\n")
+                outs.append(f"{i6}auto s = id({sensor_id}).state;\n")
                 outs.append(f"{i6}int r=0,g=0,b=0;\n")
-                outs.append(f"{i6}if (x.size() >= 5) {{\n")
-                outs.append(f"{i6}  sscanf(x.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
-                outs.append(f"{i6}  if (r==0 && g==0 && b==0) sscanf(x.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
+                outs.append(f"{i6}if (s.size() >= 5) {{\n")
+                outs.append(f"{i6}  sscanf(s.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
+                outs.append(f"{i6}  if (r==0 && g==0 && b==0) sscanf(s.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
                 outs.append(f"{i6}}}\n")
                 outs.append(f"{i6}return lv_color_hex((r<<16)|(g<<8)|b);\n")
                 outs.append(f"{i4}- lvgl.widget.redraw:\n")
@@ -1042,6 +1042,16 @@ def _build_compiler_sections(project: dict, device: object | None = None) -> dic
             cpicker_part = _strip_section_key(cpicker_scripts_yaml, "script").rstrip()
             combined = (combined + "\n" + cpicker_part).rstrip() if combined else cpicker_part
         out["script"] = combined
+
+    # Interval: colour picker HA sync (so button updates when light colour changes in HA)
+    cpicker_interval_yaml = _compile_color_picker_sync_interval(project, cpicker_defaults)
+    if cpicker_interval_yaml.strip():
+        interval_body = _strip_section_key(cpicker_interval_yaml, "interval").rstrip()
+        if interval_body:
+            if "interval" in out:
+                out["interval"] = out["interval"].rstrip() + "\n\n" + interval_body
+            else:
+                out["interval"] = interval_body
 
     # LVGL (full body: config + pages); keep leading indent (rstrip only).
     pages_yaml = _compile_lvgl_pages_schema_driven(project, cpicker_defaults=cpicker_defaults)
@@ -2302,7 +2312,67 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
             out.append("            - lvgl.style.update:\n")
             out.append(f"                id: {style_id}\n")
             out.append(f"                bg_color: 0x{col:06X}\n")
+        # Sync button colour from HA (in case on_value doesn't fire for attribute-only changes)
+        entity_id = cpicker_entity_by_wid.get(_wid)
+        if entity_id and entity_id.startswith("light."):
+            sensor_id = f"ha_txt_{_safe_id(entity_id)}_rgb_color"
+            out.append(f"  - id: etd_cp_{wid_safe}_sync_ha_rgb\n")
+            out.append("    then:\n")
+            out.append("      - if:\n")
+            out.append("          condition:\n")
+            out.append("            lambda: |-\n")
+            out.append(f"              auto s = id({sensor_id}).state;\n")
+            out.append(
+                "              return s.size() >= 9 && s.find('[') != std::string::npos && s.find(']') != std::string::npos;\n"
+            )
+            out.append("          then:\n")
+            out.append("            - lvgl.obj.update:\n")
+            out.append(f"                id: {_wid}\n")
+            out.append("                bg_color: !lambda |-\n")
+            out.append(f"                  auto s = id({sensor_id}).state;\n")
+            out.append("                  int r=0,g=0,b=0;\n")
+            out.append("                  if (s.size() >= 5) {\n")
+            out.append('                    sscanf(s.c_str(), "[%d,%d,%d]", &r, &g, &b);\n')
+            out.append("                    if (r==0 && g==0 && b==0) sscanf(s.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
+            out.append("                  }\n")
+            out.append("                  return lv_color_hex((r<<16)|(g<<8)|b);\n")
+            out.append("            - lvgl.widget.redraw:\n")
+            out.append(f"                id: {_wid}\n")
     return "script:\n" + "".join(out).rstrip() + "\n" if out else ""
+
+
+def _compile_color_picker_sync_interval(project: dict, cpicker_defaults: list[tuple[str, str, int]]) -> str:
+    """Emit interval that runs HA→button sync scripts every 5s so button updates even if on_value doesn't fire for attribute-only changes."""
+    cpicker_entity_by_wid: dict[str, str] = {}
+    for ln in project.get("links") or []:
+        if not isinstance(ln, dict):
+            continue
+        tgt = ln.get("target") or {}
+        if str(tgt.get("action") or "").strip() != "button_bg_color":
+            continue
+        raw_wid = tgt.get("widget_id")
+        if isinstance(raw_wid, dict) and "id" in raw_wid:
+            wid = str(raw_wid.get("id") or "").strip()
+        elif isinstance(raw_wid, list) and len(raw_wid):
+            wid = str(raw_wid[0] if not isinstance(raw_wid[0], dict) else raw_wid[0].get("id", "") or "").strip()
+        else:
+            wid = str(raw_wid or "").strip()
+        if not wid:
+            continue
+        src = ln.get("source") or {}
+        eid = str(src.get("entity_id") or "").strip()
+        if eid and "." in eid and eid.startswith("light."):
+            cpicker_entity_by_wid[wid] = eid
+    sync_scripts = []
+    for _wid, wid_safe, _initial in cpicker_defaults:
+        if cpicker_entity_by_wid.get(_wid):
+            sync_scripts.append(f"etd_cp_{wid_safe}_sync_ha_rgb")
+    if not sync_scripts:
+        return ""
+    lines = ["  - interval: 5s", "    then:"]
+    for sid in sync_scripts:
+        lines.append(f"      - script.execute: {sid}")
+    return "interval:\n" + "\n".join(lines) + "\n"
 
 
 def _widget_bounds_by_id(project: dict, widget_id: str) -> tuple[int, int, int, int]:
