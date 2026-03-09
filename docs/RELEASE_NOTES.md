@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.177
+
+- **Colour picker widget**: New widget in the palette (Colour picker). Renders on canvas as a coloured button; in simulator, clicking it opens a modal with a hue gradient strip and hue/saturation sliders. Picking a colour updates the widget’s colour and project state. Hue/saturation state is lifted to App level so React hooks are used correctly.
+
 ## v0.70.176
 
 - **WiFi fan: all five arcs visible**: Arc widgets that are children of a container (e.g. WiFi fan’s five concentric rings) now use a transparent base rect so they don’t paint over each other. Previously only the outermost arc was visible because each arc’s opaque base covered the inner ones.

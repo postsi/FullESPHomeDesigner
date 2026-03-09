@@ -34,7 +34,9 @@ type Props = {
   /** Simulation state overrides (merged with liveOverrides when simulationMode). */
   simOverrides?: Record<string, { text?: string; value?: number; checked?: boolean; selected_index?: number }>;
   onSimulateUpdate?: (widgetId: string, updates: { value?: number; checked?: boolean; selected_index?: number; text?: string }) => void;
-  onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number }) => void;
+  onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number; color?: string }) => void;
+  /** When in simulation mode, opening a colour picker widget opens this callback instead of firing on_click. */
+  onOpenColorPicker?: (widgetId: string, currentColorHex: string) => void;
 };
 
 function snap(n: number, grid: number) {
@@ -176,6 +178,7 @@ export default function Canvas({
   simOverrides,
   onSimulateUpdate,
   onSimulateAction,
+  onOpenColorPicker,
   onDropCreate,
   onChangeMany,
 }: Props) {
@@ -316,6 +319,9 @@ const stageRef = useRef<any>(null);
     // Style helpers (schema-driven properties land in `style`). Support LVGL extras:
     // opacity (opa), shadow_ofs_x/y, shadow_width/color/opa/spread, clip_corner, border_side.
     const bg = toFillColor(s.bg_color ?? s.background_color ?? p.bg_color, "#111827");
+    const fillColor = (w.type && String(w.type).toLowerCase() === "color_picker")
+      ? toFillColor(p.value ?? s.bg_color, "#4080FF")
+      : bg;
     const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacityRaw = s.opa ?? p.opacity ?? 100;
@@ -344,7 +350,11 @@ const stageRef = useRef<any>(null);
     const simDraggable = simulationMode && isSliderOrArcOrBar;
     const handleSimClick = () => {
       console.log("[Simulator] Canvas handleSimClick", w.id, w.type, { simulationMode, hasOnSimulateAction: !!onSimulateAction });
-      if (!simulationMode || !onSimulateUpdate && !onSimulateAction) return;
+      if (!simulationMode || !onSimulateUpdate && !onSimulateAction && !onOpenColorPicker) return;
+      if (w.type === "color_picker" && onOpenColorPicker) {
+        onOpenColorPicker(w.id, fillColor);
+        return;
+      }
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
         onSimulateAction?.(w.id, "on_click");
       } else if (w.type === "switch") {
@@ -433,7 +443,7 @@ const stageRef = useRef<any>(null);
           rotation={transformAngle}
           scaleX={transformZoom}
           scaleY={transformZoom}
-          fill={isArcChild ? "transparent" : bg}
+          fill={isArcChild ? "transparent" : fillColor}
           stroke={isArcChild ? "transparent" : border}
           strokeWidth={isArcChild ? 0 : borderWidth}
           cornerRadius={radius}

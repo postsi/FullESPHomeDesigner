@@ -1455,9 +1455,9 @@ def _schemas_dir() -> Path:
 # Widget types that exist in ESPHome LVGL (esphome/components/lvgl/widgets/*.py).
 # Only these are shown in the Std LVGL palette.
 PALETTE_WIDGET_TYPES = frozenset({
-    "animimg", "arc", "bar", "button", "buttonmatrix", "canvas", "checkbox", "container",
-    "dropdown", "image", "keyboard", "label", "led", "line", "meter", "msgboxes", "obj",
-    "qrcode", "roller", "slider", "spinbox", "spinner", "switch", "tabview", "textarea",
+    "animimg", "arc", "bar", "button", "buttonmatrix", "canvas", "checkbox", "color_picker",
+    "container", "dropdown", "image", "keyboard", "label", "led", "line", "meter", "msgboxes",
+    "obj", "qrcode", "roller", "slider", "spinbox", "spinner", "switch", "tabview", "textarea",
     "tileview",
 })
 
@@ -2190,7 +2190,14 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         ab_list = action_bindings_by_widget.get(wid) or []
         schema = _load_widget_schema(str(wtype)) if wtype else None
         if schema:
-            raw = _emit_widget_from_schema(w, schema, ab_list, parent_w, parent_h, option_maps)
+            w_emit = dict(w)
+            if wtype == "color_picker":
+                # Emit as button with bg_color from props.value (current colour)
+                props = w_emit.get("props") or {}
+                style = w_emit.get("style") or {}
+                w_emit["style"] = dict(style)
+                w_emit["style"]["bg_color"] = props.get("value") or style.get("bg_color") or 0x4080FF
+            raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)
             out_lines = []
             for ln in lines:

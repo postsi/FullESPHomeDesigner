@@ -57,6 +57,46 @@ function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
 }
 
+/** Hex #RRGGBB to HSV: h 0–360, s 0–100, v 0–100. */
+function hexToHsv(hex: string): { h: number; s: number; v: number } {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return { h: 0, s: 0, v: 100 };
+  const r = parseInt(m[1].slice(0, 2), 16) / 255;
+  const g = parseInt(m[1].slice(2, 4), 16) / 255;
+  const b = parseInt(m[1].slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const v = max * 100;
+  const d = max - min;
+  const s = max === 0 ? 0 : (d / max) * 100;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+    if (h < 0) h += 360;
+  }
+  return { h: Math.round(h), s: Math.round(s), v: Math.round(v) };
+}
+
+/** HSV to #RRGGBB. h 0–360, s 0–100, v 0–100. */
+function hsvToHex(h: number, s: number, v: number): string {
+  s /= 100; v /= 100;
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  const R = Math.round((r + m) * 255);
+  const G = Math.round((g + m) * 255);
+  const B = Math.round((b + m) * 255);
+  return "#" + [R, G, B].map((n) => n.toString(16).padStart(2, "0")).join("");
+}
+
 /** Derive a friendly widget id from entity_id + attribute (e.g. climate.living_room + friendly_name → living_room_friendly_name). */
 function friendlyWidgetIdFromBinding(entity_id: string, attribute: string, usedIds: Set<string>): string {
   const parts = String(entity_id || "").trim().split(".");
@@ -332,6 +372,9 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   // Simulator: live interactive preview
   const [simulationOpen, setSimulationOpen] = useState<boolean>(false);
   const [simOverrides, setSimOverrides] = useState<Record<string, { value?: number; checked?: boolean; selected_index?: number; text?: string }>>({});
+  const [colorPickerModal, setColorPickerModal] = useState<{ widgetId: string; initialHex: string } | null>(null);
+  const [colorPickerHue, setColorPickerHue] = useState(0);
+  const [colorPickerSat, setColorPickerSat] = useState(0);
 
   // v0.64: Hardware recipe importer (Product Mode)
   const [recipeImportOpen, setRecipeImportOpen] = useState<boolean>(false);
@@ -3049,6 +3092,12 @@ function deleteSelected() {
                       setToast({ type: "error", msg: String(err?.message || err) });
                     });
                   }}
+                  onOpenColorPicker={(widgetId, currentHex) => {
+                    const { h, s } = hexToHsv(currentHex);
+                    setColorPickerHue(h);
+                    setColorPickerSat(s);
+                    setColorPickerModal({ widgetId, initialHex: currentHex });
+                  }}
                   onSelect={() => {}}
                   onSelectNone={() => {}}
                   onDropCreate={() => {}}
@@ -3059,6 +3108,63 @@ function deleteSelected() {
           </div>
         </div>
       )}
+
+      {colorPickerModal && (() => {
+        const { widgetId } = colorPickerModal;
+        const currentHex = hsvToHex(colorPickerHue, colorPickerSat, 100);
+        return (
+          <div className="modalOverlay" style={{ zIndex: 10002 }} onClick={() => setColorPickerModal(null)}>
+            <div className="modal" style={{ width: 320 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modalHeader">
+                <div className="title">Pick colour</div>
+                <button type="button" className="ghost" onClick={() => setColorPickerModal(null)}>×</button>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ height: 24, borderRadius: 6, background: "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)", cursor: "pointer" }} title="Hue (tap to set)"
+                  onClick={(e) => {
+                    const rect = (e.target as HTMLElement).getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width;
+                    setColorPickerHue(Math.round(x * 360) % 360);
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label className="muted" style={{ width: 48, fontSize: 12 }}>Hue</label>
+                  <input type="range" min={0} max={360} value={colorPickerHue} onChange={(e) => setColorPickerHue(Number(e.target.value))} style={{ flex: 1 }} />
+                  <span style={{ fontSize: 12, minWidth: 36 }}>{colorPickerHue}°</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label className="muted" style={{ width: 48, fontSize: 12 }}>Sat</label>
+                  <input type="range" min={0} max={100} value={colorPickerSat} onChange={(e) => setColorPickerSat(Number(e.target.value))} style={{ flex: 1 }} />
+                  <span style={{ fontSize: 12, minWidth: 36 }}>{colorPickerSat}%</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: currentHex, border: "1px solid rgba(255,255,255,.3)" }} />
+                  <code style={{ fontSize: 12 }}>{currentHex}</code>
+                </div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="secondary" onClick={() => setColorPickerModal(null)}>Cancel</button>
+                  <button type="button" className="primary" onClick={() => {
+                    if (!project) return;
+                    const p2 = clone(project);
+                    const pg = p2?.pages?.[safePageIndex];
+                    const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
+                    if (w) {
+                      const hexNum = parseInt(currentHex.slice(1), 16);
+                      if (!w.props) w.props = {};
+                      w.props.value = hexNum;
+                      if (!w.style) w.style = {};
+                      w.style.bg_color = hexNum;
+                      setProject(p2, true);
+                      setProjectDirty(true);
+                    }
+                    setColorPickerModal(null);
+                  }}>Done</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
         <select
@@ -3350,15 +3456,16 @@ function deleteSelected() {
                     }
 
                     const id = uid(type);
+                    const isColorPicker = String(type).toLowerCase() === "color_picker";
                     const w = {
                       id,
                       type,
                       x,
                       y,
-                      w: 120,
-                      h: 48,
-                      props: {},
-                      style: {},
+                      w: isColorPicker ? 80 : 120,
+                      h: isColorPicker ? 36 : 48,
+                      props: isColorPicker ? { value: 0x4080FF } : {},
+                      style: isColorPicker ? { bg_color: 0x4080FF, radius: 8 } : {},
                       events: {},
                     };
                     if (!pg) { console.log('[ETD onDropCreate] No page, aborting'); return; }
