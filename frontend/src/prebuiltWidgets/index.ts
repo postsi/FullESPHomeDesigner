@@ -196,7 +196,7 @@ interval:
 `;
       return {
         widgets: [
-          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted } },
+          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted, text_font: "montserrat_16" } },
         ],
         esphome_components: [ESPHOME_WIFI_IP, intervalYaml],
       };
@@ -218,7 +218,7 @@ interval:
 `;
       return {
         widgets: [
-          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted } },
+          { id: lblId, type: "label", x, y, w: 160, h: 24, props: { text: "..." }, style: { text_color: textMuted, text_font: "montserrat_16" } },
         ],
         esphome_components: [ESPHOME_HOST_NAME, intervalYaml],
       };
@@ -285,7 +285,7 @@ interval:
 `;
       return {
         widgets: [
-          { id: lblId, type: "label", x, y, w: 100, h: 28, props: { text: "--:--" }, style: { text_color: textNormal } },
+          { id: lblId, type: "label", x, y, w: 100, h: 28, props: { text: "--:--" }, style: { text_color: textNormal, text_font: "montserrat_24" } },
         ],
         esphome_components: [ESPHOME_TIME_SNTP, intervalYaml],
       };
@@ -299,8 +299,8 @@ interval:
       const dateId = uid("date");
       const timeId = uid("time");
       const raw = [
-        { id: dateId, type: "label", x: 0, y: 0, w: 140, h: 22, props: { text: "..." }, style: { text_color: textMuted } },
-        { id: timeId, type: "label", x: 0, y: 24, w: 140, h: 24, props: { text: "--:--" }, style: { text_color: textNormal } },
+        { id: dateId, type: "label", x: 0, y: 0, w: 140, h: 22, props: { text: "..." }, style: { text_color: textMuted, text_font: "montserrat_14" } },
+        { id: timeId, type: "label", x: 0, y: 24, w: 140, h: 24, props: { text: "--:--" }, style: { text_color: textNormal, text_font: "montserrat_24" } },
       ];
       const intervalYaml = `
 interval:

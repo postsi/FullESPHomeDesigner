@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.168
+
+- **Clock / prebuilt labels**: Add explicit `text_font` (montserrat_24 for clock/time, montserrat_16 for IP/Host name, montserrat_14/24 for Date+time) so labels render on device. Fixes "nothing visible" when dropping clock or other label prebuilts.
+
 ## v0.70.167
 
 - **Prebuilt widget**: New "Host name" widget in the Widgets panel (next to IP address). Displays device host name via `App.get_name()`. Drops a label and adds template text_sensor + interval to the compiled YAML.
