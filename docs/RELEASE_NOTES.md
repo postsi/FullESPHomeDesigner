@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.208
+
+- **Create native component** — From the Binding Builder panel, add a "Create component…" button that opens a dialog to create ESPHome LVGL platform components (switch, light, sensor, number, select, text_sensor, binary_sensor) bound to the selected widget. Component type is inferred from the widget (e.g. slider → number); user can type to filter or pick another. ID prefilled from Widget ID; changing it updates the widget in Properties. YAML is appended to `project.sections` (Components panel). Renaming the widget in Properties now syncs `widget:` references in Components. Button widgets get `checkable: true` when creating a switch.
+
 ## v0.70.207
 
 - **YAML fix: colour/white picker post-processor format**  

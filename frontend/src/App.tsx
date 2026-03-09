@@ -121,7 +121,53 @@ function getSpinboxChildId(project: any, containerId: string): string | null {
   return spinbox?.id ?? null;
 }
 
-/** Rename a widget id everywhere in the project (page.widgets, links, parent_id). Returns updated project. */
+/** Section keys that can contain `widget:` references (LVGL platform components). */
+const SECTION_KEYS_WITH_WIDGET_REF = ["switch", "light", "sensor", "number", "select", "text_sensor", "binary_sensor"] as const;
+
+/** Update project.sections to replace widget: oldId with widget: newId (and id: oldId with id: newId in same block when present). */
+function updateSectionsWidgetRef(sections: Record<string, string>, oldId: string, newId: string): void {
+  if (!sections || !oldId || !newId || oldId === newId) return;
+  for (const key of SECTION_KEYS_WITH_WIDGET_REF) {
+    const content = sections[key];
+    if (!content || typeof content !== "string") continue;
+    // Replace widget: oldId and widget: "oldId" with newId
+    const widgetRe = new RegExp(`(widget:\\s*)(["']?)${oldId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\2`, "g");
+    let updated = content.replace(widgetRe, `$1$2${newId}$2`);
+    // Replace id: oldId (only in lines that are id: key) when it appears in a block with widget: — do a simple line-by-line replace for id: oldId
+    const idRe = new RegExp(`^(\\s*id:\\s*)(["']?)${oldId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\2\\s*$`, "gm");
+    updated = updated.replace(idRe, `$1$2${newId}$2`);
+    if (updated !== content) sections[key] = updated;
+  }
+}
+
+function collectWidgetIds(list: any[]): Set<string> {
+  const out = new Set<string>();
+  for (const w of list || []) {
+    if (w?.id) out.add(w.id);
+    if (Array.isArray((w as any).widgets)) {
+      for (const id of collectWidgetIds((w as any).widgets)) out.add(id);
+    }
+  }
+  return out;
+}
+
+function findWidgetById(list: any[], id: string): any | null {
+  for (const w of list || []) {
+    if (w?.id === id) return w;
+    const child = findWidgetById((w as any).widgets || [], id);
+    if (child) return child;
+  }
+  return null;
+}
+
+function updateParentIds(list: any[], oldId: string, newId: string): void {
+  for (const w of list || []) {
+    if (w?.parent_id === oldId) w.parent_id = newId;
+    updateParentIds((w as any).widgets || [], oldId, newId);
+  }
+}
+
+/** Rename a widget id everywhere in the project (page.widgets including nested, links, parent_id, sections). Returns updated project. */
 function renameWidgetInProject(
   proj: any,
   pageIndex: number,
@@ -134,9 +180,9 @@ function renameWidgetInProject(
   const p2 = clone(proj);
   const page = p2?.pages?.[pageIndex];
   if (!page?.widgets) return { project: proj, ok: false };
-  const existingIds = new Set(page.widgets.map((w: any) => w?.id).filter(Boolean));
+  const existingIds = collectWidgetIds(page.widgets);
   if (existingIds.has(sanitized) && sanitized !== oldId) return { project: proj, ok: false, error: "Id already in use" };
-  const w = page.widgets.find((x: any) => x?.id === oldId);
+  const w = findWidgetById(page.widgets, oldId);
   if (!w) return { project: proj, ok: false };
   w.id = sanitized;
   const links = (p2 as any).links;
@@ -151,10 +197,49 @@ function renameWidgetInProject(
       if (ab?.widget_id === oldId) ab.widget_id = sanitized;
     }
   }
-  for (const widget of page.widgets) {
-    if (widget?.parent_id === oldId) widget.parent_id = sanitized;
+  updateParentIds(page.widgets, oldId, sanitized);
+  // Sync widget refs in project.sections (LVGL platform blocks)
+  const sections = (p2 as any).sections;
+  if (sections && typeof sections === "object") {
+    updateSectionsWidgetRef(sections, oldId, sanitized);
   }
   return { project: p2, ok: true, newId: sanitized };
+}
+
+/** LVGL platform component types: key -> { section_key, label }. */
+const LVGL_COMPONENT_TYPES: Record<string, { section: string; label: string }> = {
+  switch: { section: "switch", label: "Switch" },
+  light: { section: "light", label: "Light" },
+  sensor: { section: "sensor", label: "Sensor" },
+  number: { section: "number", label: "Number" },
+  select: { section: "select", label: "Select" },
+  text_sensor: { section: "text_sensor", label: "Text sensor" },
+  binary_sensor: { section: "binary_sensor", label: "Binary sensor" },
+};
+
+/** Widget type -> allowed LVGL component types and default. */
+const WIDGET_TO_LVGL_COMPONENTS: Record<string, { types: string[]; default: string }> = {
+  button: { types: ["switch", "binary_sensor"], default: "switch" },
+  switch: { types: ["switch"], default: "switch" },
+  checkbox: { types: ["switch"], default: "switch" },
+  led: { types: ["light"], default: "light" },
+  arc: { types: ["sensor", "number"], default: "number" },
+  bar: { types: ["sensor", "number"], default: "number" },
+  slider: { types: ["sensor", "number"], default: "number" },
+  spinbox: { types: ["sensor", "number"], default: "number" },
+  dropdown: { types: ["select"], default: "select" },
+  roller: { types: ["select"], default: "select" },
+  label: { types: ["text_sensor"], default: "text_sensor" },
+  textarea: { types: ["text_sensor"], default: "text_sensor" },
+};
+
+function getLvglComponentsForWidget(widgetType: string): { types: string[]; default: string } | null {
+  return WIDGET_TO_LVGL_COMPONENTS[widgetType] ?? null;
+}
+
+function canCreateNativeComponentForWidget(widgetType: string): boolean {
+  const c = getLvglComponentsForWidget(widgetType);
+  return !!c && c.types.length > 0;
 }
 
 
@@ -326,6 +411,14 @@ export default function App() {
   const [editingOverrideYaml, setEditingOverrideYaml] = useState<string>("");
   /** Fetched entity details for Binding Builder attribute list (so dropdown has full attributes e.g. temperature, current_temperature). */
   const [bindingEntityDetails, setBindingEntityDetails] = useState<{ entity_id: string; attributes?: Record<string, unknown> } | null>(null);
+
+  // Create native component (LVGL platform): dialog state
+  const [createNativeComponentOpen, setCreateNativeComponentOpen] = useState(false);
+  const [createNativeComponentType, setCreateNativeComponentType] = useState<string>("");
+  const [createNativeComponentId, setCreateNativeComponentId] = useState<string>("");
+  const [createNativeComponentName, setCreateNativeComponentName] = useState<string>("");
+  const [createNativeComponentTypeFilter, setCreateNativeComponentTypeFilter] = useState<string>("");
+  const [createNativeComponentDropdownOpen, setCreateNativeComponentDropdownOpen] = useState(false);
 
   // v0.35: Plugin controls (loaded from API)
   const [pluginControls, setPluginControls] = useState<ControlTemplate[]>([]);
@@ -2436,6 +2529,130 @@ function deleteSelected() {
       )}
 
 
+      {createNativeComponentOpen && selectedWidgetIds.length === 1 && project && (() => {
+        const wid = selectedWidgetIds[0];
+        const selWidget = widgetsFlat.find((w: any) => w?.id === wid) ?? widgets.find((w: any) => w?.id === wid);
+        const widgetType = selWidget?.type || "";
+        const mapping = getLvglComponentsForWidget(widgetType);
+        const allowedTypes = mapping?.types ?? [];
+        const filteredTypes = allowedTypes.filter((k) => {
+          const lbl = LVGL_COMPONENT_TYPES[k]?.label ?? k;
+          return !createNativeComponentTypeFilter || lbl.toLowerCase().includes(createNativeComponentTypeFilter.toLowerCase());
+        });
+        const currentMeta = LVGL_COMPONENT_TYPES[createNativeComponentType];
+        const sectionKey = currentMeta?.section ?? "switch";
+        return (
+          <div className="modalOverlay" onClick={() => setCreateNativeComponentOpen(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+              <h3>Create native component</h3>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Add an ESPHome {sectionKey} bound to this {widgetType} widget. Bidirectional with HA.
+              </div>
+              <div className="field" style={{ marginTop: 12 }}>
+                <div className="fieldLabel">Component type</div>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={createNativeComponentTypeFilter}
+                    onChange={(e) => {
+                      setCreateNativeComponentTypeFilter(e.target.value);
+                      setCreateNativeComponentDropdownOpen(true);
+                    }}
+                    onFocus={() => setCreateNativeComponentDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setCreateNativeComponentDropdownOpen(false), 150)}
+                    placeholder="Select or type…"
+                    style={{ width: "100%", fontFamily: "ui-monospace, monospace" }}
+                  />
+                  {createNativeComponentDropdownOpen && (
+                    <ul style={{
+                      position: "absolute", top: "100%", left: 0, right: 0, margin: 0, padding: 0, listStyle: "none",
+                      background: "var(--ha-bg)", border: "1px solid var(--border)", borderRadius: 6, maxHeight: 180, overflow: "auto",
+                      zIndex: 100
+                    }}>
+                      {filteredTypes.map((k) => {
+                        const lbl = LVGL_COMPONENT_TYPES[k]?.label ?? k;
+                        return (
+                          <li
+                            key={k}
+                            style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                            onMouseDown={(e) => { e.preventDefault(); setCreateNativeComponentType(k); setCreateNativeComponentTypeFilter(lbl); setCreateNativeComponentDropdownOpen(false); }}
+                          >
+                            {lbl}
+                          </li>
+                        );
+                      })}
+                      {filteredTypes.length === 0 && <li style={{ padding: 8, color: "var(--muted)" }}>No match</li>}
+                    </ul>
+                  )}
+                </div>
+                <div className="muted" style={{ marginTop: 6 }}>Inferred from widget. Type to filter or pick another.</div>
+              </div>
+              <div className="field">
+                <div className="fieldLabel">ID (YAML)</div>
+                <input
+                  type="text"
+                  value={createNativeComponentId}
+                  onChange={(e) => setCreateNativeComponentId(e.target.value)}
+                  placeholder="e.g. kitchen_light"
+                  style={{ width: "100%", fontFamily: "ui-monospace, monospace" }}
+                />
+                <div className="muted" style={{ marginTop: 6 }}>Also updates Widget ID in Properties if changed.</div>
+              </div>
+              <div className="field">
+                <div className="fieldLabel">Name (HA entity)</div>
+                <input
+                  type="text"
+                  value={createNativeComponentName}
+                  onChange={(e) => setCreateNativeComponentName(e.target.value)}
+                  placeholder="e.g. Kitchen Light"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button className="ghost" onClick={() => setCreateNativeComponentOpen(false)}>Cancel</button>
+                <button
+                  onClick={() => {
+                    const rawId = createNativeComponentId.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^_+|_+$/g, "").trim();
+                    if (!rawId) { setToast({ type: "error", msg: "Invalid ID" }); return; }
+                    if (!allowedTypes.includes(createNativeComponentType)) { setToast({ type: "error", msg: "Invalid component type for this widget" }); return; }
+                    const meta = LVGL_COMPONENT_TYPES[createNativeComponentType];
+                    if (!meta) return;
+                    let p2 = clone(project);
+                    const origWidgetId = String(selWidget?.id ?? "");
+                    if (rawId !== origWidgetId) {
+                      const result = renameWidgetInProject(p2, safePageIndex, origWidgetId, rawId);
+                      if (!result.ok) { setToast({ type: "error", msg: result.error || "Cannot rename widget" }); return; }
+                      p2 = result.project;
+                      setSelectedWidgetIds([rawId]);
+                    }
+                    const block = `  - platform: lvgl
+    id: ${rawId}
+    widget: ${rawId}
+    name: ${JSON.stringify((createNativeComponentName.trim() || "Component"))}
+`;
+                    p2.sections = p2.sections || {};
+                    const existing = (p2.sections[meta.section] || "").trim();
+                    p2.sections[meta.section] = existing ? existing + "\n\n" + block.trim() : block.trim();
+                    if (widgetType === "button" && createNativeComponentType === "switch") {
+                      const pg = p2?.pages?.[safePageIndex];
+                      const w = findWidgetById(pg?.widgets ?? [], rawId);
+                      if (w) (w.props = w.props || {})["checkable"] = true;
+                    }
+                    setProject(p2, true);
+                    setProjectDirty(true);
+                    setCreateNativeComponentOpen(false);
+                    setToast({ type: "ok", msg: `Added ${meta.label} to Components → ${meta.section}` });
+                  }}
+                  disabled={!createNativeComponentId.trim()}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {recipeImportOpen && (
         <div className="modalOverlay" onClick={() => setRecipeImportOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -3821,7 +4038,36 @@ function deleteSelected() {
             )}
             {inspectorTab === "builder" && (
               <div className="section">
-                <div className="sectionTitle">Binding Builder</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <div className="sectionTitle" style={{ marginBottom: 0 }}>Binding Builder</div>
+                  <button
+                    type="button"
+                    className="secondary"
+                    style={{ fontSize: 12, padding: "6px 10px" }}
+                    disabled={selectedWidgetIds.length !== 1 || !canCreateNativeComponentForWidget((() => {
+                      const wid = selectedWidgetIds[0];
+                      const w = widgetsFlat.find((x: any) => x?.id === wid) ?? widgets.find((x: any) => x?.id === wid);
+                      return w?.type || "";
+                    })())}
+                    title="Create ESPHome component (switch, light, sensor, etc.) bound to this widget — bidirectional with HA"
+                    onClick={() => {
+                      if (selectedWidgetIds.length !== 1 || !project) return;
+                      const wid = selectedWidgetIds[0];
+                      const w = widgetsFlat.find((x: any) => x?.id === wid) ?? widgets.find((x: any) => x?.id === wid);
+                      const wtype = w?.type || "";
+                      const mapping = getLvglComponentsForWidget(wtype);
+                      if (!mapping) return;
+                      setCreateNativeComponentType(mapping.default);
+                      setCreateNativeComponentTypeFilter(LVGL_COMPONENT_TYPES[mapping.default]?.label ?? mapping.default);
+                      setCreateNativeComponentId(String(w?.id ?? ""));
+                      setCreateNativeComponentName(String(w?.id ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Component");
+                      setCreateNativeComponentDropdownOpen(false);
+                      setCreateNativeComponentOpen(true);
+                    }}
+                  >
+                    Create component…
+                  </button>
+                </div>
                 <div className="muted">Bind selected widget to HA entity (display or action).</div>
                 {selectedWidgetIds.length !== 1 ? (
                   <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>Select a single widget on the canvas to see its bindings and add new ones.</div>
