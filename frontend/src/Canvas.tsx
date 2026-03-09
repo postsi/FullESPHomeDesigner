@@ -636,6 +636,8 @@ const stageRef = useRef<any>(null);
             id={w.id}
             x={ax}
             y={ay}
+            width={w.w}
+            height={w.h}
             clipFunc={clip ? (ctx) => { ctx.rect(0, 0, w.w, w.h); } : undefined}
             draggable={!w.parent_id && (!simulationMode || !simDraggable)}
             onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
@@ -888,8 +890,14 @@ const stageRef = useRef<any>(null);
       // LVGL/Canvas convention: 0°=right, 90°=bottom, 180°=left, 270°=top; angles increase clockwise.
       const cx = ax + w.w / 2;
       const cy = ay + w.h / 2;
-      const trackW = Math.max(4, Math.min(16, Math.min(w.w, w.h) / 8));
-      const r = Math.max(14, Math.min(w.w, w.h) / 2 - trackW - 4);
+      // Use arc_width from props when set (e.g. WiFi fan rings); else default track thickness.
+      const arcWidthProp = Number(p.arc_width ?? 0);
+      const trackW = arcWidthProp > 0
+        ? Math.max(1, Math.min(16, arcWidthProp))
+        : Math.max(4, Math.min(16, Math.min(w.w, w.h) / 8));
+      // Radius to center of track: scale with widget size so concentric arcs (e.g. 16–48px) each get distinct r.
+      const half = Math.min(w.w, w.h) / 2;
+      const r = Math.max(trackW / 2 + 1, half - trackW / 2 - 2);
       const rot = Number(p.rotation ?? 0);
       const bgStart = Number(p.start_angle ?? 135);
       const bgEnd = Number(p.end_angle ?? 45);
@@ -926,7 +934,8 @@ const stageRef = useRef<any>(null);
       const knobR = knobRadiusFromProp > 0
         ? Math.min(r - 2, knobRadiusFromProp)
         : (knobW > 0 || knobH > 0 ? Math.min(r - 2, Math.max(knobW, knobH) / 2) : Math.min(r - 2, 12));
-      const knobSize = Math.max(6, knobR);
+      // Cap knob so small concentric arcs (e.g. WiFi fan) aren't covered by a huge knob
+      const knobSize = Math.max(2, Math.min(6, knobR > 0 ? knobR : r - 1));
       const knobX = cx + r * Math.cos((knobAngleDeg * Math.PI) / 180);
       const knobY = cy + r * Math.sin((knobAngleDeg * Math.PI) / 180);
       const bgStroke = toFillColor(s.bg_color ?? p.bg_color, "#1f2937");

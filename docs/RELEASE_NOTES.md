@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.174
+
+- **WiFi fan canvas**: Arc preview now uses **arc_width** from props and scales radius by widget size so all five concentric rings render (no longer one circle). Smaller arcs get smaller knobs so inner rings stay visible. Group container has explicit width/height so the transformer can resize it.
+
 ## v0.70.173
 
 - **WiFi fan (and grouped prebuilts)**: Arcs now render on the canvas and the whole group is draggable. Clicking any child (e.g. an arc) selects the parent container so the group moves together. Containers with children render in local coordinates so clip and child positions are correct.
