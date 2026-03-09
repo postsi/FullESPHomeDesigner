@@ -3196,7 +3196,7 @@ def _compile_lvgl_pages_schema_driven(
                     f"{body}styles: etd_cp_{wid_safe}\n"
                     f"{body}on_click:\n"
                     f"{body}  then:\n"
-                    f"{body}  - script.execute: etd_cp_{wid_safe}_open\n"
+                    f"{body}    - script.execute: etd_cp_{wid_safe}_open\n"
                 )
             elif wtype == "color_picker":
                 # Emit as button with bg_color from props.value (current colour). Do not emit props.value — button has no value key.
@@ -3246,7 +3246,7 @@ def _compile_lvgl_pages_schema_driven(
                     f"{body}styles: etd_wp_{wid_safe}\n"
                     f"{body}on_click:\n"
                     f"{body}  then:\n"
-                    f"{body}  - script.execute: etd_wp_{wid_safe}_open\n"
+                    f"{body}    - script.execute: etd_wp_{wid_safe}_open\n"
                 )
             elif wtype == "white_picker":
                 props = w_emit.get("props") or {}

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.206
+
+- **YAML fix: colour/white picker on_click indentation**  
+  Fixed invalid YAML for colour picker and white picker `on_click.then` blocks: the `- script.execute` list item is now correctly indented under `then:` so ESPHome parses it.
+
 ## v0.70.205
 
 - **Light card: colour picker and white picker**  
