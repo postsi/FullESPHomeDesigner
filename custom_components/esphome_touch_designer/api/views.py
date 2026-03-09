@@ -1455,11 +1455,14 @@ def _schemas_dir() -> Path:
 # Widget types that exist in ESPHome LVGL (esphome/components/lvgl/widgets/*.py).
 # Only these are shown in the Std LVGL palette.
 PALETTE_WIDGET_TYPES = frozenset({
-    "animimg", "arc", "bar", "button", "buttonmatrix", "canvas", "checkbox", "color_picker",
+    "animimg", "arc", "bar", "button", "buttonmatrix", "canvas", "checkbox",
     "container", "dropdown", "image", "keyboard", "label", "led", "line", "meter", "msgboxes",
     "obj", "qrcode", "roller", "slider", "spinbox", "spinner", "switch", "tabview", "textarea",
     "tileview",
 })
+# Widget types we compile and edit but do not show in Std LVGL palette (e.g. designer-only widgets).
+EXTRA_WIDGET_TYPES = frozenset({"color_picker"})
+COMPILABLE_WIDGET_TYPES = PALETTE_WIDGET_TYPES | EXTRA_WIDGET_TYPES
 
 
 def _common_extras_dir() -> Path:
@@ -2069,7 +2072,7 @@ def _preview_widget_yaml(project: dict, widget_id: str, page_index: int = 0) -> 
         if isinstance(w, dict) and str(w.get("id") or "") == str(widget_id):
             widget = w
             break
-    if not widget or widget.get("type") not in PALETTE_WIDGET_TYPES:
+    if not widget or widget.get("type") not in COMPILABLE_WIDGET_TYPES:
         return None
 
     action_bindings_raw = project.get("action_bindings") or []
@@ -2184,7 +2187,7 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
 
     def emit_widget(w: dict, indent: str, kids: dict[str, list[dict]], parent_w: int, parent_h: int) -> str:
         wtype = w.get("type")
-        if wtype not in PALETTE_WIDGET_TYPES:
+        if wtype not in COMPILABLE_WIDGET_TYPES:
             return ""  # Non-ESPHome widget types are not emitted
         wid = str(w.get("id") or "")
         ab_list = action_bindings_by_widget.get(wid) or []

@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.179
+
+- **Colour picker not in Std LVGL**: Colour picker is a designer-only widget (emitted as button); removed from Std LVGL palette. It remains in the Widgets (Prebuilt) tab and continues to compile and edit. Added EXTRA_WIDGET_TYPES / COMPILABLE_WIDGET_TYPES so non-palette types are still supported.
+
 ## v0.70.178
 
 - **Colour picker in Widgets panel**: Colour picker added to the Prebuilt widgets list so it appears in the Widgets tab (not only in Std LVGL). Drag or click to add.
