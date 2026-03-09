@@ -304,8 +304,8 @@ const stageRef = useRef<any>(null);
     return { ax: centerX - ww / 2, ay: centerY - hh / 2 };
   };
 
-  const renderWidget = (w: Widget, isSel: boolean) => {
-    const { ax, ay } = absPos(w);
+  const renderWidget = (w: Widget, isSel: boolean, opts?: { localPosition?: boolean }) => {
+    const { ax, ay } = opts?.localPosition ? { ax: w.x, ay: w.y } : absPos(w);
     const override = simulationMode ? { ...liveOverrides[w.id], ...simOverrides?.[w.id] } : liveOverrides[w.id];
     // Simple, intentionally lightweight previews (not pixel-perfect LVGL).
     // The goal is to make layouts usable while we keep the runtime YAML generator authoritative.
@@ -444,8 +444,8 @@ const stageRef = useRef<any>(null);
         })}
         draggable={!w.parent_id && (!simulationMode || !simDraggable)}
         dragBoundFunc={simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined}
-        onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!e.evt.shiftKey)}
-        onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.id, !!(e.evt as any).shiftKey)}
+        onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
+        onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
         onDragMove={simDraggable ? handleSimDragMove : undefined}
         onDragStart={!simulationMode ? () => {
           // snapshot selected positions
@@ -606,10 +606,121 @@ const stageRef = useRef<any>(null);
       );
     }
 
-    // Container: render children inside a group. We don't clip yet.
+    // Container: render children inside a group. With children, use a positioned Group so arcs/widgets render in local coords and the whole group is the drag target.
     if (type === "container" || type.includes("container")) {
       const kids = childrenByParent.get(w.id) || [];
       const clip = !!(p.clip_children ?? p.clipChildren);
+      if (kids.length > 0) {
+        const baseLocal = (
+          <>
+            {outlineW > 0 && (
+              <Rect x={-outlinePad - outlineW} y={-outlinePad - outlineW} width={w.w + 2 * (outlinePad + outlineW)} height={w.h + 2 * (outlinePad + outlineW)} stroke={outlineColor} strokeWidth={outlineW} cornerRadius={radius + outlinePad + outlineW} fillEnabled={false} opacity={outlineOpa} listening={false} />
+            )}
+            <Rect
+              x={0}
+              y={0}
+              width={w.w}
+              height={w.h}
+              fill={bg}
+              stroke={border}
+              strokeWidth={borderWidth}
+              cornerRadius={radius}
+              opacity={opacity}
+              listening={false}
+            />
+          </>
+        );
+        return (
+          <Group
+            key={w.id}
+            id={w.id}
+            x={ax}
+            y={ay}
+            clipFunc={clip ? (ctx) => { ctx.rect(0, 0, w.w, w.h); } : undefined}
+            draggable={!w.parent_id && (!simulationMode || !simDraggable)}
+            onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
+            onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
+            onDragStart={!simulationMode ? () => {
+              const snap0: Record<string, { x: number; y: number }> = {};
+              for (const id of selectedIds.length ? selectedIds : [w.id]) {
+                const ww = widgetById.get(id);
+                if (ww) snap0[id] = { x: ww.x, y: ww.y };
+              }
+              dragStartRef.current = snap0;
+            } : undefined}
+            onDragEnd={(e) => {
+              if (simulationMode) return;
+              const node = e.target;
+              const alt = !!e.evt.altKey;
+              const nx = alt ? node.x() : snap(node.x(), gridSize);
+              const ny = alt ? node.y() : snap(node.y(), gridSize);
+              const parent = w.parent_id ? widgetById.get(w.parent_id) : undefined;
+              const parentAbs = parent ? absPos(parent) : { ax: 0, ay: 0 };
+              const modelX = nx - parentAbs.ax;
+              const modelY = ny - parentAbs.ay;
+              const start = dragStartRef.current[w.id] || { x: w.x, y: w.y };
+              const dx = modelX - start.x;
+              const dy = modelY - start.y;
+              const ids = selectedIds.length ? selectedIds : [w.id];
+              const patches = ids
+                .map((id) => {
+                  const s = dragStartRef.current[id] || widgetById.get(id);
+                  if (!s) return null;
+                  return { id, patch: { x: (s as any).x + dx, y: (s as any).y + dy } };
+                })
+                .filter(Boolean) as { id: string; patch: Partial<Widget> }[];
+              onChangeMany(patches, true);
+            }}
+            onTransformEnd={(e) => {
+              const node = e.target;
+              const alt = !!(e.evt as { altKey?: boolean }).altKey;
+              const scaleX = node.scaleX();
+              const scaleY = node.scaleY();
+              node.scaleX(1);
+              node.scaleY(1);
+              const oldW = node.width();
+              const oldH = node.height();
+              let ww = Math.max(20, oldW * scaleX);
+              let hh = Math.max(20, oldH * scaleY);
+              let xx = node.x();
+              let yy = node.y();
+              if (!alt) {
+                ww = snap(ww, gridSize);
+                hh = snap(hh, gridSize);
+                xx = snap(xx, gridSize);
+                yy = snap(yy, gridSize);
+              }
+              const children = childrenByParent.get(w.id);
+              if (children && children.length > 0) {
+                const sx = oldW > 0 ? ww / oldW : 1;
+                const sy = oldH > 0 ? hh / oldH : 1;
+                const patches: { id: string; patch: Partial<Widget> }[] = [
+                  { id: w.id, patch: { w: ww, h: hh } },
+                  ...children.map((c) => ({
+                    id: c.id,
+                    patch: {
+                      x: c.x * sx,
+                      y: c.y * sy,
+                      w: Math.max(4, c.w * sx),
+                      h: Math.max(4, c.h * sy),
+                    },
+                  })),
+                ];
+                onChangeMany(patches, true);
+              } else {
+                const parent = w.parent_id ? widgetById.get(w.parent_id) : undefined;
+                const parentAbs = parent ? absPos(parent) : { ax: 0, ay: 0 };
+                const modelX = xx - parentAbs.ax;
+                const modelY = yy - parentAbs.ay;
+                onChangeMany([{ id: w.id, patch: { x: modelX, y: modelY, w: ww, h: hh } }], true);
+              }
+            }}
+          >
+            {baseLocal}
+            {kids.map((k) => renderWidget(k, selectedSet.has(k.id), { localPosition: true }))}
+          </Group>
+        );
+      }
       return (
         <Group
           key={w.id}

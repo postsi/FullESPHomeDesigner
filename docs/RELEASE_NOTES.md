@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.173
+
+- **WiFi fan (and grouped prebuilts)**: Arcs now render on the canvas and the whole group is draggable. Clicking any child (e.g. an arc) selects the parent container so the group moves together. Containers with children render in local coordinates so clip and child positions are correct.
+
 ## v0.70.172
 
 - **WiFi bar**: Interval now orders bars by **(x, y)** so the leftmost bar gets the first threshold. Fixes 2-bar signal drawing first and last instead of first and second.
