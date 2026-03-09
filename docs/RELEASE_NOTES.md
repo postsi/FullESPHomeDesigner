@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.189
+
+- **Colour picker overlay on device**: Tapping the colour picker button on the device now opens the hue/saturation overlay (arc + bar + Apply/Cancel) instead of only cycling the button colour. The compiler no longer excludes colour pickers that have legacy `custom_events.on_click` (old cycle YAML)—only an explicit **action binding** for `on_click` disables the overlay. Nested colour pickers (inside containers) are now included so they also get the overlay script and overlay in `top_layer`.
+
 ## v0.70.188
 
 - **Spinbox with +/-: two-way binding and action UI**

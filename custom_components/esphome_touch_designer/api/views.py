@@ -2085,7 +2085,8 @@ def _emit_style_dict(indent: str, d: dict, key_filter: set | None = None) -> str
 
 
 def _collect_color_picker_defaults(project: dict) -> list[tuple[str, str, int]]:
-    """Collect (wid, wid_safe, initial_color) for color_picker widgets that have no on_click (need default tap-to-cycle)."""
+    """Collect (wid, wid_safe, initial_color) for color_picker widgets that have no action binding for on_click.
+    These get the overlay (open script) on tap; we ignore legacy custom_events.on_click so overlay always wins."""
     pages = project.get("pages") or []
     action_bindings_by_widget: dict[str, list[dict]] = {}
     for ab in project.get("action_bindings") or []:
@@ -2094,68 +2095,124 @@ def _collect_color_picker_defaults(project: dict) -> list[tuple[str, str, int]]:
         wid = str(ab.get("widget_id") or "").strip()
         if wid:
             action_bindings_by_widget.setdefault(wid, []).append(ab)
-    has_on_click: set[str] = set()
+    has_on_click_binding: set[str] = set()
     for wid, ab_list in action_bindings_by_widget.items():
         for ab in ab_list:
             if str(ab.get("event") or "").strip().lower() == "on_click":
-                has_on_click.add(wid)
+                has_on_click_binding.add(wid)
                 break
     out: list[tuple[str, str, int]] = []
+
+    def walk_widgets(widgets: list) -> None:
+        for w in widgets or []:
+            if not isinstance(w, dict):
+                continue
+            if str(w.get("type") or "") == "color_picker":
+                wid = str(w.get("id") or "").strip()
+                if not wid or wid in has_on_click_binding:
+                    continue
+                wid_safe = _safe_id(wid)
+                props = w.get("props") or {}
+                style = w.get("style") or {}
+                raw = props.get("value") or style.get("bg_color") or 0x4080FF
+                if isinstance(raw, str) and raw.strip().startswith("#"):
+                    s = raw.strip()
+                    if re.match(r"^#[0-9A-Fa-f]{6}$", s):
+                        initial = int(s[1:7], 16)
+                    elif re.match(r"^#[0-9A-Fa-f]{3}$", s):
+                        r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
+                        initial = r << 16 | g << 8 | b
+                    else:
+                        initial = 0x4080FF
+                else:
+                    initial = int(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else 0x4080FF
+                out.append((wid, wid_safe, initial))
+            walk_widgets(w.get("widgets") or [])
+
     for page in pages:
         if not isinstance(page, dict):
             continue
-        for w in page.get("widgets") or []:
-            if not isinstance(w, dict) or str(w.get("type") or "") != "color_picker":
-                continue
-            wid = str(w.get("id") or "").strip()
-            if not wid or wid in has_on_click:
-                continue
-            custom = w.get("custom_events") or {}
-            if isinstance(custom, dict) and (custom.get("on_click") or ""):
-                has_on_click.add(wid)
-                continue
-            wid_safe = _safe_id(wid)
-            props = w.get("props") or {}
-            style = w.get("style") or {}
-            raw = props.get("value") or style.get("bg_color") or 0x4080FF
-            if isinstance(raw, str) and raw.strip().startswith("#"):
-                s = raw.strip()
-                if re.match(r"^#[0-9A-Fa-f]{6}$", s):
-                    initial = int(s[1:7], 16)
-                elif re.match(r"^#[0-9A-Fa-f]{3}$", s):
-                    r, g, b = int(s[1], 16) * 17, int(s[2], 16) * 17, int(s[3], 16) * 17
-                    initial = r << 16 | g << 8 | b
-                else:
-                    initial = 0x4080FF
-            else:
-                initial = int(raw) if isinstance(raw, (int, float)) and not isinstance(raw, bool) else 0x4080FF
-            out.append((wid, wid_safe, initial))
+        walk_widgets(page.get("widgets") or [])
     return out
 
 
 def _compile_color_picker_globals(cpicker_defaults: list[tuple[str, str, int]]) -> str:
-    """Emit globals for color picker cycle index (one per widget that needs default on_click)."""
+    """Emit globals for color picker: cycle index, overlay hue/sat/result (for hue/sat picker on device)."""
     if not cpicker_defaults:
         return ""
-    out = ["globals:\n"]
+    out: list[str] = []
     for _wid, wid_safe, _initial in cpicker_defaults:
         out.append(f"  - id: etd_cp_{wid_safe}_idx\n")
         out.append("    type: int\n")
         out.append("    restore_value: no\n")
         out.append("    initial_value: '0'\n")
-    return "".join(out).rstrip() + "\n" if len(out) > 1 else ""
+        out.append(f"  - id: etd_cp_{wid_safe}_hue\n")
+        out.append("    type: int\n")
+        out.append("    restore_value: no\n")
+        out.append("    initial_value: '210'\n")
+        out.append(f"  - id: etd_cp_{wid_safe}_sat\n")
+        out.append("    type: int\n")
+        out.append("    restore_value: no\n")
+        out.append("    initial_value: '100'\n")
+        out.append(f"  - id: etd_cp_{wid_safe}_result\n")
+        out.append("    type: int\n")
+        out.append("    restore_value: no\n")
+        out.append("    initial_value: '0'\n")
+    return "globals:\n" + "".join(out).rstrip() + "\n" if out else ""
 
 
 def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) -> str:
-    """Emit script: entries for color picker tap-to-cycle (one per widget)."""
+    """Emit script: open overlay, apply (HSV->RGB + update style + hide), cancel (hide), and legacy cycle."""
     if not cpicker_defaults:
         return ""
     colors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 0x4080FF]
-    out = ["script:\n"]
+    out: list[str] = []
     for _wid, wid_safe, _initial in cpicker_defaults:
-        script_id = f"etd_cp_{wid_safe}_cycle"
         style_id = f"etd_cp_{wid_safe}"
-        out.append(f"  - id: {script_id}\n")
+        overlay_id = f"etd_cp_overlay_{wid_safe}"
+        arc_id = f"etd_cp_arc_{wid_safe}"
+        bar_id = f"etd_cp_bar_{wid_safe}"
+        # Open overlay: sync arc/bar from hue/sat globals, then show overlay
+        out.append(f"  - id: etd_cp_{wid_safe}_open\n")
+        out.append("    then:\n")
+        out.append(f"      - lvgl.arc.update:\n")
+        out.append(f"          id: {arc_id}\n")
+        out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_hue);'\n")
+        out.append(f"      - lvgl.bar.update:\n")
+        out.append(f"          id: {bar_id}\n")
+        out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_sat);'\n")
+        out.append(f"      - lvgl.widget.show:\n")
+        out.append(f"          id: {overlay_id}\n")
+        # Apply: HSV to RGB, update style, hide overlay
+        out.append(f"  - id: etd_cp_{wid_safe}_apply\n")
+        out.append("    then:\n")
+        out.append("      - lambda: |-\n")
+        out.append("          float h = id(etd_cp_" + wid_safe + "_hue) / 360.0f;\n")
+        out.append("          float s = id(etd_cp_" + wid_safe + "_sat) / 100.0f;\n")
+        out.append("          float v = 1.0f;\n")
+        out.append("          float c = v * s;\n")
+        out.append("          float x_ = c * (1.0f - fabs(fmod(h * (1.0f/60.0f), 2.0f) - 1.0f));\n")
+        out.append("          float m = v - c;\n")
+        out.append("          float r = 0, g = 0, b = 0;\n")
+        out.append("          if (h < 1.0f) { r = c; g = x_; b = 0; }\n")
+        out.append("          else if (h < 2.0f) { r = x_; g = c; b = 0; }\n")
+        out.append("          else if (h < 3.0f) { r = 0; g = c; b = x_; }\n")
+        out.append("          else if (h < 4.0f) { r = 0; g = x_; b = c; }\n")
+        out.append("          else if (h < 5.0f) { r = x_; g = 0; b = c; }\n")
+        out.append("          else { r = c; g = 0; b = x_; }\n")
+        out.append("          id(etd_cp_" + wid_safe + "_result) = ((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255);\n")
+        out.append(f"      - lvgl.style.update:\n")
+        out.append(f"          id: {style_id}\n")
+        out.append(f"          bg_color: !lambda 'return id(etd_cp_{wid_safe}_result);'\n")
+        out.append(f"      - lvgl.widget.hide:\n")
+        out.append(f"          id: {overlay_id}\n")
+        # Cancel: hide overlay
+        out.append(f"  - id: etd_cp_{wid_safe}_cancel\n")
+        out.append("    then:\n")
+        out.append(f"      - lvgl.widget.hide:\n")
+        out.append(f"          id: {overlay_id}\n")
+        # Legacy cycle script (optional; open is the default on_click now)
+        out.append(f"  - id: etd_cp_{wid_safe}_cycle\n")
         out.append("    then:\n")
         out.append(f"      - lambda: id(etd_cp_{wid_safe}_idx) = (id(etd_cp_{wid_safe}_idx) + 1) % 8;\n")
         for i, col in enumerate(colors):
@@ -2165,7 +2222,113 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]]) 
             out.append("            - lvgl.style.update:\n")
             out.append(f"                id: {style_id}\n")
             out.append(f"                bg_color: 0x{col:06X}\n")
-    return "".join(out).rstrip() + "\n" if len(out) > 1 else ""
+    return "script:\n" + "".join(out).rstrip() + "\n" if out else ""
+
+
+def _widget_bounds_by_id(project: dict, widget_id: str) -> tuple[int, int, int, int]:
+    """Return (x, y, width, height) for the first widget with id == widget_id in project pages. Default (0, 0, 80, 36) if not found."""
+    for page in project.get("pages") or []:
+        if not isinstance(page, dict):
+            continue
+        for w in page.get("widgets") or []:
+            if not isinstance(w, dict):
+                continue
+            if str(w.get("id") or "").strip() == str(widget_id).strip():
+                return (
+                    int(w.get("x", 0)),
+                    int(w.get("y", 0)),
+                    int(w.get("w", 80)),
+                    int(w.get("h", 36)),
+                )
+            # recurse into children (e.g. container widgets)
+            for c in w.get("widgets") or []:
+                if isinstance(c, dict) and str(c.get("id") or "").strip() == str(widget_id).strip():
+                    return (
+                        int(c.get("x", 0)),
+                        int(c.get("y", 0)),
+                        int(c.get("w", 80)),
+                        int(c.get("h", 36)),
+                    )
+    return (0, 0, 80, 36)
+
+
+def _emit_color_picker_overlay_yaml(
+    wid_safe: str,
+    disp_w: int,
+    disp_h: int,
+    btn_x: int,
+    btn_y: int,
+    btn_w: int,
+    btn_h: int,
+) -> str:
+    """Emit YAML for one colour picker overlay. Positioned relative to the button, clamped to display."""
+    overlay_w, overlay_h = 280, 240
+    # Center overlay on the button, then clamp so it stays on screen
+    center_x = btn_x + btn_w // 2
+    center_y = btn_y + btn_h // 2
+    overlay_x = center_x - overlay_w // 2
+    overlay_y = center_y - overlay_h // 2
+    overlay_x = max(0, min(overlay_x, disp_w - overlay_w))
+    overlay_y = max(0, min(overlay_y, disp_h - overlay_h))
+    i = "        "  # list item under top_layer widgets
+    ii = "          "
+    iii = "            "
+    iv = "              "
+    v = "                "  # list item under then:
+    return (
+        f"{i}- container:\n"
+        f"{ii}id: etd_cp_overlay_{wid_safe}\n"
+        f"{ii}hidden: true\n"
+        f"{ii}x: {overlay_x}\n"
+        f"{ii}y: {overlay_y}\n"
+        f"{ii}width: {overlay_w}\n"
+        f"{ii}height: {overlay_h}\n"
+        f"{ii}bg_color: 0x333333\n"
+        f"{ii}bg_opa: 230\n"
+        f"{ii}widgets:\n"
+        f"{iii}- arc:\n"
+        f"{iv}id: etd_cp_arc_{wid_safe}\n"
+        f"{iv}x: 20\n"
+        f"{iv}y: 20\n"
+        f"{iv}width: 100\n"
+        f"{iv}height: 100\n"
+        f"{iv}min_value: 0\n"
+        f"{iv}max_value: 360\n"
+        f"{iv}value: 210\n"
+        f"{iv}on_release:\n"
+        f"{iv}  then:\n"
+        f"{v}- lambda: id(etd_cp_{wid_safe}_hue) = x;\n"
+        f"{iii}- bar:\n"
+        f"{iv}id: etd_cp_bar_{wid_safe}\n"
+        f"{iv}x: 20\n"
+        f"{iv}y: 130\n"
+        f"{iv}width: 240\n"
+        f"{iv}height: 24\n"
+        f"{iv}min_value: 0\n"
+        f"{iv}max_value: 100\n"
+        f"{iv}value: 100\n"
+        f"{iv}on_release:\n"
+        f"{iv}  then:\n"
+        f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n"
+        f"{iii}- button:\n"
+        f"{iv}text: Apply\n"
+        f"{iv}x: 20\n"
+        f"{iv}y: 180\n"
+        f"{iv}width: 110\n"
+        f"{iv}height: 36\n"
+        f"{iv}on_click:\n"
+        f"{iv}  then:\n"
+        f"{v}- script.execute: etd_cp_{wid_safe}_apply\n"
+        f"{iii}- button:\n"
+        f"{iv}text: Cancel\n"
+        f"{iv}x: 150\n"
+        f"{iv}y: 180\n"
+        f"{iv}width: 110\n"
+        f"{iv}height: 36\n"
+        f"{iv}on_click:\n"
+        f"{iv}  then:\n"
+        f"{v}- script.execute: etd_cp_{wid_safe}_cancel\n"
+    )
 
 
 def _compile_lvgl_config_body(project: dict, cpicker_styles: list[dict] | None = None) -> str:
@@ -2398,7 +2561,7 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
         if schema:
             w_emit = dict(w)
             if wtype == "color_picker" and wid in cpicker_by_wid:
-                # Emit button with named style + default on_click (tap cycles colour on device)
+                # Emit button with named style + default on_click (tap opens hue/sat overlay on device)
                 wid_safe, _initial = cpicker_by_wid[wid]
                 x_val = int(w.get("x", 0))
                 y_val = int(w.get("y", 0))
@@ -2438,7 +2601,7 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
                     f"{body}styles: etd_cp_{wid_safe}\n"
                     f"{body}on_click:\n"
                     f"{body}  then:\n"
-                    f"{body}  - script.execute: etd_cp_{wid_safe}_cycle\n"
+                    f"{body}  - script.execute: etd_cp_{wid_safe}_open\n"
                 )
             elif wtype == "color_picker":
                 # Emit as button with bg_color from props.value (current colour). Do not emit props.value — button has no value key.
@@ -2579,20 +2742,25 @@ def _compile_lvgl_pages_schema_driven(project: dict, cpicker_defaults: list[tupl
             for w in roots:
                 out.append(emit_widget(w, "        ", kids, disp_w, disp_h))
 
-    # top_layer: always-on-top widgets (from lvgl_config.top_layer.widgets)
+    # top_layer: user widgets (from lvgl_config.top_layer.widgets) + colour picker overlays
     top_layer = (project.get("lvgl_config") or {}).get("top_layer") or {}
     tl_widgets = top_layer.get("widgets") or []
-    if isinstance(tl_widgets, list) and tl_widgets:
-        tl_kids = children_map([w for w in tl_widgets if isinstance(w, dict)])
-        tl_roots = [w for w in tl_widgets if isinstance(w, dict) and not w.get("parent_id")]
+    has_tl = isinstance(tl_widgets, list) and tl_widgets
+    if has_tl or cpicker_defaults:
         recipe_id = str((project.get("hardware") or {}).get("recipe_id", "") or (project.get("device") or {}).get("hardware_recipe_id", "") or "")
         m = re.search(r"(\d{3,4})x(\d{3,4})", recipe_id, re.I) if recipe_id else None
         disp_w, disp_h = (int(m.group(1)), int(m.group(2))) if m else (480, 320)
         out.append("  top_layer:\n")
         out.append("    - id: top_layer\n")
         out.append("      widgets:\n")
-        for w in tl_roots:
-            out.append(emit_widget(w, "        ", tl_kids, disp_w, disp_h))
+        if has_tl:
+            tl_kids = children_map([w for w in tl_widgets if isinstance(w, dict)])
+            tl_roots = [w for w in tl_widgets if isinstance(w, dict) and not w.get("parent_id")]
+            for w in tl_roots:
+                out.append(emit_widget(w, "        ", tl_kids, disp_w, disp_h))
+        for wid, wid_safe, _initial in cpicker_defaults:
+            btn_x, btn_y, btn_w, btn_h = _widget_bounds_by_id(project, wid)
+            out.append(_emit_color_picker_overlay_yaml(wid_safe, disp_w, disp_h, btn_x, btn_y, btn_w, btn_h))
 
     return "".join(out)
 
