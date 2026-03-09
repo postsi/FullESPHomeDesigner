@@ -779,12 +779,13 @@ def _compile_wifi_prebuilt_intervals(project: dict) -> str:
         by_parent.setdefault(pid, []).append(w)
 
     lines: list[str] = []
+    # Bar order: left-to-right by x (and y) so first bar = leftmost = first threshold
     WIFI_BAR_THRESHOLDS = (-90, -75, -65, -55)
     for pid, group in by_parent.items():
         bars = [w for w in group if w.get("type") == "bar" and (w.get("id") or "").startswith("wifi_bar_")]
         if len(bars) != 4:
             continue
-        bars.sort(key=lambda w: str(w.get("id") or ""))
+        bars.sort(key=lambda w: (int(w.get("x", 0)), int(w.get("y", 0))))
         for i, w in enumerate(bars):
             wid = w.get("id") or ""
             thresh = WIFI_BAR_THRESHOLDS[i]
@@ -792,12 +793,13 @@ def _compile_wifi_prebuilt_intervals(project: dict) -> str:
             lines.append(f"          id: {wid}")
             lines.append(f"          value: !lambda 'return id(etd_wifi_signal).state > {thresh} ? 100 : 0;'")
 
+    # Arc order: innermost to outermost by size (w/h) so first arc = smallest = first threshold
     WIFI_FAN_THRESHOLDS = (-90, -80, -70, -65, -55)
     for pid, group in by_parent.items():
         arcs = [w for w in group if w.get("type") == "arc" and (w.get("id") or "").startswith("wifi_fan_arc_")]
         if len(arcs) != 5:
             continue
-        arcs.sort(key=lambda w: str(w.get("id") or ""))
+        arcs.sort(key=lambda w: (int(w.get("w", 0)), int(w.get("h", 0))))
         for i, w in enumerate(arcs):
             wid = w.get("id") or ""
             thresh = WIFI_FAN_THRESHOLDS[i]
@@ -2238,6 +2240,8 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
                     lines.append(f"{indent}    start_angle: {int(props.get('start_angle', 135))}\n")
                 if props.get("end_angle") is not None:
                     lines.append(f"{indent}    end_angle: {int(props.get('end_angle', 45))}\n")
+                if props.get("arc_width") is not None:
+                    lines.append(f"{indent}    arc_width: {int(props.get('arc_width', 4))}\n")
                 if style.get("bg_color") is not None:
                     bc = _hex_color_for_yaml(style["bg_color"])
                     if bc is not None:

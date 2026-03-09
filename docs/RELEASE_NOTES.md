@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.172
+
+- **WiFi bar**: Interval now orders bars by **(x, y)** so the leftmost bar gets the first threshold. Fixes 2-bar signal drawing first and last instead of first and second.
+- **WiFi fan**: Arcs now use **arc_width: 3** so each arc is a ring with visible separation; at max strength all five arcs remain distinct instead of a solid fill. Arc order in interval is by size (innermost first).
+
 ## v0.70.171
 
 - **WiFi bar / WiFi fan – fix stale IDs**: Interval blocks for WiFi bar and WiFi fan are no longer stored in the project with fixed widget IDs. They are generated at **compile time** from the current project’s widget IDs. Fixes "Couldn't find ID 'wifi_bar_xxx'" (and wifi_fan_arc_xxx) when IDs in stored intervals didn’t match the widgets in the compiled LVGL pages (e.g. after paste, reload, or multiple drops). Stored WiFi bar/fan interval blocks are ignored; the compiler emits one interval per group of 4 bars or 5 arcs.

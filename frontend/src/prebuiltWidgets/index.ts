@@ -169,7 +169,9 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
       const startAngle = 225;
       const endAngle = 315;
       const raw: any[] = [];
-      const sizes = [16, 24, 32, 40, 48]; // concentric arcs, innermost to outer
+      // Concentric rings: each arc has arc_width so they don't fill completely — visible separation at max strength
+      const sizes = [16, 24, 32, 40, 48]; // innermost to outer
+      const arcWidth = 3; // ring thickness; leaves gap between arcs
       const groupW = 56;
       const groupH = 56;
       for (let i = 0; i < 5; i++) {
@@ -191,6 +193,7 @@ export const PREBUILT_WIDGETS: PrebuiltWidget[] = [
             start_angle: startAngle,
             end_angle: endAngle,
             adjustable: false,
+            arc_width: arcWidth,
           },
           style: { bg_color: bgDark },
         });
