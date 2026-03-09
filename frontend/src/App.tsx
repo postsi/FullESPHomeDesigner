@@ -1298,11 +1298,21 @@ if (baseId.startsWith("glance_card")) {
   // Live overrides for canvas: from links + liveEntityStates, compute per-widget display values.
   const liveOverrides = useMemo(() => {
     const links = (project as any)?.links ?? [];
+    const pages = (project as any)?.pages ?? [];
     const overrides: Record<string, { text?: string; value?: number; checked?: boolean }> = {};
+    const widgetTypeById: Record<string, string> = {};
+    for (const page of pages) {
+      for (const w of page?.widgets ?? []) {
+        if (w?.id) widgetTypeById[w.id] = w.type ?? "label";
+      }
+    }
     for (const ln of links) {
       const src = ln?.source;
       const tgt = ln?.target;
-      const widgetId = tgt?.widget_id;
+      const rawWidgetId = typeof tgt?.widget_id === "object" && tgt?.widget_id != null && "id" in tgt?.widget_id
+        ? (tgt.widget_id as { id: string }).id
+        : (Array.isArray(tgt?.widget_id) ? tgt?.widget_id?.[0] : tgt?.widget_id);
+      const widgetId = typeof rawWidgetId === "string" ? rawWidgetId : (rawWidgetId && typeof (rawWidgetId as any)?.id === "string" ? (rawWidgetId as any).id : String(rawWidgetId ?? ""));
       const entityId = src?.entity_id;
       const kind = src?.kind || "state";
       const attr = src?.attribute ?? "";
@@ -1330,6 +1340,7 @@ if (baseId.startsWith("glance_card")) {
           const n = raw * scale;
           const s = fmt.replace("%.2f", n.toFixed(2)).replace("%.1f", n.toFixed(1)).replace("%.0f", String(Math.round(n)));
           overrides[widgetId] = { ...overrides[widgetId], text: s };
+          if (widgetTypeById[widgetId] === "spinbox") overrides[widgetId] = { ...overrides[widgetId], value: n };
         } else {
           const fallback = kind === "attribute_number" ? "--" : String(raw ?? "");
           const existing = overrides[widgetId]?.text ?? "";

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.182
+
+- **Sensor on_value compile fix**: Display binding targets now use a scalar `id` (widget_id extracted from dict/list if needed). Containers and obj widgets no longer get `lvgl.label.update`; that branch is skipped to avoid "ID doesn't inherit from lv_label_t".
+- **Spinbox bound values on canvas/simulator**: When a spinbox has a display (link) binding to an HA entity, live overrides now set `value` for spinbox so the bound value appears in the canvas and simulator, same as slider/arc/bar.
+
 ## v0.70.181
 
 - **Colour picker compile fix**: Emit colour picker as button without `value` (button has no value key). Only `bg_color` and other valid button keys are emitted; fixes ESPHome config error "[value] is an invalid option for [button]".

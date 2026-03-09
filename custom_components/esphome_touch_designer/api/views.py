@@ -376,7 +376,13 @@ def _compile_ha_bindings(project: dict) -> str:
         targets = link_map.get((kind, entity_id, attr), [])
         for ln in targets:
             tgt = ln.get("target") or {}
-            wid = str(tgt.get("widget_id") or "").strip()
+            raw_wid = tgt.get("widget_id")
+            if isinstance(raw_wid, dict) and "id" in raw_wid:
+                wid = str(raw_wid.get("id") or "").strip()
+            elif isinstance(raw_wid, list) and len(raw_wid):
+                wid = str(raw_wid[0] if not isinstance(raw_wid[0], dict) else raw_wid[0].get("id", "") or "").strip()
+            else:
+                wid = str(raw_wid or "").strip()
             wid_safe = _safe_id(wid)
             action = str(tgt.get("action") or "").strip()
             scale = tgt.get("scale")
@@ -495,6 +501,9 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}text:\n")
                         outs.append(f"{i3}  format: {json.dumps(str(fmt or '%.0f'))}\n")
                         outs.append(f"{i3}  args: [ 'x' ]\n")
+                elif wtype in ("container", "obj"):
+                    # Container/obj have no label; skip to avoid "ID doesn't inherit from lv_label_t"
+                    continue
                 else:
                     outs.append(f"{i2}- lvgl.label.update:\n")
                     outs.append(f"{i3}id: {wid}\n")
