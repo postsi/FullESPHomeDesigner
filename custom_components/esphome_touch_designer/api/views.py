@@ -2198,11 +2198,12 @@ def _compile_lvgl_pages_schema_driven(project: dict) -> str:
         if schema:
             w_emit = dict(w)
             if wtype == "color_picker":
-                # Emit as button with bg_color from props.value (current colour)
+                # Emit as button with bg_color from props.value (current colour). Do not emit props.value — button has no value key.
                 props = w_emit.get("props") or {}
                 style = w_emit.get("style") or {}
                 w_emit["style"] = dict(style)
                 w_emit["style"]["bg_color"] = props.get("value") or style.get("bg_color") or 0x4080FF
+                w_emit["props"] = {k: v for k, v in props.items() if k != "value"}
             raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)
             out_lines = []

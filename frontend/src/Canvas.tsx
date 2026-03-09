@@ -1173,20 +1173,18 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "spinbox") {
+      // Native spinbox: value box only (no +/-). Prebuilt "Spinbox with +/-" adds real - and + buttons as siblings.
       const rangeFrom = Number(p.range_from ?? 0);
       const rangeTo = Number(p.range_to ?? 100);
       const decimalPlaces = Math.max(0, Math.min(6, Number(p.decimal_places ?? 0)));
       const step = decimalPlaces >= 1 ? 10 ** -decimalPlaces : 1;
       const rawVal = override?.value !== undefined ? Number(override.value) : Number(p.value ?? 0);
       const displayVal = decimalPlaces >= 1 ? rawVal.toFixed(decimalPlaces) : String(Math.round(rawVal));
-      const btnW = 28;
-      const valueLeft = ax + btnW;
-      const valueWidth = Math.max(20, w.w - btnW * 2);
-      const valueLayout = { x: valueLeft, y: ay, width: valueWidth, height: w.h, align: "center" as const, verticalAlign: "middle" as const };
+      const valueLayout = { x: ax, y: ay, width: w.w, height: w.h, align: "center" as const, verticalAlign: "middle" as const };
       const cursorPart = w.cursor || {};
       const cursorColor = toFillColor(cursorPart.color, textColor);
       const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
-      const cx = valueLeft + 4;
+      const cx = ax + 8;
       const handleSpinboxStep = (delta: number) => {
         if (!simulationMode || !onSimulateUpdate || !onSimulateAction) return;
         const next = Math.max(rangeFrom, Math.min(rangeTo, rawVal + delta * step));
@@ -1201,8 +1199,6 @@ const stageRef = useRef<any>(null);
           <Rect x={ax + 6} y={ay + 6} width={w.w - 12} height={w.h - 12} fill="#0b1220" stroke="#374151" strokeWidth={1} cornerRadius={6} listening={false} />
           <Text text={displayVal} x={valueLayout.x} y={valueLayout.y} width={valueLayout.width} height={valueLayout.height} align={valueLayout.align} verticalAlign={valueLayout.verticalAlign} fontSize={fontSize} fill={textColor} listening={false} />
           <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
-          <Text text="-" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
-          <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           {simulationMode && onSimulateUpdate && onSimulateAction && (
             <>
               <Rect x={ax} y={ay} width={zoneW} height={w.h} fill="transparent" listening onClick={(e) => { e.cancelBubble = true; handleSpinboxStep(-1); }} onTap={(e) => { e.cancelBubble = true; handleSpinboxStep(-1); }} />

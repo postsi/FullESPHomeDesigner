@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.181
+
+- **Colour picker compile fix**: Emit colour picker as button without `value` (button has no value key). Only `bg_color` and other valid button keys are emitted; fixes ESPHome config error "[value] is an invalid option for [button]".
+- **Spinbox canvas**: Native (Std LVGL) spinbox draws as value box only (no visible -/+). Prebuilt "Spinbox with +/-" shows one set of -/+ from its two button widgets.
+
 ## v0.70.180
 
 - **Spinbox with +/- prebuilt**: New Widgets-panel prebuilt "Spinbox with +/-" (native spinbox plus - and + buttons that call lvgl.spinbox.decrement/increment). Bind spinbox on_change to HA entity. Simulator: left/right tap zones on spinbox increment/decrement value and fire on_change. Spinbox text_align emitted lowercase for LVGL. Test harness: Python scripts/test_spinbox_compile.py and frontend spinboxWithButtons.test.ts; all test suites run before release (release workflow rule updated). Test fixes: legacy migration accepts placeholder name; split-fail test relaxed to require valid output without duplicate esphome.
