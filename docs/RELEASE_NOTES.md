@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.197
+
+- **Colour picker: swatch visibility, button reflects HA light colour**
+  - **Swatch** is now a **button** (empty text) with **bg_opa: 100%** so `lvgl.obj.update` with `bg_color` works and the preview colour is visible when you change hue/sat.
+  - **Set button colour** display binding: after updating the button style from the HA light’s `rgb_color`, the colour picker button is **redrawn** so it shows the current light colour.
+
 ## v0.70.196
 
 - **Colour picker: swatch update, opaque overlay, integration service for light**

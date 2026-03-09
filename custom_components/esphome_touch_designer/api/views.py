@@ -561,7 +561,7 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "button_bg_color":
-                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button style
+                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button style and redraw button
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype != "color_picker":
                     continue
@@ -575,6 +575,8 @@ def _compile_ha_bindings(project: dict) -> str:
                 outs.append(f"{i4}  if (r==0 && g==0 && b==0) sscanf(x.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
                 outs.append(f"{i4}}}\n")
                 outs.append(f"{i4}return lv_color_hex((r<<16)|(g<<8)|b);\n")
+                outs.append(f"{i2}- lvgl.widget.redraw:\n")
+                outs.append(f"{i3}id: {wid}\n")
 
             elif action == "obj_hidden":
                 expr = None
@@ -2442,15 +2444,17 @@ def _emit_color_picker_overlay_yaml(
     ])
     out_lines.extend(_swatch_update)
     out_lines.extend([
-        # Preview swatch (current colour, like simulator); border so visible on any bg
-        f"{iii}- container:\n",
+        # Preview swatch (button so lvgl.obj.update bg_color works; border, bg_opa so colour shows)
+        f"{iii}- button:\n",
         f"{iv}id: {swatch_id}\n",
+        f"{iv}text: \"\"\n",
         f"{iv}x: 20\n",
         f"{iv}y: 120\n",
         f"{iv}width: 40\n",
         f"{iv}height: 40\n",
         f"{iv}border_color: 0xFFFFFF\n",
         f"{iv}border_width: 2\n",
+        f"{iv}bg_opa: 100%\n",
         f"{iv}bg_color: !lambda |-\n",
         f"{iv}  float h = id(etd_cp_{wid_safe}_hue) / 360.0f;\n",
         f"{iv}  float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
