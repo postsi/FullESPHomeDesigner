@@ -561,22 +561,31 @@ def _compile_ha_bindings(project: dict) -> str:
                         outs.append(f"{i3}  args: [ 'x' ]\n")
 
             elif action == "button_bg_color":
-                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button style and redraw button
+                # HA rgb_color attribute (e.g. "[255, 128, 0]") -> update colour picker button only when value looks valid
+                # (avoid overwriting with black when light is off / attribute empty or "unknown")
                 wtype = widget_type_by_id.get(wid) or "label"
                 if wtype != "color_picker":
                     continue
-                i4 = "                  "  # 18 spaces for lambda body under bg_color
-                outs.append(f"{i2}- lvgl.style.update:\n")
-                outs.append(f"{i3}id: etd_cp_{wid_safe}\n")
-                outs.append(f"{i3}bg_color: !lambda |-\n")
-                outs.append(f"{i4}int r=0,g=0,b=0;\n")
-                outs.append(f"{i4}if (x.size() >= 5) {{\n")
-                outs.append(f"{i4}  sscanf(x.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
-                outs.append(f"{i4}  if (r==0 && g==0 && b==0) sscanf(x.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
-                outs.append(f"{i4}}}\n")
-                outs.append(f"{i4}return lv_color_hex((r<<16)|(g<<8)|b);\n")
-                outs.append(f"{i2}- lvgl.widget.redraw:\n")
-                outs.append(f"{i3}id: {wid}\n")
+                i4 = "                  "  # 18 spaces for condition lambda / then list
+                i5 = "                    "  # 22 spaces for keys under then-list items
+                i6 = "                      "  # 24 spaces for bg_color lambda body
+                outs.append(f"{i2}- if:\n")
+                outs.append(f"{i3}condition:\n")
+                outs.append(
+                    f'{i4}lambda: "return x.size() >= 9 && x.find(\'[\') != std::string::npos && x.find(\']\') != std::string::npos;"\n'
+                )
+                outs.append(f"{i3}then:\n")
+                outs.append(f"{i4}- lvgl.style.update:\n")
+                outs.append(f"{i5}id: etd_cp_{wid_safe}\n")
+                outs.append(f"{i5}bg_color: !lambda |-\n")
+                outs.append(f"{i6}int r=0,g=0,b=0;\n")
+                outs.append(f"{i6}if (x.size() >= 5) {{\n")
+                outs.append(f"{i6}  sscanf(x.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
+                outs.append(f"{i6}  if (r==0 && g==0 && b==0) sscanf(x.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
+                outs.append(f"{i6}}}\n")
+                outs.append(f"{i6}return lv_color_hex((r<<16)|(g<<8)|b);\n")
+                outs.append(f"{i4}- lvgl.widget.redraw:\n")
+                outs.append(f"{i5}id: {wid}\n")
 
             elif action == "obj_hidden":
                 expr = None
@@ -2352,7 +2361,7 @@ def _emit_color_picker_overlay_yaml(
         f"{v}      float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
         f"{v}      float v = 1.0f;\n",
         f"{v}      float c = v * s, x_ = c * (1.0f - fabs(fmod(h * 6.0f, 2.0f) - 1.0f)), m = v - c;\n",
-        f"{v}      float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{v}      float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : c;\n",
         f"{v}      float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
         f"{v}      float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
         f"{v}      return lv_color_hex(((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255));\n",
@@ -2444,10 +2453,10 @@ def _emit_color_picker_overlay_yaml(
     ])
     out_lines.extend(_swatch_update)
     out_lines.extend([
-        # Preview swatch (button so lvgl.obj.update bg_color works; border, bg_opa so colour shows)
+        # Preview swatch (button so lvgl.obj.update bg_color works; border, bg_opa so colour shows; no label)
         f"{iii}- button:\n",
         f"{iv}id: {swatch_id}\n",
-        f"{iv}text: \"\"\n",
+        f'{iv}text: " "\n',  # single space to avoid LVGL showing default "text" when empty
         f"{iv}x: 20\n",
         f"{iv}y: 120\n",
         f"{iv}width: 40\n",
@@ -2460,7 +2469,7 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}  float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
         f"{iv}  float v = 1.0f;\n",
         f"{iv}  float c = v * s, x_ = c * (1.0f - fabs(fmod(h * 6.0f, 2.0f) - 1.0f)), m = v - c;\n",
-        f"{iv}  float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : x_;\n",
+        f"{iv}  float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : c;\n",
         f"{iv}  float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
         f"{iv}  float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
         f"{iv}  return lv_color_hex(((int)((r+m)*255) << 16) | ((int)((g+m)*255) << 8) | (int)((b+m)*255));\n",

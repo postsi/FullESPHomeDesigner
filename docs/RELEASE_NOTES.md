@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.198
+
+- **Colour picker: button no longer goes black; swatch label and red fixed**
+  - **HA display binding**: Updates from Home Assistant (e.g. light `rgb_color`) are applied only when the value looks like a valid RGB list (`[r,g,b]`). Empty, "unknown", or off-state values no longer overwrite the button with black after Apply.
+  - **Swatch**: Button text set to a single space so LVGL does not show the default "text" label; swatch remains a colour-only preview.
+  - **Swatch at red (hue 360°)**: Fixed HSV→RGB last sector so the red component uses `c` instead of `x_` when h ≥ 5/6; the swatch no longer turns black at the right end of the hue slider or when selecting red on the colour bar.
+
 ## v0.70.197
 
 - **Colour picker: swatch visibility, button reflects HA light colour**
