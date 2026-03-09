@@ -2261,7 +2261,7 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
         out.append(f"      - lvgl.style.update:\n")
         out.append(f"          id: {style_id}\n")
         out.append(f"          bg_color: !lambda 'return lv_color_hex(id(etd_cp_{wid_safe}_result));'\n")
-        out.append(f"      - lvgl.widget.refresh:\n")
+        out.append(f"      - lvgl.widget.redraw:\n")
         out.append(f"          id: {_wid}\n")
         out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         entity_id = cpicker_entity_by_wid.get(_wid)

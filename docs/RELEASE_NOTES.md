@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.194
+
+- **Colour picker Apply: use lvgl.widget.redraw instead of refresh (ESPHome 2026.2)**  
+  Fixes compile error: "Widget '...' does not have any dynamic properties to refresh." The colour picker button uses a style for bg_color, not a lambda property, so `lvgl.widget.refresh` is invalid. Apply now uses `lvgl.widget.redraw` so the button redraws after the style update.
+
 ## v0.70.193
 
 - **Colour picker: HA binding and two-way light control**
