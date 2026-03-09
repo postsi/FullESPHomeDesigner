@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.195
+
+- **Colour picker on device: Sat slider, swatch, Apply**
+  - **Sat** is now an LVGL **slider** (with knob, slideable) instead of a bar, so saturation can be adjusted by dragging.
+  - **Swatch** preview: fixed HSV→RGB formula (`x_` now uses `h * 6.0f`); the box updates when you change hue strip, hue slider, or Sat slider.
+  - **Apply**: fixed HSV sector math (h in 0..6) so the chosen colour is correct; order is now style update → hide overlay → redraw button so the colour-picker button updates to the new colour.
+
 ## v0.70.194
 
 - **Colour picker Apply: use lvgl.widget.redraw instead of refresh (ESPHome 2026.2)**  

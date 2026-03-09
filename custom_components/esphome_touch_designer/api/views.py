@@ -2229,26 +2229,26 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
         style_id = f"etd_cp_{wid_safe}"
         overlay_id = f"etd_cp_overlay_{wid_safe}"
         slider_id = f"etd_cp_slider_{wid_safe}"
-        bar_id = f"etd_cp_bar_{wid_safe}"
-        # Open overlay: sync hue slider and sat bar from globals, then show overlay
+        sat_slider_id = f"etd_cp_sat_{wid_safe}"
+        # Open overlay: sync hue and sat sliders from globals, then show overlay
         out.append(f"  - id: etd_cp_{wid_safe}_open\n")
         out.append("    then:\n")
         out.append(f"      - lvgl.slider.update:\n")
         out.append(f"          id: {slider_id}\n")
         out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_hue);'\n")
-        out.append(f"      - lvgl.bar.update:\n")
-        out.append(f"          id: {bar_id}\n")
+        out.append(f"      - lvgl.slider.update:\n")
+        out.append(f"          id: {sat_slider_id}\n")
         out.append(f"          value: !lambda 'return id(etd_cp_{wid_safe}_sat);'\n")
         out.append(f"      - lvgl.widget.show: {overlay_id}\n")
         # Apply: HSV to RGB, update style, hide overlay; optionally call light.turn_on with rgb_color
         out.append(f"  - id: etd_cp_{wid_safe}_apply\n")
         out.append("    then:\n")
         out.append("      - lambda: |-\n")
-        out.append("          float h = id(etd_cp_" + wid_safe + "_hue) / 360.0f;\n")
+        out.append("          float h = id(etd_cp_" + wid_safe + "_hue) / 60.0f;\n")
         out.append("          float s = id(etd_cp_" + wid_safe + "_sat) / 100.0f;\n")
         out.append("          float v = 1.0f;\n")
         out.append("          float c = v * s;\n")
-        out.append("          float x_ = c * (1.0f - fabs(fmod(h * (1.0f/60.0f), 2.0f) - 1.0f));\n")
+        out.append("          float x_ = c * (1.0f - fabs(fmod(h, 2.0f) - 1.0f));\n")
         out.append("          float m = v - c;\n")
         out.append("          float r = 0, g = 0, b = 0;\n")
         out.append("          if (h < 1.0f) { r = c; g = x_; b = 0; }\n")
@@ -2261,9 +2261,9 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
         out.append(f"      - lvgl.style.update:\n")
         out.append(f"          id: {style_id}\n")
         out.append(f"          bg_color: !lambda 'return lv_color_hex(id(etd_cp_{wid_safe}_result));'\n")
+        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         out.append(f"      - lvgl.widget.redraw:\n")
         out.append(f"          id: {_wid}\n")
-        out.append(f"      - lvgl.widget.hide: {overlay_id}\n")
         entity_id = cpicker_entity_by_wid.get(_wid)
         if entity_id and entity_id.startswith("light."):
             out.append("      - homeassistant.action:\n")
@@ -2412,9 +2412,9 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}y: 72\n",
         f"{iv}width: 240\n",
         f"{iv}height: 16\n",
-        # Bar for saturation (track visible)
-        f"{iii}- bar:\n",
-        f"{iv}id: etd_cp_bar_{wid_safe}\n",
+        # Slider for saturation (same as hue: has knob, slideable)
+        f"{iii}- slider:\n",
+        f"{iv}id: etd_cp_sat_{wid_safe}\n",
         f"{iv}x: 20\n",
         f"{iv}y: 90\n",
         f"{iv}width: 240\n",
@@ -2422,7 +2422,6 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}min_value: 0\n",
         f"{iv}max_value: 100\n",
         f"{iv}value: 100\n",
-        f"{iv}bg_color: 0x555555\n",
         f"{iv}on_release:\n",
         f"{iv}  then:\n",
         f"{v}- lambda: id(etd_cp_{wid_safe}_sat) = x;\n",
@@ -2441,7 +2440,7 @@ def _emit_color_picker_overlay_yaml(
         f"{iv}  float h = id(etd_cp_{wid_safe}_hue) / 360.0f;\n",
         f"{iv}  float s = id(etd_cp_{wid_safe}_sat) / 100.0f;\n",
         f"{iv}  float v = 1.0f;\n",
-        f"{iv}  float c = v * s, x_ = c * (1.0f - fabs(fmod(h * (1.0f/60.0f), 2.0f) - 1.0f)), m = v - c;\n",
+        f"{iv}  float c = v * s, x_ = c * (1.0f - fabs(fmod(h * 6.0f, 2.0f) - 1.0f)), m = v - c;\n",
         f"{iv}  float r = (h < 1.0f/6.0f) ? c : (h < 2.0f/6.0f) ? x_ : (h < 3.0f/6.0f) ? 0.0f : (h < 4.0f/6.0f) ? x_ : (h < 5.0f/6.0f) ? c : x_;\n",
         f"{iv}  float g = (h < 1.0f/6.0f) ? x_ : (h < 2.0f/6.0f) ? c : (h < 3.0f/6.0f) ? c : (h < 4.0f/6.0f) ? 0.0f : (h < 5.0f/6.0f) ? x_ : 0.0f;\n",
         f"{iv}  float b = (h < 1.0f/6.0f) ? 0.0f : (h < 2.0f/6.0f) ? 0.0f : (h < 3.0f/6.0f) ? x_ : (h < 4.0f/6.0f) ? c : (h < 5.0f/6.0f) ? c : x_;\n",
