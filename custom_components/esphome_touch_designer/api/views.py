@@ -570,10 +570,11 @@ def _compile_ha_bindings(project: dict) -> str:
                 i4 = "                  "  # 18 spaces for condition lambda / then list
                 i5 = "                        "  # 24 spaces -> 26 after caller's "  "
                 i6 = "                          "  # 26 spaces -> 28 after "  " for lambda body
+                # HA sends rgb_color as tuple '(255, 0, 212)' or list '[255,0,0]'; accept both
                 outs.append(f"{i2}- if:\n")
                 outs.append(f"{i3}condition:\n")
                 outs.append(
-                    f'{i4}lambda: "return x.size() >= 9 && x.find(\'[\') != std::string::npos && x.find(\']\') != std::string::npos;"\n'
+                    f'{i4}lambda: "return x.size() >= 9 && ( (x.find(\'[\') != std::string::npos && x.find(\']\') != std::string::npos) || (x.find(\'(\') != std::string::npos && x.find(\')\') != std::string::npos) );"\n'
                 )
                 outs.append(f"{i3}then:\n")
                 outs.append(f"{i4}- lvgl.obj.update:\n")
@@ -582,7 +583,8 @@ def _compile_ha_bindings(project: dict) -> str:
                 outs.append(f"{i6}auto s = id({sensor_id}).state;\n")
                 outs.append(f"{i6}int r=0,g=0,b=0;\n")
                 outs.append(f"{i6}if (s.size() >= 5) {{\n")
-                outs.append(f"{i6}  sscanf(s.c_str(), \"[%d,%d,%d]\", &r, &g, &b);\n")
+                outs.append(f"{i6}  if (sscanf(s.c_str(), \"[%d,%d,%d]\", &r, &g, &b) != 3)\n")
+                outs.append(f"{i6}    sscanf(s.c_str(), \"(%d, %d, %d)\", &r, &g, &b);\n")
                 outs.append(f"{i6}  if (r==0 && g==0 && b==0) sscanf(s.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
                 outs.append(f"{i6}}}\n")
                 outs.append(f"{i6}return lv_color_hex((r<<16)|(g<<8)|b);\n")
@@ -2323,7 +2325,7 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
             out.append("            lambda: |-\n")
             out.append(f"              auto s = id({sensor_id}).state;\n")
             out.append(
-                "              return s.size() >= 9 && s.find('[') != std::string::npos && s.find(']') != std::string::npos;\n"
+                "              return s.size() >= 9 && ( (s.find('[') != std::string::npos && s.find(']') != std::string::npos) || (s.find('(') != std::string::npos && s.find(')') != std::string::npos) );\n"
             )
             out.append("          then:\n")
             out.append("            - lvgl.obj.update:\n")
@@ -2332,7 +2334,8 @@ def _compile_color_picker_scripts(cpicker_defaults: list[tuple[str, str, int]], 
             out.append(f"                  auto s = id({sensor_id}).state;\n")
             out.append("                  int r=0,g=0,b=0;\n")
             out.append("                  if (s.size() >= 5) {\n")
-            out.append('                    sscanf(s.c_str(), "[%d,%d,%d]", &r, &g, &b);\n')
+            out.append('                    if (sscanf(s.c_str(), "[%d,%d,%d]", &r, &g, &b) != 3)\n')
+            out.append('                      sscanf(s.c_str(), "(%d, %d, %d)", &r, &g, &b);\n')
             out.append("                    if (r==0 && g==0 && b==0) sscanf(s.c_str(), \"%d,%d,%d\", &r, &g, &b);\n")
             out.append("                  }\n")
             out.append("                  return lv_color_hex((r<<16)|(g<<8)|b);\n")

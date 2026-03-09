@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.202
+
+- **Colour picker: accept HA rgb_color as tuple**  
+  Home Assistant sends `rgb_color` as a tuple string `'(255, 0, 212)'`, not `'[255, 0, 212]'`. The display binding and sync script now accept both formats and parse `(r, g, b)` with `sscanf("(%d, %d, %d)", ...)` so the button updates when the light colour changes in HA.
+
 ## v0.70.201
 
 - **Colour picker: react to HA light colour changes**
