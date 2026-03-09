@@ -567,8 +567,9 @@ def _compile_ha_bindings(project: dict) -> str:
                 if wtype != "color_picker":
                     continue
                 i4 = "                  "  # 18 spaces for condition lambda / then list
-                i5 = "                    "  # 22 spaces for keys under then-list items
-                i6 = "                      "  # 24 spaces for bg_color lambda body
+                # Keys under then-list actions must be indented 4+ spaces under action name so ESPHome parses one action per item
+                i5 = "                        "  # 24 spaces -> 26 after caller's "  "; id/bg_color under lvgl.style.update
+                i6 = "                          "  # 26 spaces -> 28 after "  "; lambda body under bg_color
                 outs.append(f"{i2}- if:\n")
                 outs.append(f"{i3}condition:\n")
                 outs.append(

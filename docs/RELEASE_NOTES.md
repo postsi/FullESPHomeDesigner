@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.199
+
+- **Colour picker HA binding YAML fix**: Corrected indentation of the `lvgl.style.update` / `lvgl.widget.redraw` blocks inside the `on_value` if/then so ESPHome parses one action per item (fixes “Cannot have two actions in one item. Key 'lvgl.style.update' overrides 'id'!”).
+
 ## v0.70.198
 
 - **Colour picker: button no longer goes black; swatch label and red fixed**
