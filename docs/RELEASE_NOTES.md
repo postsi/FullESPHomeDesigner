@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.207
+
+- **YAML fix: colour/white picker post-processor format**  
+  Fixed invalid YAML by aligning colour/white picker inline emit with the post-processor’s expected fixed format (8/12 spaces). Previously the variable indent caused incorrect nesting; the emit now uses the same format as `_emit_widget_from_schema` so indentation is correct.
+
 ## v0.70.206
 
 - **YAML fix: colour/white picker on_click indentation**  

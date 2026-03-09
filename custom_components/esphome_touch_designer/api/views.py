@@ -3185,19 +3185,19 @@ def _compile_lvgl_pages_schema_driven(
                     elif align == "BOTTOM_RIGHT":
                         x_val = x_val + w_val - parent_w
                         y_val = y_val + h_val - parent_h
-                body = indent + "    "
+                # Use fixed format (8/12 spaces) so post-processor applies indent correctly
                 raw = (
-                    f"{indent}- button:\n"
-                    f"{body}id: {wid}\n"
-                    f"{body}x: {x_val}\n"
-                    f"{body}y: {y_val}\n"
-                    f"{body}width: {w_val}\n"
-                    f"{body}height: {h_val}\n"
-                    f"{body}styles: etd_cp_{wid_safe}\n"
-                    f"{body}on_click:\n"
-                    f"{body}  then:\n"
-                    f"{body}    - script.execute: etd_cp_{wid_safe}_open\n"
-                )
+                    "        - button:\n"
+                    "            id: {wid}\n"
+                    "            x: {x_val}\n"
+                    "            y: {y_val}\n"
+                    "            width: {w_val}\n"
+                    "            height: {h_val}\n"
+                    "            styles: etd_cp_{wid_safe}\n"
+                    "            on_click:\n"
+                    "              then:\n"
+                    "                - script.execute: etd_cp_{wid_safe}_open\n"
+                ).format(wid=wid, x_val=x_val, y_val=y_val, w_val=w_val, h_val=h_val, wid_safe=wid_safe)
             elif wtype == "color_picker":
                 # Emit as button with bg_color from props.value (current colour). Do not emit props.value — button has no value key.
                 props = w_emit.get("props") or {}
@@ -3235,19 +3235,19 @@ def _compile_lvgl_pages_schema_driven(
                     elif align == "BOTTOM_RIGHT":
                         x_val = x_val + w_val - parent_w
                         y_val = y_val + h_val - parent_h
-                body = indent + "    "
+                # Use fixed format (8/12 spaces) so post-processor applies indent correctly
                 raw = (
-                    f"{indent}- button:\n"
-                    f"{body}id: {wid}\n"
-                    f"{body}x: {x_val}\n"
-                    f"{body}y: {y_val}\n"
-                    f"{body}width: {w_val}\n"
-                    f"{body}height: {h_val}\n"
-                    f"{body}styles: etd_wp_{wid_safe}\n"
-                    f"{body}on_click:\n"
-                    f"{body}  then:\n"
-                    f"{body}    - script.execute: etd_wp_{wid_safe}_open\n"
-                )
+                    "        - button:\n"
+                    "            id: {wid}\n"
+                    "            x: {x_val}\n"
+                    "            y: {y_val}\n"
+                    "            width: {w_val}\n"
+                    "            height: {h_val}\n"
+                    "            styles: etd_wp_{wid_safe}\n"
+                    "            on_click:\n"
+                    "              then:\n"
+                    "                - script.execute: etd_wp_{wid_safe}_open\n"
+                ).format(wid=wid, x_val=x_val, y_val=y_val, w_val=w_val, h_val=h_val, wid_safe=wid_safe)
             elif wtype == "white_picker":
                 props = w_emit.get("props") or {}
                 style = w_emit.get("style") or {}
