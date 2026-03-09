@@ -1630,6 +1630,9 @@ def _emit_kv(indent: str, key: str, value) -> str:
         return "".join(out)
 
     value = _color_value_for_esphome(key, value)
+    # LVGL/ESPHome expect some style enums in lowercase (e.g. text_align: center not CENTER)
+    if key == "text_align" and isinstance(value, str):
+        value = value.strip().lower()
     return f"{indent}{key}: {_yaml_quote(value)}\n"
 
 

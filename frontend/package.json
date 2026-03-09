@@ -16,12 +16,12 @@
   "name": "esphome-touch-designer-frontend",
   "private": true,
   "scripts": {
-    "build": "vite build",
+    "build": "npm run test && vite build",
     "dev": "vite",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "type": "module",
-  "version": "0.70.179"
+  "version": "0.70.180"
 }

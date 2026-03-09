@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.180
+
+- **Spinbox with +/- prebuilt**: New Widgets-panel prebuilt "Spinbox with +/-" (native spinbox plus - and + buttons that call lvgl.spinbox.decrement/increment). Bind spinbox on_change to HA entity. Simulator: left/right tap zones on spinbox increment/decrement value and fire on_change. Spinbox text_align emitted lowercase for LVGL. Test harness: Python scripts/test_spinbox_compile.py and frontend spinboxWithButtons.test.ts; all test suites run before release (release workflow rule updated). Test fixes: legacy migration accepts placeholder name; split-fail test relaxed to require valid output without duplicate esphome.
+
 ## v0.70.179
 
 - **Colour picker not in Std LVGL**: Colour picker is a designer-only widget (emitted as button); removed from Std LVGL palette. It remains in the Widgets (Prebuilt) tab and continues to compile and edit. Added EXTRA_WIDGET_TYPES / COMPILABLE_WIDGET_TYPES so non-palette types are still supported.

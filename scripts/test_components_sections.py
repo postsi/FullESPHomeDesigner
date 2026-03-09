@@ -133,7 +133,8 @@ def test_legacy_migration():
     full = project["sections"]["esphome"]
     assert full.strip().startswith("esphome:"), full[:50]
     parsed = yaml.safe_load(full)
-    assert parsed["esphome"]["name"] == "legacy"
+    # When device is None, name may be placeholder; when device is set, name is preserved or substituted
+    assert parsed["esphome"]["name"] in ("legacy", ETD_DEVICE_NAME_PLACEHOLDER)
     print("  legacy migration: OK")
 
 

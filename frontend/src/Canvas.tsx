@@ -555,6 +555,10 @@ const stageRef = useRef<any>(null);
 
     // Type-specific adornments
     const type = w.type.toLowerCase();
+    // Colour picker: show only the swatch (no label/text)
+    if (type === "color_picker") {
+      return <Group key={w.id}>{base}</Group>;
+    }
     if (type.includes("label")) {
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       const longMode = String(p.long_mode ?? s.long_mode ?? "CLIP").toUpperCase();
@@ -1169,6 +1173,12 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "spinbox") {
+      const rangeFrom = Number(p.range_from ?? 0);
+      const rangeTo = Number(p.range_to ?? 100);
+      const decimalPlaces = Math.max(0, Math.min(6, Number(p.decimal_places ?? 0)));
+      const step = decimalPlaces >= 1 ? 10 ** -decimalPlaces : 1;
+      const rawVal = override?.value !== undefined ? Number(override.value) : Number(p.value ?? 0);
+      const displayVal = decimalPlaces >= 1 ? rawVal.toFixed(decimalPlaces) : String(Math.round(rawVal));
       const btnW = 28;
       const valueLeft = ax + btnW;
       const valueWidth = Math.max(20, w.w - btnW * 2);
@@ -1177,7 +1187,14 @@ const stageRef = useRef<any>(null);
       const cursorColor = toFillColor(cursorPart.color, textColor);
       const cursorW = Math.max(1, Math.min(8, Number(cursorPart.width ?? 2)));
       const cx = valueLeft + 4;
-      const displayVal = override?.text !== undefined ? String(override.text) : String(p.value ?? "0");
+      const handleSpinboxStep = (delta: number) => {
+        if (!simulationMode || !onSimulateUpdate || !onSimulateAction) return;
+        const next = Math.max(rangeFrom, Math.min(rangeTo, rawVal + delta * step));
+        const rounded = decimalPlaces >= 1 ? Math.round(next * 10 ** decimalPlaces) / 10 ** decimalPlaces : Math.round(next);
+        onSimulateUpdate(w.id, { value: rounded });
+        onSimulateAction(w.id, "on_change", { value: rounded });
+      };
+      const zoneW = Math.min(36, Math.floor(w.w / 3));
       return (
         <Group key={w.id}>
           {base}
@@ -1186,6 +1203,12 @@ const stageRef = useRef<any>(null);
           <Rect x={cx} y={ay + 8} width={cursorW} height={w.h - 16} fill={cursorColor} listening={false} />
           <Text text="-" x={ax + 8} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
           <Text text="+" x={ax + w.w - 28} y={ay + (w.h - 14) / 2} width={20} align="center" fontSize={12} fill="#9ca3af" listening={false} />
+          {simulationMode && onSimulateUpdate && onSimulateAction && (
+            <>
+              <Rect x={ax} y={ay} width={zoneW} height={w.h} fill="transparent" listening onClick={(e) => { e.cancelBubble = true; handleSpinboxStep(-1); }} onTap={(e) => { e.cancelBubble = true; handleSpinboxStep(-1); }} />
+              <Rect x={ax + w.w - zoneW} y={ay} width={zoneW} height={w.h} fill="transparent" listening onClick={(e) => { e.cancelBubble = true; handleSpinboxStep(1); }} onTap={(e) => { e.cancelBubble = true; handleSpinboxStep(1); }} />
+            </>
+          )}
         </Group>
       );
     }

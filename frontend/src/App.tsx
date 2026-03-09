@@ -3141,6 +3141,7 @@ function deleteSelected() {
                   <div style={{ width: 40, height: 40, borderRadius: 8, background: currentHex, border: "1px solid rgba(255,255,255,.3)" }} />
                   <code style={{ fontSize: 12 }}>{currentHex}</code>
                 </div>
+                <p className="muted" style={{ fontSize: 11, margin: 0 }}>Use the sliders to choose a colour. Done updates the widget; use action bindings to drive lights or entities.</p>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button type="button" className="secondary" onClick={() => setColorPickerModal(null)}>Cancel</button>
                   <button type="button" className="primary" onClick={() => {

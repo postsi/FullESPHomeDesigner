@@ -17,18 +17,27 @@ When you have made any changes to this project, complete the full release workfl
 
 2. **Add a release note** for the new version in `docs/RELEASE_NOTES.md`.
 
-3. **Always rebuild the frontend** (so every release has a fresh dist; no stale assets):
+3. **Run all test suites** (from repo root; all must pass before proceeding):
+   - Python: `python3 scripts/test_compile.py`
+   - Python: `python3 scripts/test_spinbox_compile.py`
+   - Python: `python3 scripts/test_action_yaml.py`
+   - Python: `python3 scripts/test_components_sections.py`
+   - Python: `python3 scripts/test_compile_split_fail.py`
+   - Frontend: `cd frontend && npm run test`
+   If any script exits non-zero, fix failures before continuing. Do not release with failing tests.
+
+4. **Rebuild the frontend** (so every release has a fresh dist; no stale assets):
    ```bash
    cd frontend && npm run build
    ```
-   The build outputs to `custom_components/esphome_touch_designer/web/dist/` — stage those changes with `git add -A` in step 4.
+   (This runs vitest again as part of build; that is intentional.) The build outputs to `custom_components/esphome_touch_designer/web/dist/` — stage those changes with `git add -A` in step 5.
 
-4. **Commit and push**:
+5. **Commit and push**:
    ```bash
    git add -A && git commit -m "..." && git push origin main
    ```
 
-5. **Create the release tag and GitHub Release** (HACS requires a GitHub Release, not just a tag):
+6. **Create the release tag and GitHub Release** (HACS requires a GitHub Release, not just a tag):
    ```bash
    git tag vX.YY.ZZ -m "vX.YY.ZZ: brief description"
    git push origin vX.YY.ZZ
