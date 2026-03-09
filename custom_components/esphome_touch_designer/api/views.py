@@ -2619,6 +2619,11 @@ def _emit_white_picker_overlay_yaml(
         f"{v}      int r = 255, g = (int)(255 - 75*t), b = (int)(255 - 135*t);\n",
         f"{v}      return lv_color_hex((r<<16)|(g<<8)|b);\n",
     ]
+    # Warm-to-cool bar: tappable segments linked to slider (like colour picker hue strip)
+    strip_w, strip_h = 220, 18
+    strip_segments = 20
+    strip_segment_w = strip_w // strip_segments
+    strip_x_start, strip_y = 20, 22
     out_lines = [
         f"{i}- container:\n",
         f"{ii}id: etd_wp_overlay_{wid_safe}\n",
@@ -2637,10 +2642,32 @@ def _emit_white_picker_overlay_yaml(
         f"{iv}y: 4\n",
         f"{iv}width: 220\n",
         f"{iv}height: 16\n",
+    ]
+    for seg_i in range(strip_segments):
+        mireds_val = MIREDS_MIN + round((MIREDS_MAX - MIREDS_MIN) * seg_i / max(1, strip_segments - 1))
+        hex_col = _mireds_to_rgb_hex(mireds_val)
+        seg_x = strip_x_start + seg_i * strip_segment_w
+        out_lines.extend([
+            f"{iii}- button:\n",
+            f"{iv}id: etd_wp_strip_{wid_safe}_{seg_i}\n",
+            f"{iv}x: {seg_x}\n",
+            f"{iv}y: {strip_y}\n",
+            f"{iv}width: {strip_segment_w}\n",
+            f"{iv}height: {strip_h}\n",
+            f"{iv}bg_color: 0x{hex_col:06X}\n",
+            f"{iv}on_click:\n",
+            f"{iv}  then:\n",
+            f"{v}- lambda: id(etd_wp_{wid_safe}_mireds) = {mireds_val};\n",
+            f"{v}- lvgl.slider.update:\n",
+            f"{v}    id: {slider_id}\n",
+            f"{v}    value: {mireds_val}\n",
+        ])
+        out_lines.extend(_swatch_update)
+    out_lines.extend([
         f"{iii}- slider:\n",
         f"{iv}id: {slider_id}\n",
         f"{iv}x: 20\n",
-        f"{iv}y: 28\n",
+        f"{iv}y: 48\n",
         f"{iv}width: 220\n",
         f"{iv}height: 24\n",
         f"{iv}min_value: {MIREDS_MIN}\n",
@@ -2649,14 +2676,14 @@ def _emit_white_picker_overlay_yaml(
         f"{iv}on_release:\n",
         f"{iv}  then:\n",
         f"{v}- lambda: id(etd_wp_{wid_safe}_mireds) = (int)x;\n",
-    ]
+    ])
     out_lines.extend(_swatch_update)
     out_lines.extend([
         f"{iii}- button:\n",
         f"{iv}id: {swatch_id}\n",
         f'{iv}text: " "\n',
         f"{iv}x: 20\n",
-        f"{iv}y: 60\n",
+        f"{iv}y: 78\n",
         f"{iv}width: 40\n",
         f"{iv}height: 40\n",
         f"{iv}border_color: 0xFFFFFF\n",
@@ -2671,7 +2698,7 @@ def _emit_white_picker_overlay_yaml(
         f"{iii}- button:\n",
         f"{iv}text: Apply\n",
         f"{iv}x: 70\n",
-        f"{iv}y: 60\n",
+        f"{iv}y: 78\n",
         f"{iv}width: 100\n",
         f"{iv}height: 36\n",
         f"{iv}on_click:\n",
@@ -2680,7 +2707,7 @@ def _emit_white_picker_overlay_yaml(
         f"{iii}- button:\n",
         f"{iv}text: Cancel\n",
         f"{iv}x: 180\n",
-        f"{iv}y: 60\n",
+        f"{iv}y: 78\n",
         f"{iv}width: 80\n",
         f"{iv}height: 36\n",
         f"{iv}on_click:\n",

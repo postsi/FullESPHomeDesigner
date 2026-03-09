@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.204
+
+- **White picker overlay: warm–cool bar row**  
+  The white picker overlay now includes a tappable warm-to-cool bar (like the colour picker’s hue strip). Tapping a segment sets the mireds value, updates the slider, and refreshes the swatch; the bar is linked to the slider.
+
 ## v0.70.203
 
 - **White picker widget**  
