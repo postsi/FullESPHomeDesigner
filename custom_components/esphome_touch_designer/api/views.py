@@ -1317,7 +1317,24 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     _ensure_project_sections(project, device, recipe_text)
     pieces = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
     compiler_pieces = _build_compiler_sections(project, device)
-    if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_pieces.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
+    # Merge script: recipe/stored script + compiler script, so we don't drop recipe's manage_run_and_sleep
+    script_from_pieces = (pieces.get("script") or "").strip()
+    script_body_pieces = _section_body_from_value(script_from_pieces, "script") if script_from_pieces else ""
+    script_body_compiler = (compiler_pieces.get("script") or "").rstrip()
+    combined_script_body = (
+        (script_body_pieces.rstrip() + "\n" + script_body_compiler).rstrip()
+        if script_body_pieces.strip() and script_body_compiler
+        else (script_body_pieces or script_body_compiler or "").rstrip()
+    )
+    if combined_script_body:
+        compiler_pieces["script"] = combined_script_body + "\n"
+    # Add stub if output esphome (stored or recipe) references manage_run_and_sleep but script doesn't define it
+    esphome_body = _section_body_from_value(pieces.get("esphome"), "esphome") or ""
+    needs_stub = (
+        "manage_run_and_sleep" in (esphome_body + recipe_text)
+        and "id: manage_run_and_sleep" not in (compiler_pieces.get("script") or "")
+    )
+    if needs_stub:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
         current = (compiler_pieces.get("script") or "").rstrip()
         compiler_pieces["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")

@@ -66,6 +66,29 @@ def _project_with_color_picker() -> dict:
     return proj
 
 
+def _project_with_stored_esphome_manage_run() -> dict:
+    """Project with stored esphome that references manage_run_and_sleep (no script in stored). Simulates UI-saved sections."""
+    from custom_components.esphome_touch_designer.storage import _default_project
+    proj = _default_project()
+    proj["sections"] = {
+        "esphome": (
+            "esphome:\n  name: __ETD_DEVICE_NAME__\n  min_version: 2024.11.0\n"
+            "  on_boot:\n    - priority: 600\n      then:\n        - delay: 2s\n        - script.execute: manage_run_and_sleep\n"
+        ),
+    }
+    return proj
+
+
+# Minimal recipe without "manage_run_and_sleep" (used to test stub is added from stored esphome)
+_MINIMAL_RECIPE_NO_MANAGE_RUN = """esphome:
+  name: __ETD_DEVICE_NAME__
+  min_version: 2024.11.0
+esp32:
+  variant: esp32s3
+  flash_size: 16MB
+"""
+
+
 def validate(yaml_text: str, device_slug: str = "hallway") -> list[str]:
     errors = []
     lines = yaml_text.strip().splitlines()
@@ -104,6 +127,10 @@ def validate(yaml_text: str, device_slug: str = "hallway") -> list[str]:
             break
         break
 
+    # If config references script.execute: manage_run_and_sleep, script section must define it
+    if "manage_run_and_sleep" in yaml_text and "id: manage_run_and_sleep" not in yaml_text:
+        errors.append("Config references manage_run_and_sleep but no script defines id: manage_run_and_sleep")
+
     # Must have name: under esphome (required by ESPHome)
     if "name:" not in yaml_text:
         errors.append("Missing 'name:' (ESPHome required)")
@@ -133,16 +160,19 @@ def validate(yaml_text: str, device_slug: str = "hallway") -> list[str]:
 def main() -> None:
     print("Testing compiler (no HA)...")
     cases = [
-        ("empty screen", make_device()),
-        ("jc1060 recipe", make_device(recipe_id="jc1060p470_esp32p4_1024x600", slug="test_jc")),
-        ("no api key", make_device(api_key=None)),
-        ("color picker (globals+script)", make_device(project=_project_with_color_picker(), slug="cp_test")),
+        ("empty screen", make_device(), None),
+        ("jc1060 recipe", make_device(recipe_id="jc1060p470_esp32p4_1024x600", slug="test_jc"), None),
+        ("no api key", make_device(api_key=None), None),
+        ("color picker (globals+script)", make_device(project=_project_with_color_picker(), slug="cp_test"), None),
+        ("stored esphome + manage_run_and_sleep (stub from sections)", make_device(project=_project_with_stored_esphome_manage_run(), slug="stored_stub"), _MINIMAL_RECIPE_NO_MANAGE_RUN),
     ]
     all_ok = True
-    for label, device in cases:
+    for case in cases:
+        label, device = case[0], case[1]
+        recipe_override = case[2] if len(case) > 2 else None
         print(f"\n--- {label} ---")
         try:
-            out = compile_to_esphome_yaml(device)
+            out = compile_to_esphome_yaml(device, recipe_text=recipe_override)
             errs = validate(out, device.slug)
             if errs:
                 print("VALIDATION FAILED:")

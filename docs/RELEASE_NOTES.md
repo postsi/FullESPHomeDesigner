@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.187
+
+- **manage_run_and_sleep / script merge fix**: Stub is added when the **output** esphome section (stored or recipe) references `manage_run_and_sleep`, not only when the recipe file does—fixes "Couldn't find ID 'manage_run_and_sleep'" when using stored Components. Script section now **merges** recipe/stored script with compiler script instead of replacing, so the recipe's `manage_run_and_sleep` (and other script entries) are kept when the compiler also emits script (e.g. colour picker). Test: validation requires `id: manage_run_and_sleep` when config references it; new case for stored esphome + stub.
+
 ## v0.70.186
 
 - **Colour picker styles fix**: Emit `styles: etd_cp_<id>` (style definition ID only) instead of `styles: id(etd_cp_<id>)`. ESPHome LVGL expects the ID of the style definition; the `id()` form is for C++/lambdas and caused "The character '(' cannot be used" on compile.
