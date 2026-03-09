@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.176
+
+- **WiFi fan: all five arcs visible**: Arc widgets that are children of a container (e.g. WiFi fan’s five concentric rings) now use a transparent base rect so they don’t paint over each other. Previously only the outermost arc was visible because each arc’s opaque base covered the inner ones.
+
 ## v0.70.175
 
 - **WiFi fan arcs visible on canvas**: Arc indicator (filled part) no longer falls back to the track color (`style.bg_color`). It now uses `indicator.bg_color` when set, otherwise a visible default (#10b981), so dark-track arcs (e.g. WiFi fan) show five green 90° rings. Knob is hidden when `adjustable: false`. Unit test `arcIndicatorColor.test.ts` added to guard the rule.

@@ -328,6 +328,8 @@ const stageRef = useRef<any>(null);
     const shadowCol = toFillColor(s.shadow_color, "#000000");
     const shadowOpa = Number(s.shadow_opa ?? 100) / 100;
     const textColor = toFillColor(s.text_color ?? p.text_color, "#e5e7eb");
+    // Arc children in a group: transparent base so concentric rings don't cover each other.
+    const isArcChild = !!(w.type && String(w.type).toLowerCase().includes("arc") && w.parent_id);
     const fontId = s.text_font ?? p.text_font;
     const fontSize = Math.max(8, Math.min(48, fontSizeFromFontId(fontId) ?? 16)); // Canvas preview: mimic font id size
 
@@ -431,9 +433,9 @@ const stageRef = useRef<any>(null);
           rotation={transformAngle}
           scaleX={transformZoom}
           scaleY={transformZoom}
-          fill={bg}
-          stroke={border}
-          strokeWidth={borderWidth}
+          fill={isArcChild ? "transparent" : bg}
+          stroke={isArcChild ? "transparent" : border}
+          strokeWidth={isArcChild ? 0 : borderWidth}
           cornerRadius={radius}
           opacity={opacity}
           {...(hasShadow && {
