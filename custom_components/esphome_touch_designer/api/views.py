@@ -1498,7 +1498,7 @@ def compile_to_esphome_yaml(device: DeviceProject, recipe_text: str | None = Non
     """Compile a device project into a full ESPHome YAML document.
 
     Uses section-based compile when SECTION_ORDER is available: recipe is parsed into sections,
-    merged with compiler output and project.section_overrides, then emitted in canonical order.
+    merged with compiler output and project.sections (manual edits), then emitted in canonical order.
     """
     project = device.project or {}
     recipe_id = (
