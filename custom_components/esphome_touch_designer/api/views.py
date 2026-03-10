@@ -1326,9 +1326,11 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
     from compiler (esphome_components, HA bindings) and recipe. This ensures
     compiler-generated sections (e.g. interval, time from prebuilts) appear in the
     Components panel even when project.sections was previously saved without them.
+
+    Legacy project.section_overrides is no longer used; all manual edits live in
+    project.sections keyed by top-level section name.
     """
     stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
-    overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
     recipe_sections = _parse_recipe_into_sections(recipe_text)
     compiler_sections = _build_compiler_sections(project, device)
     if "manage_run_and_sleep" in recipe_text and "id: manage_run_and_sleep" not in (compiler_sections.get("script") or "") and "id: manage_run_and_sleep" not in recipe_text:
@@ -1337,14 +1339,9 @@ def _ensure_project_sections(project: dict, device: object | None, recipe_text: 
         compiler_sections["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
-        # Prefer stored (saved in Components), then legacy overrides, then compiler (prebuilts, HA bindings), then recipe
+        # Prefer stored (saved in Components) when present; otherwise fall back to compiler (prebuilts, HA bindings), then recipe.
         stored_body = _section_body_from_value(stored.get(key), key) if stored.get(key) else None
-        content = (
-            (stored_body if (stored_body or "").strip() else None)
-            or overrides.get(key)
-            or compiler_sections.get(key)
-            or recipe_sections.get(key)
-        )
+        content = (stored_body if (stored_body or "").strip() else None) or compiler_sections.get(key) or recipe_sections.get(key)
         if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
             content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
         if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
@@ -1371,11 +1368,14 @@ def _build_section_engine_pieces(
     device: object | None,
     recipe_text: str,
 ) -> tuple[dict[str, str], set[str]]:
-    """Engine: produce the final content for each section (recipe + compiler + overrides).
-    Returns (section_key -> content, set of keys that are user-overridden).
-    Legacy: used by SectionsDefaultsView. Prefer project.sections + compiler merge in compile path."""
-    overrides = (project.get("section_overrides") or {}) if isinstance(project.get("section_overrides"), dict) else {}
-    user_edited: set[str] = set(overrides.keys())
+    """Engine: produce the final content for each section (recipe + compiler + sections).
+    Returns (section_key -> content, set of keys that are user-overridden based on project.sections).
+
+    Legacy: used by SectionsDefaultsView. New code should prefer project.sections +
+    compiler merge in the main compile path.
+    """
+    stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
+    user_edited: set[str] = set(stored.keys())
     recipe_sections = _parse_recipe_into_sections(recipe_text)
     compiler_sections = _build_compiler_sections(project, device)
 
@@ -1384,10 +1384,9 @@ def _build_section_engine_pieces(
         current = (compiler_sections.get("script") or "").rstrip()
         compiler_sections["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
 
-    stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     pieces: dict[str, str] = {}
     for key in SECTION_ORDER:
-        raw = stored.get(key) or overrides.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
+        raw = stored.get(key) or compiler_sections.get(key) or recipe_sections.get(key)
         content = _section_body_from_value(raw, key) if raw else (raw or "")
         if key == "lvgl" and content and "#__LVGL_PAGES__" in content and compiler_sections.get("lvgl"):
             content = content.replace("#__LVGL_PAGES__", (compiler_sections["lvgl"] or "").rstrip())
@@ -1405,7 +1404,7 @@ def _build_section_engine_pieces(
                 content = _strip_section_key(_default_logger_yaml(), "logger")
         if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
             pieces[key] = _section_full_block(key, (content or "").rstrip())
-            if key not in overrides and key not in stored:
+            if key not in stored:
                 user_edited.discard(key)
     return pieces, user_edited
 
@@ -1432,8 +1431,32 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
         current = (compiler_pieces.get("script") or "").rstrip()
         compiler_pieces["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
+
+    # For list-like sections, merge stored content with compiler output instead of overwriting so
+    # user-defined components (e.g. LVGL platform switch/number) coexist with HA bindings.
+    MERGE_LIST_SECTIONS: set[str] = {
+        "sensor",
+        "text_sensor",
+        "binary_sensor",
+        "switch",
+        "number",
+        "select",
+        "light",
+    }
+
     for k, v in compiler_pieces.items():
-        pieces[k] = _section_full_block(k, (v or "").rstrip())
+        body_compiler = (v or "").rstrip()
+        if k in MERGE_LIST_SECTIONS and body_compiler:
+            existing_block = pieces.get(k) or ""
+            existing_body = _section_body_from_value(existing_block, k) if existing_block else ""
+            existing_body = (existing_body or "").rstrip()
+            if existing_body:
+                merged_body = existing_body + "\n\n" + body_compiler + "\n"
+            else:
+                merged_body = body_compiler + "\n"
+            pieces[k] = _section_full_block(k, merged_body.rstrip())
+        else:
+            pieces[k] = _section_full_block(k, body_compiler)
     header = (
         "---\n"
         f"# Generated by {DOMAIN} v{_integration_version()}\n"

@@ -196,7 +196,9 @@ export default function SectionBasedComponentsPanel({
           </button>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Auto</span> = from recipe/compiler; <span style={{ color: "rgba(100,180,255,0.95)" }}>Edited</span> = your changes. Reset = back to default; Save = store to project. Compiler uses stored sections.
+          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Recipe</span> = from hardware recipe;{" "}
+          <span style={{ color: "rgba(255,255,255,0.8)" }}>Auto</span> = added by the app (compiler);{" "}
+          <span style={{ color: "rgba(100,180,255,0.95)" }}>Manual</span> = your stored YAML. Reset = back to default; Save = store to project.
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
           {loading && (
@@ -234,11 +236,42 @@ export default function SectionBasedComponentsPanel({
                     </summary>
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
-                        const content = (sections[sectionKey] ?? "").trim();
-                        const isEmpty = content.length === 0;
-                        const isUserEdited = overriddenKeys.has(sectionKey);
-                        const bgSection = isUserEdited ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
-                        const borderSection = isUserEdited ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
+                        const effective = (sections[sectionKey] ?? "").trim();
+                        const defaultContent = (defaults[sectionKey] ?? "").trim();
+                        const hasManual = overriddenKeys.has(sectionKey);
+                        const hasAnyContent = !!(effective || defaultContent);
+                        const isEmpty = !hasAnyContent;
+
+                        // Heuristic: sections that typically come only from the recipe (no compiler)
+                        const recipeOnlyKeys: Record<string, true> = {
+                          esphome: true,
+                          esp32: true,
+                          esp8266: true,
+                          rp2040: true,
+                          wifi: true,
+                          ota: true,
+                          logger: true,
+                          i2c: true,
+                          spi: true,
+                          uart: true,
+                          display: true,
+                          touchscreen: true,
+                        };
+
+                        let stateLabel: "Empty" | "Recipe" | "Auto" | "Manual";
+                        if (isEmpty) {
+                          stateLabel = "Empty";
+                        } else if (hasManual) {
+                          stateLabel = "Manual";
+                        } else if (defaultContent && recipeOnlyKeys[sectionKey]) {
+                          stateLabel = "Recipe";
+                        } else {
+                          stateLabel = "Auto";
+                        }
+
+                        const isManual = stateLabel === "Manual";
+                        const bgSection = isManual ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
+                        const borderSection = isManual ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
                         return (
                           <details
                             key={sectionKey}
@@ -260,20 +293,23 @@ export default function SectionBasedComponentsPanel({
                               }}
                             >
                               <code style={{ fontWeight: 600 }}>{sectionKey}</code>
-                              {isEmpty && (
-                                <span className="muted" style={{ fontSize: 10 }}>Empty</span>
-                              )}
+                              <span
+                                className={isEmpty ? "muted" : undefined}
+                                style={{ fontSize: 10 }}
+                              >
+                                {stateLabel}
+                              </span>
                               {!isEmpty && (
                                 <span
                                   style={{
                                     fontSize: 10,
                                     padding: "1px 6px",
                                     borderRadius: 4,
-                                    background: isUserEdited ? "rgba(100,160,255,0.25)" : "rgba(255,255,255,0.12)",
-                                    color: isUserEdited ? "rgba(200,220,255,0.95)" : "rgba(255,255,255,0.65)",
+                                    background: isManual ? "rgba(100,160,255,0.25)" : "rgba(255,255,255,0.12)",
+                                    color: isManual ? "rgba(200,220,255,0.95)" : "rgba(255,255,255,0.65)",
                                   }}
                                 >
-                                  {isUserEdited ? "Edited" : "Auto"}
+                                  {stateLabel}
                                 </span>
                               )}
                             </summary>
