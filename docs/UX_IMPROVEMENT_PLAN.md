@@ -8,6 +8,8 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 **Pre-§2 release (revert point for Navigation phase):** **v0.71.5** — Git tag `v0.71.5`. If §2 Navigation and layout changes are not wanted, create a new release from this tag to roll back to the current UI.
 
+**Pre-§3 release (revert point for Widget selection phase):** **v0.71.10** — Git tag `v0.71.10`. If §3 Widget selection and editing changes are not wanted, create a new release from this tag to roll back.
+
 ---
 
 ## 1. Clarify the main workflow
@@ -97,8 +99,8 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 | # | Item | Status |
 |---|------|--------|
-| 3.1 | **Clear selection affordances** — Obvious selection outline, resize handles, and a properties panel that always reflects current selection (including “Nothing selected” state). | [ ] |
-| 3.2 | **Inline feedback on invalid actions** — When drag/resize would go out of bounds or break constraints, show ghost/limit indicators instead of silent snapping. | [ ] |
+| 3.1 | **Clear selection affordances** — Obvious selection outline, resize handles, and a properties panel that always reflects current selection (including “Nothing selected” state). | [x] |
+| 3.2 | **Inline feedback on invalid actions** — When drag/resize would go out of bounds or break constraints, show ghost/limit indicators instead of silent snapping. | [x] |
 
 ---
 

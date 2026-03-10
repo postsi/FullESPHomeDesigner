@@ -249,6 +249,8 @@ const stageRef = useRef<any>(null);
   }, [selectionBox, finishSelectionBox]);
 
   const selectedSet = new Set(selectedIds);
+  const [dragAtLimit, setDragAtLimit] = useState(false);
+  const [resizeAtLimit, setResizeAtLimit] = useState(false);
 
   const widgetById = useMemo(() => {
     const m = new Map<string, Widget>();
@@ -340,7 +342,7 @@ const stageRef = useRef<any>(null);
             return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
           })()
         : bg;
-    const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#10b981" : "#374151");
+    const border = toFillColor(s.border_color ?? p.border_color, isSel ? "#059669" : "#374151");
     const borderWidth = Number(s.border_width ?? p.border_width ?? 2);
     const opacityRaw = s.opa ?? p.opacity ?? 100;
     const opacity = typeof opacityRaw === "number" ? opacityRaw / 100 : 1;
@@ -455,9 +457,12 @@ const stageRef = useRef<any>(null);
         onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
       }
     };
-    // Base background (optional outline behind, then main rect)
+    // Base background (optional outline behind, then main rect); selection outline when selected
     const base = (
       <>
+        {isSel && (
+          <Rect x={ax - 3} y={ay - 3} width={w.w + 6} height={w.h + 6} stroke="#06b6d4" strokeWidth={2} dash={[8, 4]} cornerRadius={radius + 3} fillEnabled={false} listening={false} />
+        )}
         {outlineW > 0 && (
           <Rect x={ax - outlinePad - outlineW} y={ay - outlinePad - outlineW} width={w.w + 2 * (outlinePad + outlineW)} height={w.h + 2 * (outlinePad + outlineW)} stroke={outlineColor} strokeWidth={outlineW} cornerRadius={radius + outlinePad + outlineW} fillEnabled={false} opacity={outlineOpa} listening={false} />
         )}
@@ -484,7 +489,19 @@ const stageRef = useRef<any>(null);
           shadowOpacity: shadowOpa,
         })}
         draggable={!w.parent_id && (!simulationMode || !simDraggable)}
-        dragBoundFunc={simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined}
+        dragBoundFunc={simulationMode
+          ? (simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined)
+          : (pos) => {
+              const isCentered = transformAngle !== 0 || transformZoom !== 1;
+              const cx = isCentered
+                ? Math.max(w.w / 2, Math.min(width - w.w / 2, pos.x))
+                : Math.max(0, Math.min(width - w.w, pos.x));
+              const cy = isCentered
+                ? Math.max(w.h / 2, Math.min(height - w.h / 2, pos.y))
+                : Math.max(0, Math.min(height - w.h, pos.y));
+              setDragAtLimit(cx !== pos.x || cy !== pos.y);
+              return { x: cx, y: cy };
+            }}
         onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
         onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
         onDragMove={simDraggable ? handleSimDragMove : undefined}
@@ -530,6 +547,7 @@ const stageRef = useRef<any>(null);
             .filter(Boolean) as { id: string; patch: Partial<Widget> }[];
 
           onChangeMany(patches, true);
+          setDragAtLimit(false);
         }}
         onTransformEnd={(e) => {
           const node = e.target;
@@ -577,6 +595,7 @@ const stageRef = useRef<any>(null);
             const modelY = yy - parentAbs.ay;
             onChangeMany([{ id: w.id, patch: { x: modelX, y: modelY, w: ww, h: hh } }], true);
           }
+          setResizeAtLimit(false);
         }}
       />
       </>
@@ -658,6 +677,9 @@ const stageRef = useRef<any>(null);
       if (kids.length > 0) {
         const baseLocal = (
           <>
+            {isSel && (
+              <Rect x={-3} y={-3} width={w.w + 6} height={w.h + 6} stroke="#06b6d4" strokeWidth={2} dash={[8, 4]} cornerRadius={radius + 3} fillEnabled={false} listening={false} />
+            )}
             {outlineW > 0 && (
               <Rect x={-outlinePad - outlineW} y={-outlinePad - outlineW} width={w.w + 2 * (outlinePad + outlineW)} height={w.h + 2 * (outlinePad + outlineW)} stroke={outlineColor} strokeWidth={outlineW} cornerRadius={radius + outlinePad + outlineW} fillEnabled={false} opacity={outlineOpa} listening={false} />
             )}
@@ -685,6 +707,12 @@ const stageRef = useRef<any>(null);
             height={w.h}
             clipFunc={clip ? (ctx) => { ctx.rect(0, 0, w.w, w.h); } : undefined}
             draggable={!w.parent_id && (!simulationMode || !simDraggable)}
+            dragBoundFunc={!simulationMode && !w.parent_id ? (pos) => {
+              const cx = Math.max(0, Math.min(width - w.w, pos.x));
+              const cy = Math.max(0, Math.min(height - w.h, pos.y));
+              setDragAtLimit(cx !== pos.x || cy !== pos.y);
+              return { x: cx, y: cy };
+            } : undefined}
             onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
             onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
             onDragStart={!simulationMode ? () => {
@@ -717,6 +745,7 @@ const stageRef = useRef<any>(null);
                 })
                 .filter(Boolean) as { id: string; patch: Partial<Widget> }[];
               onChangeMany(patches, true);
+              setDragAtLimit(false);
             }}
             onTransformEnd={(e) => {
               const node = e.target;
@@ -761,6 +790,7 @@ const stageRef = useRef<any>(null);
                 const modelY = yy - parentAbs.ay;
                 onChangeMany([{ id: w.id, patch: { x: modelX, y: modelY, w: ww, h: hh } }], true);
               }
+              setResizeAtLimit(false);
             }}
           >
             {baseLocal}
@@ -1518,11 +1548,8 @@ const stageRef = useRef<any>(null);
         e.stopPropagation();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       }}
-      onDragEnter={(e) => {
-        console.log('[ETD DragEnter] target:', (e.target as HTMLElement)?.tagName, 'types:', Array.from(e.dataTransfer?.types || []));
-      }}
       onDrop={handleDrop}
-      style={{ width, height, minWidth: width, minHeight: height }}
+      style={{ width, height, minWidth: width, minHeight: height, position: "relative" }}
     >
     <Stage
       width={width}
@@ -1575,16 +1602,23 @@ const stageRef = useRef<any>(null);
         {gridLines()}
         {(() => {
           const topLevel = widgets.filter((w) => !w.parent_id);
-          console.log('[ETD Canvas render] widgets:', widgets.length, 'topLevel:', topLevel.length, topLevel.map(w => ({ id: w.id, type: w.type, x: w.x, y: w.y })));
           return topLevel.map((w) => renderWidget(w, selectedSet.has(w.id)));
         })()}
         <Transformer
           ref={trRef}
           rotateEnabled={false}
-          anchorSize={8}
+          anchorSize={10}
+          anchorFill="#06b6d4"
+          anchorStroke="#fff"
+          borderStroke="#06b6d4"
           boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 20 || newBox.height < 20) return oldBox;
-            return newBox;
+            let x = Math.max(0, Math.min(width, newBox.x));
+            let y = Math.max(0, Math.min(height, newBox.y));
+            let w = Math.max(20, Math.min(newBox.width, width - x));
+            let h = Math.max(20, Math.min(newBox.height, height - y));
+            const clamped = x !== newBox.x || y !== newBox.y || w !== newBox.width || h !== newBox.height;
+            if (clamped) setResizeAtLimit(true);
+            return { x, y, width: w, height: h };
           }}
         />
         {selectionBox && (
@@ -1602,6 +1636,26 @@ const stageRef = useRef<any>(null);
         )}
       </Layer>
     </Stage>
+    {(dragAtLimit || resizeAtLimit) && (
+      <div
+        style={{
+          position: "absolute",
+          bottom: 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          padding: "6px 12px",
+          borderRadius: 8,
+          background: "rgba(6, 182, 212, 0.95)",
+          color: "#0b0f14",
+          fontSize: 12,
+          fontWeight: 600,
+          pointerEvents: "none",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+        }}
+      >
+        {dragAtLimit ? "At screen edge" : "At max size"}
+      </div>
+    )}
     </div>
   );
 }

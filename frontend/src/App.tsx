@@ -4162,6 +4162,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
             <button type="button" className={`panelTab ${inspectorTab === "yaml" ? "active" : ""}`} onClick={() => setInspectorTab("yaml")}>YAML</button>
           </div>
           <div className="panelContent">
+            {selectedWidgetIds.length === 0 && (
+              <div style={{ marginBottom: 12, padding: 14, background: "rgba(255,255,255,.06)", borderRadius: 8, border: "1px solid rgba(255,255,255,.12)", textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>Nothing selected</div>
+                <div className="muted" style={{ fontSize: 12 }}>Select a widget on the canvas to edit properties and bindings.</div>
+              </div>
+            )}
             {project && (
               <div style={{ marginBottom: 12, padding: 10, background: "rgba(255,255,255,.04)", borderRadius: 8, border: "1px solid rgba(255,255,255,.08)" }}>
                 <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 8 }}>Canvas background</div>
@@ -4208,9 +4214,6 @@ function nudgeSelected(dx: number, dy: number, step: number) {
             {inspectorTab === "properties" && (
               <div>
                 <div className="muted">Properties</div>
-                {selectedWidgetIds.length === 0 && (
-                  <div className="muted">Select a widget on the canvas.</div>
-                )}
                 {selectedWidgetIds.length === 1 && selectedWidget && (
                   <>
                     <div className="inspectorWidgetId" style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(255,255,255,.06)", borderRadius: 8, border: "1px solid rgba(255,255,255,.1)" }}>

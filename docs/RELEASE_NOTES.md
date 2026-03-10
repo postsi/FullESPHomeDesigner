@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.11
+
+- **§3 Widget selection and editing (UX plan)** — **3.1** Clear selection: cyan dashed outline and visible resize handles (cyan anchors) on selected widgets; properties panel shows **Nothing selected** when no widget is selected, with short guidance. **3.2** Inline feedback: when drag or resize would go out of bounds, the canvas shows an overlay (“At screen edge” or “At max size”) instead of silent clamping. Drag and resize are constrained to the canvas; resize minimum 20×20 and max to canvas size. Pre-§3 revert point: v0.71.10 (tag `v0.71.10`).
+
 ## v0.71.10
 
 - **Deploy button** — The nav “Compile” button is renamed to **Deploy**. Clicking it compiles and saves YAML to `/config/esphome/` (same as “Export to /config/esphome/” in the Compile dialog). If the project has unsaved changes, it saves first, then exports. A toast shows **Deployment successful** or **Deployment failed: &lt;reason&gt;** so the user knows the result without opening the dialog.
