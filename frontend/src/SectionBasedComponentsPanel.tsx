@@ -52,7 +52,7 @@ export default function SectionBasedComponentsPanel({
     getSectionsDefaults(project, recipeId, deviceId ?? undefined, entryId ?? undefined)
       .then(({ sections: effective, categories: cat, default_sections: defSections, overridden_keys: ovKeys }) => {
         if (cancelled) return;
-        setDefaults(defSections);
+        setDefaults(defSections && typeof defSections === "object" ? defSections : {});
         setCategories(cat);
         setOverriddenKeys(new Set(Array.isArray(ovKeys) ? ovKeys : []));
         setSections(effective);
@@ -223,6 +223,7 @@ export default function SectionBasedComponentsPanel({
               {categoryOrder.map((catLabel) => {
                 const keys = categories[catLabel] || [];
                 const withContent = keys.filter((k) => (sections[k] ?? "").trim().length > 0);
+                const defaultsSafe = defaults ?? {};
                 return (
                   <details key={catLabel} style={{ marginBottom: 12 }}>
                     <summary
@@ -239,7 +240,7 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const effective = (sections[sectionKey] ?? "").trim();
-                        const defaultContent = (defaults[sectionKey] ?? "").trim();
+                        const defaultContent = (defaultsSafe[sectionKey] ?? "").trim();
                         const hasManual = overriddenKeys.has(sectionKey);
                         const hasAnyContent = !!(effective || defaultContent);
                         const isEmpty = !hasAnyContent;

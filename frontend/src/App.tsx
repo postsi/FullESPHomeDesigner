@@ -3225,7 +3225,11 @@ function nudgeSelected(dx: number, dy: number, step: number) {
               }}
               onMouseOver={(e) => (e.currentTarget.style.background = "#3a3a3a")}
               onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
-              onClick={() => deletePage(pageTabContextMenu.pageIndex)}
+              onClick={() => {
+                const idx = pageTabContextMenu.pageIndex;
+                setPageTabContextMenu(null);
+                deletePage(idx);
+              }}
             >
               🗑 Delete page
             </button>

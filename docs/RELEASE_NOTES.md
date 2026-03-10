@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.8
+
+- **Delete page context menu** — Context menu now closes when you click “Delete page” or click outside (capture index before closing).
+- **Components panel crash fix** — Guard `default_sections` and use `defaultsSafe` so `defaults` is never undefined when rendering section list.
+
 ## v0.71.7
 
 - **Delete page** — Right-click a page tab to open a context menu with “Delete page”. At least one page is required; confirmation before delete.
