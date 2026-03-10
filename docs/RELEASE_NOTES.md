@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.212
+
+- **LED display binding** — New display action `led_brightness`: bind a sensor or light attribute (0–100 or binary on/off) to an LED so the canvas/simulator shows brightness from HA. `bindingConfig`: `led: ["led_brightness"]`; `liveOverrides` and Canvas use `override.value` for LED brightness.
+- **Simulator: keyboard** — Key clicks in the simulator fire `on_value` with `{ selected_index: keyIndex }` (0–39 for 4×10 grid). Added `keyboard: ["on_value"]` to `EVENTS_BY_WIDGET_TYPE` so action bindings can be attached and tested.
+- **Simulator: textarea** — Clicking a textarea in the simulator opens a modal to edit text; Apply updates sim state and fires `on_value` with `{ text }` so action bindings (e.g. scripts) receive the text. New `onOpenTextarea` callback and textarea modal in App; `handleSimulatorAction` accepts `payload.text`.
+- **Docs** — Updated `WIDGET_SIMULATOR_BINDINGS.md` (LED, keyboard, textarea in matrix and checklist). README and ARCHITECTURE now link to the widget/simulator binding doc.
+
 ## v0.70.211
 
 - **Canvas & simulator: full binding support for colour/white pickers** — Links with display actions `button_bg_color` and `button_white_temp` now drive the canvas and simulator: HA `rgb_color` and `color_temp` update the colour/white picker swatches in real time. Canvas uses `override.value` for both pickers when set from liveOverrides.

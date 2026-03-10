@@ -3,7 +3,7 @@
  * Services listed per domain for action bindings (user sees only relevant options).
  */
 
-export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked" | "button_bg_color" | "button_white_temp";
+export type DisplayAction = "label_text" | "slider_value" | "arc_value" | "bar_value" | "widget_checked" | "button_bg_color" | "button_white_temp" | "led_brightness";
 
 /** Display target actions allowed per widget type (what property of the widget gets the HA value). */
 export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
@@ -15,7 +15,7 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   dropdown: ["label_text"],
   switch: ["widget_checked", "label_text"],
   checkbox: ["widget_checked", "label_text"],
-  led: [],
+  led: ["led_brightness"],
   image: [],
   bar: ["bar_value", "label_text"],
   spinner: [],
@@ -37,6 +37,7 @@ export const DISPLAY_ACTION_LABELS: Record<DisplayAction, string> = {
   widget_checked: "Set on/off state",
   button_bg_color: "Set button colour",
   button_white_temp: "Set white temperature",
+  led_brightness: "Set brightness (0–100)",
 };
 
 /** Events that can trigger an action binding, per widget type (ESPHome event names). */
@@ -60,6 +61,7 @@ export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   color_picker: ["on_click", "on_apply"],
   white_picker: ["on_click", "on_apply"],
   buttonmatrix: ["on_value"],
+  keyboard: ["on_value"],
 };
 
 /** Event key -> human label. */

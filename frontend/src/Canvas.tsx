@@ -34,11 +34,13 @@ type Props = {
   /** Simulation state overrides (merged with liveOverrides when simulationMode). */
   simOverrides?: Record<string, { text?: string; value?: number; checked?: boolean; selected_index?: number }>;
   onSimulateUpdate?: (widgetId: string, updates: { value?: number; checked?: boolean; selected_index?: number; text?: string }) => void;
-  onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number; color?: string }) => void;
+  onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number; color?: string; text?: string }) => void;
   /** When in simulation mode, opening a colour picker widget opens this callback instead of firing on_click. */
   onOpenColorPicker?: (widgetId: string, currentColorHex: string) => void;
   /** When in simulation mode, opening a white picker widget opens this callback to set color temp (mireds). */
   onOpenWhitePicker?: (widgetId: string, currentMireds: number) => void;
+  /** When in simulation mode, opening a textarea widget opens this callback to edit text and fire on_value. */
+  onOpenTextarea?: (widgetId: string, currentText: string) => void;
 };
 
 function snap(n: number, grid: number) {
@@ -182,6 +184,7 @@ export default function Canvas({
   onSimulateAction,
   onOpenColorPicker,
   onOpenWhitePicker,
+  onOpenTextarea,
   onDropCreate,
   onChangeMany,
 }: Props) {
@@ -365,7 +368,7 @@ const stageRef = useRef<any>(null);
     const simDraggable = simulationMode && isSliderOrArcOrBar;
     const handleSimClick = () => {
       console.log("[Simulator] Canvas handleSimClick", w.id, w.type, { simulationMode, hasOnSimulateAction: !!onSimulateAction });
-      if (!simulationMode || !onSimulateUpdate && !onSimulateAction && !onOpenColorPicker) return;
+      if (!simulationMode) return;
       if (w.type === "color_picker" && onOpenColorPicker) {
         onOpenColorPicker(w.id, fillColor);
         return;
@@ -375,6 +378,12 @@ const stageRef = useRef<any>(null);
         onOpenWhitePicker(w.id, mireds);
         return;
       }
+      if (w.type === "textarea" && onOpenTextarea) {
+        const displayText = override?.text !== undefined ? override.text : String(p.text ?? "Text…");
+        onOpenTextarea(w.id, displayText);
+        return;
+      }
+      if (!onSimulateUpdate && !onSimulateAction) return;
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
         onSimulateAction?.(w.id, "on_click");
       } else if (w.type === "switch") {
@@ -1252,7 +1261,7 @@ const stageRef = useRef<any>(null);
     }
 
     if (type === "led") {
-      const brightness = Math.min(100, Math.max(0, Number(p.brightness ?? 100)));
+      const brightness = override?.value !== undefined ? Math.min(100, Math.max(0, override.value)) : Math.min(100, Math.max(0, Number(p.brightness ?? 100)));
       const ledColor = String(p.color ?? s.bg_color ?? "#00ff00");
       const dim = brightness / 100;
       const r = Math.min(w.w, w.h) / 4 - 2;
@@ -1384,11 +1393,28 @@ const stageRef = useRef<any>(null);
       const pad = 4;
       const keyW = (w.w - pad * 11) / 10;
       const keyH = Math.min(24, (w.h - pad * 5) / 4);
+      const simKeyClick = simulationMode && onSimulateAction
+        ? (i: number) => (e: any) => {
+            e.cancelBubble = true;
+            onSimulateAction(w.id, "on_value", { selected_index: i });
+          }
+        : undefined;
       return (
         <Group key={w.id}>
           {base}
           {Array.from({ length: 4 * 10 }, (_, i) => (
-            <Rect key={i} x={ax + pad + (i % 10) * (keyW + pad)} y={ay + pad + Math.floor(i / 10) * (keyH + pad)} width={keyW} height={keyH} fill="#374151" cornerRadius={2} listening={false} />
+            <Rect
+              key={i}
+              x={ax + pad + (i % 10) * (keyW + pad)}
+              y={ay + pad + Math.floor(i / 10) * (keyH + pad)}
+              width={keyW}
+              height={keyH}
+              fill="#374151"
+              cornerRadius={2}
+              listening={!!simKeyClick}
+              onClick={simKeyClick ? (e) => simKeyClick(i)(e) : undefined}
+              onTap={simKeyClick ? (e) => simKeyClick(i)(e) : undefined}
+            />
           ))}
           <Text text="⌨" x={ax} y={ay + w.h - 20} width={w.w} align="center" fontSize={12} fill="#9ca3af" listening={false} />
         </Group>

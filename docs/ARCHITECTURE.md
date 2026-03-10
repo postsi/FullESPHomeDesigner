@@ -509,6 +509,8 @@ On drop, the frontend converts the payload to a `onDropCreate(payload, x, y)` ca
 - Raw widget types are inserted as a single widget on the active page.
 - Control templates expand to multiple widgets and also append to `project.bindings[]` and `project.links[]`.
 
+For which widgets support display/action bindings and simulator behaviour, see [WIDGET_SIMULATOR_BINDINGS.md](WIDGET_SIMULATOR_BINDINGS.md).
+
 ## Container clipping in preview (v0.21)
 
 LVGL supports a variety of layout and clipping behaviours. Until we have a faithful LVGL renderer in the designer, the preview supports a single designer-only flag:

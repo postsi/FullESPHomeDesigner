@@ -478,6 +478,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [colorPickerHue, setColorPickerHue] = useState(0);
   const [colorPickerSat, setColorPickerSat] = useState(0);
   const [whitePickerModal, setWhitePickerModal] = useState<{ widgetId: string; mireds: number } | null>(null);
+  const [textareaModal, setTextareaModal] = useState<{ widgetId: string; text: string } | null>(null);
 
   // v0.64: Hardware recipe importer (Product Mode)
   const [recipeImportOpen, setRecipeImportOpen] = useState<boolean>(false);
@@ -1478,13 +1479,16 @@ if (baseId.startsWith("glance_card")) {
         if (mireds != null && !Number.isNaN(mireds)) {
           overrides[widgetId] = { ...overrides[widgetId], value: Math.max(153, Math.min(500, mireds)) };
         }
+      } else if (action === "led_brightness") {
+        const v = typeof raw === "number" && !Number.isNaN(raw) ? raw * scale : (raw ? 100 : 0);
+        overrides[widgetId] = { ...overrides[widgetId], value: Math.max(0, Math.min(100, v)) };
       }
     }
     return overrides;
   }, [project, liveEntityStates]);
 
   const handleSimulatorAction = useCallback(
-    (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number }) => {
+    (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number; text?: string }) => {
       const actionBindings = (project as any)?.action_bindings || [];
       const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
       const call = ab?.call;
@@ -1496,6 +1500,7 @@ if (baseId.startsWith("glance_card")) {
       const value = payload?.value ?? cur?.value;
       const checked = payload?.checked ?? cur?.checked;
       const selected_index = payload?.selected_index ?? cur?.selected_index;
+      const text = payload?.text ?? cur?.text;
       const entityId = call.entity_id || (call.data && (call.data as any).entity_id);
       const serviceData: Record<string, unknown> = entityId ? { entity_id: entityId } : {};
       const data = call.data || {};
@@ -1507,6 +1512,7 @@ if (baseId.startsWith("glance_card")) {
           else if (typeof value === "number") serviceData[k] = value;
           else if (typeof checked === "boolean") serviceData[k] = checked;
           else if (typeof selected_index === "number") serviceData[k] = selected_index;
+          else if (typeof text === "string") serviceData[k] = text;
           else serviceData[k] = value ?? 0;
         } else {
           serviceData[k] = v;
@@ -3390,6 +3396,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   onOpenWhitePicker={(widgetId, currentMireds) => {
                     setWhitePickerModal({ widgetId, mireds: Math.max(153, Math.min(500, currentMireds)) });
                   }}
+                  onOpenTextarea={(widgetId, currentText) => {
+                    setTextareaModal({ widgetId, text: currentText || "" });
+                  }}
                   onSelect={() => {}}
                   onSelectNone={() => {}}
                   onDropCreate={() => {}}
@@ -3505,6 +3514,44 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], value: mireds } }));
                       handleSimulatorAction(widgetId, "on_apply", { value: mireds });
                       setWhitePickerModal(null);
+                    }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {textareaModal && (() => {
+        const { widgetId, text } = textareaModal;
+        return (
+          <div className="modalOverlay" style={{ zIndex: 10002 }} onClick={() => setTextareaModal(null)}>
+            <div className="modal" style={{ width: 360 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modalHeader">
+                <div className="title">Textarea (simulator)</div>
+                <button type="button" className="ghost" onClick={() => setTextareaModal(null)}>×</button>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                <label className="muted" style={{ fontSize: 12 }}>Text</label>
+                <textarea
+                  value={text}
+                  onChange={(e) => setTextareaModal((prev) => (prev ? { ...prev, text: e.target.value } : null))}
+                  rows={4}
+                  style={{ width: "100%", boxSizing: "border-box", resize: "vertical", padding: 8, background: "var(--panel-bg, #1e1e1e)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "inherit" }}
+                />
+                <p className="muted" style={{ fontSize: 11, margin: 0 }}>Apply updates the widget in simulator and fires on_value so action bindings can use the text.</p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="secondary" onClick={() => setTextareaModal(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], text } }));
+                      handleSimulatorAction(widgetId, "on_value", { text });
+                      setTextareaModal(null);
                     }}
                   >
                     Apply

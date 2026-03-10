@@ -39,17 +39,17 @@ This document describes how each LVGL widget type behaves on the **canvas**, in 
 | color_picker    | Yes           | Click → modal; Done → on_apply | button_bg_color, label_text           | on_click, on_apply        | Fully bidirectional |
 | white_picker    | Yes           | Click → modal; Apply → on_apply | button_white_temp, label_text        | on_click, on_apply        | Fully bidirectional |
 | buttonmatrix    | Yes           | Cell click → on_value (selected_index) | —                               | on_value                  | Action-only          |
-| led             | Yes           | None                         | —                                      | —                         | Display-only        |
+| led             | Yes           | None                         | led_brightness (0–100)                 | —                         | Display-only        |
 | image           | Yes (placeholder) | None                     | —                                      | —                         | Display-only        |
 | animimg         | Yes (placeholder) | None                     | —                                      | —                         | Display-only        |
 | qrcode          | Yes           | None                         | label_text                              | —                         | Display-only        |
-| textarea        | Yes           | None (no text input in sim)  | label_text                              | on_value, on_ready, etc.  | Device-only (input) |
+| textarea        | Yes           | Click → modal; Apply → on_value (text) | label_text                   | on_value, on_ready, etc. | Fully bidirectional |
 | spinner         | Yes           | None                         | —                                      | —                         | Display-only        |
 | obj             | Yes           | Click → on_click              | —                                      | on_click                  | Action-only         |
 | line            | Yes           | None                         | —                                      | —                         | Display-only        |
 | tabview         | Yes           | None (no tab switch in sim)  | —                                      | —                         | Device-only (tabs)  |
 | tileview        | Yes           | None                         | —                                      | —                         | Device-only          |
-| keyboard        | Yes           | None (no key events in sim)  | —                                      | —                         | Device-only          |
+| keyboard        | Yes           | Key click → on_value (selected_index)  | —                          | on_value                  | Action-only          |
 | canvas          | Yes (placeholder) | None                     | —                                      | —                         | Display-only         |
 | msgboxes        | Yes (placeholder) | None                     | —                                      | —                         | Display-only         |
 
@@ -57,9 +57,11 @@ This document describes how each LVGL widget type behaves on the **canvas**, in 
 
 ## 3. Implementation notes
 
-- **liveOverrides** (App.tsx): Drives canvas/simulator display from Links. Supports: `label_text`, `label_number`, `arc_value`, `slider_value`, `bar_value`, `widget_checked`, `button_bg_color` (rgb_color → color_picker), `button_white_temp` (color_temp → white_picker).
-- **Simulator actions**: Handled in Canvas (click/drag) and in modals (color picker Done, white picker Apply). Action bindings are resolved in App and call HA services via `callService`.
+- **liveOverrides** (App.tsx): Drives canvas/simulator display from Links. Supports: `label_text`, `label_number`, `arc_value`, `slider_value`, `bar_value`, `widget_checked`, `button_bg_color` (rgb_color → color_picker), `button_white_temp` (color_temp → white_picker), `led_brightness` (0–100 or binary on/off → LED brightness).
+- **Simulator actions**: Handled in Canvas (click/drag) and in modals (color picker Done, white picker Apply, textarea Apply). Action bindings are resolved in App and call HA services via `callService`. Payload can include `text` for textarea on_value.
 - **buttonmatrix**: Simulator sends `on_value` with `{ selected_index: number }` (cell index). Add action bindings in the Binding Builder (Action tab) for `on_value` if you use buttonmatrix with HA.
+- **keyboard**: Simulator sends `on_value` with `{ selected_index: number }` (key index 0–39 for 4×10 grid). Add action bindings for `on_value` to react to key presses in simulator.
+- **textarea**: In simulator, click opens a modal to edit text; Apply updates sim state and fires `on_value` with `{ text: string }` so action bindings (e.g. scripts) can use the text.
 
 ---
 
@@ -76,6 +78,15 @@ This document describes how each LVGL widget type behaves on the **canvas**, in 
 
 4. **Buttonmatrix**  
    Add buttonmatrix, add action binding for on_value (e.g. script or service). In Simulator, click a cell; confirm action runs with selected_index.
+
+5. **LED**  
+   Bind a sensor or light brightness (0–100 or 0–255 with scale) to an LED with display action “Set brightness (0–100)”. Confirm canvas/simulator LED reflects the value.
+
+6. **Keyboard**  
+   Add keyboard widget, add action binding for on_value. In Simulator, click a key; confirm action runs with selected_index (key index).
+
+7. **Textarea**  
+   Add textarea, add action binding for on_value. In Simulator, click the textarea to open the modal, edit text, Apply; confirm action runs with text in payload.
 
 ---
 
