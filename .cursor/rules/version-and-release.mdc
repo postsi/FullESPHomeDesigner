@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Release Workflow
 
-**Always do the full release workflow after making code changes.** Do not wait to be asked. Skip only if the user explicitly says "don't release", "skip release", or similar.
+**When you have coded, always run the full release workflow.** Do not wait to be asked. Skip only if the user explicitly says "don't release", "skip release", or similar.
 
 When you have made any changes to this project, complete the full release workflow **after every change** unless the user explicitly says otherwise (e.g. “don’t release” or “skip release”). Do not wait to be asked.
 

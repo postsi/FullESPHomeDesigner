@@ -1,0 +1,12 @@
+---
+description: Do not write or change code until the user explicitly asks you to
+alwaysApply: true
+---
+
+# Do Not Code Until Told
+
+**Do not write or change code until the user explicitly tells you to.**
+
+- Prefer discussing, planning, and answering questions first.
+- Only run code edits, create files, or refactor when the user clearly asks (e.g. “go ahead and code”, “implement it”, “code it”).
+- If the user is describing a problem or a desired change, respond with options or a plan and wait for explicit approval before coding.

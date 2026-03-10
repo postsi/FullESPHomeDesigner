@@ -579,8 +579,6 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
     return m;
   }, [recipes]);
 
-  const deviceSelectRef = useRef<HTMLSelectElement | null>(null);
-
   const totalWidgetCount = useMemo(() => project?.pages?.reduce((acc: number, p: any) => acc + (p?.widgets?.length ?? 0), 0) ?? 0, [project]);
   const bindingCount = (haBindingCounts.entities + haBindingCounts.links + haBindingCounts.actions) || 0;
   const { currentWorkflowStep, completedWorkflowSteps, stepGuidance, nextStepLabel } = useMemo(() => {
@@ -3219,7 +3217,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         <div className="modalOverlay" onClick={() => setEditDeviceModalOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="modalHeader">
-              <div className="title">Edit device</div>
+              <div className="title">Device details</div>
               <button className="ghost" onClick={() => setEditDeviceModalOpen(false)}>✕</button>
             </div>
             <div className="muted" style={{ marginBottom: 12 }}><code>{selectedDeviceObj.device_id}</code></div>
@@ -3676,44 +3674,24 @@ function nudgeSelected(dx: number, dy: number, step: number) {
       />
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
         {selectedDevice && project && (
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              if (projectDirty && !window.confirm("You have unsaved changes. Go to device list anyway? Changes will be lost.")) return;
-              setSelectedDevice("");
-              setProject(null, true);
-              setSelectedWidgetIds([]);
-              setSelectedSchema(null);
-            }}
-            title="Back to device list (recent, open, add, manage)"
-          >
-            Device list
-          </button>
+          <>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (projectDirty && !window.confirm("You have unsaved changes. Go to device list anyway? Changes will be lost.")) return;
+                setSelectedDevice("");
+                setProject(null, true);
+                setSelectedWidgetIds([]);
+                setSelectedSchema(null);
+              }}
+              title="Back to device list (recent, open, add, manage)"
+            >
+              Device list
+            </button>
+            <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="View or edit device name, slug, API key, recipe">Device details</button>
+          </>
         )}
-        <select
-          ref={deviceSelectRef}
-          value={selectedDevice}
-          onChange={(e) => {
-            const id = e.target.value;
-            if (!id) return;
-            if (projectDirty && !window.confirm("You have unsaved changes. Load another device anyway? Changes will be lost.")) return;
-            loadDevice(id);
-          }}
-          title="Select device"
-          style={{ minWidth: 180, padding: "6px 10px" }}
-        >
-          <option value="">Select device…</option>
-          {devices.map((d) => (
-            <option key={d.device_id} value={d.device_id}>
-              {d.name || d.device_id}
-            </option>
-          ))}
-        </select>
-        <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Add a device using a built-in or imported recipe">Add device</button>
-        <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
-        <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && confirm(`Delete device "${selectedDeviceObj?.name || selectedDevice}" and its UI? This cannot be undone.`) && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
-        <button className="ghost" disabled={busy} onClick={() => setManageDevicesOpen(true)} title="Copy, rename, or delete devices">Manage devices</button>
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>

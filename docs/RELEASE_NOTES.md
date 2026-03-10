@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.5
+
+- **Nav bar simplified** — All device actions (open, add, manage, delete) live on the welcome panel / Device list. When a device is loaded, the nav bar shows only **Device list** (back to welcome) and **Device details** (renamed from “Edit device”; view/edit name, slug, API key, recipe). Removed from nav: device dropdown, Add device, Delete, Manage devices. Delete device is only in the Manage devices dialog. Modal title for device edit is now “Device details”.
+
 ## v0.71.4
 
 - **Recent devices always visible** — The “Recent devices” section on the welcome panel is always shown. When you have no recent history yet, it shows your existing devices (up to 4, sorted by name) so you can open one; once you’ve opened devices, it shows the most recently opened. Empty state only when there are no devices at all.
