@@ -1210,11 +1210,12 @@ if (baseId.startsWith("glance_card")) {
     (p2 as any).links.push(...links.filter((l: any) => l && typeof l === "object"));
     if (Array.isArray((built as any).scripts) && (built as any).scripts.length > 0) {
       (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
+      const rootId = ws[0]?.id ?? null;
       for (const s of (built as any).scripts) {
         if (s && typeof s === "object" && s.id && s.entity_id) {
           let scriptEntity = s.entity_id;
           if (entity_id && (String(scriptEntity || "").endsWith(".example") || !scriptEntity)) scriptEntity = entity_id;
-          (p2 as any).scripts.push({ ...s, entity_id: scriptEntity });
+          (p2 as any).scripts.push({ ...s, entity_id: scriptEntity, _source_root_id: rootId });
         }
       }
     }
@@ -1819,7 +1820,30 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     setProjectDirty(true);
   }
 
-function deleteSelected() {
+/** Recompute project.bindings from current links so we only keep sensors for entities/widgets still on canvas. */
+  function recomputeBindingsFromLinks(proj: any): void {
+    const links = proj?.links;
+    if (!Array.isArray(links)) return;
+    const key = (b: { entity_id?: string; kind?: string; attribute?: string }) =>
+      `${b.entity_id ?? ""}|${b.kind ?? "state"}|${b.attribute ?? ""}`;
+    const seen = new Set<string>();
+    const out: any[] = [];
+    for (const l of links) {
+      const src = l?.source;
+      if (!src || !src.entity_id) continue;
+      const k = key({ entity_id: src.entity_id, kind: src.kind, attribute: src.attribute });
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        entity_id: src.entity_id,
+        kind: src.kind ?? "state",
+        attribute: src.attribute ?? undefined,
+      });
+    }
+    (proj as any).bindings = out;
+  }
+
+  function deleteSelected() {
     if (!project) return;
     if (!selectedWidgetIds.length) return;
     const p2 = clone(project);
@@ -1850,6 +1874,22 @@ function deleteSelected() {
     if (Array.isArray(actionBindings)) {
       (p2 as any).action_bindings = actionBindings.filter((ab: any) => !toDelete.has(String(ab?.widget_id || "")));
     }
+    // Remove scripts that belonged to deleted card roots (e.g. thermostat inc/dec).
+    const scripts = (p2 as any).scripts;
+    if (Array.isArray(scripts)) {
+      (p2 as any).scripts = scripts.filter((s: any) => !toDelete.has(String(s?._source_root_id ?? "")));
+    }
+    // Remove esphome_components that belonged to deleted prebuilt roots (sensor, interval, etc.).
+    const comps = (p2 as any).esphome_components;
+    if (Array.isArray(comps)) {
+      (p2 as any).esphome_components = comps.filter((c: any) => {
+        if (c == null) return false;
+        const rootId = typeof c === "object" ? c._source_root_id : undefined;
+        if (rootId == null) return true; // keep legacy string entries (no tag)
+        return !toDelete.has(String(rootId));
+      });
+    }
+    recomputeBindingsFromLinks(p2);
     setProject(p2, true);
     setProjectDirty(true);
     setSelectedWidgetIds([]);
@@ -3517,18 +3557,22 @@ function deleteSelected() {
                         const built = pw.build({ x: 80, y: 80 });
                         const widgets = built.widgets || [];
                         for (const w of widgets) pg.widgets.push(w);
+                        const rootId = widgets[0]?.id ?? null;
                         if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
                           (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
                           for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
                         }
                         if (Array.isArray(built.scripts) && built.scripts.length > 0) {
                           (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
-                          for (const s of built.scripts) (p2 as any).scripts.push(s);
+                          for (const s of built.scripts) (p2 as any).scripts.push({ ...s, _source_root_id: rootId });
                         }
-                        // v0.70.136: merge esphome_components for native prebuilt functionality
+                        // v0.70.136: merge esphome_components for native prebuilt functionality (tag for delete cleanup)
                         if (Array.isArray(built.esphome_components) && built.esphome_components.length > 0) {
                           (p2 as any).esphome_components = Array.isArray((p2 as any).esphome_components) ? (p2 as any).esphome_components : [];
-                          for (const c of built.esphome_components) (p2 as any).esphome_components.push(c);
+                          for (const c of built.esphome_components) {
+                            const yaml = typeof c === "string" ? c : (c?.yaml ?? "");
+                            (p2 as any).esphome_components.push({ yaml, _source_root_id: rootId });
+                          }
                         }
                         setProject(p2, true);
                         setProjectDirty(true);
@@ -3662,18 +3706,22 @@ function deleteSelected() {
                         console.log('[ETD onDropCreate] Built widgets:', widgets.length, widgets.map((w: any) => ({ id: w.id, type: w.type, parent_id: w.parent_id })));
                         for (const w of widgets) pg.widgets.push(w);
                         console.log('[ETD onDropCreate] After push, pg.widgets:', pg.widgets.length);
+                        const rootId = widgets[0]?.id ?? null;
                         if (Array.isArray(built.action_bindings) && built.action_bindings.length > 0) {
                           (p2 as any).action_bindings = Array.isArray((p2 as any).action_bindings) ? (p2 as any).action_bindings : [];
                           for (const ab of built.action_bindings) (p2 as any).action_bindings.push(ab);
                         }
                         if (Array.isArray(built.scripts) && built.scripts.length > 0) {
                           (p2 as any).scripts = Array.isArray((p2 as any).scripts) ? (p2 as any).scripts : [];
-                          for (const s of built.scripts) (p2 as any).scripts.push(s);
+                          for (const s of built.scripts) (p2 as any).scripts.push({ ...s, _source_root_id: rootId });
                         }
-                        // v0.70.136: merge esphome_components for native prebuilt functionality
+                        // v0.70.136: merge esphome_components for native prebuilt functionality (tag for delete cleanup)
                         if (Array.isArray(built.esphome_components) && built.esphome_components.length > 0) {
                           (p2 as any).esphome_components = Array.isArray((p2 as any).esphome_components) ? (p2 as any).esphome_components : [];
-                          for (const c of built.esphome_components) (p2 as any).esphome_components.push(c);
+                          for (const c of built.esphome_components) {
+                            const yaml = typeof c === "string" ? c : (c?.yaml ?? "");
+                            (p2 as any).esphome_components.push({ yaml, _source_root_id: rootId });
+                          }
                         }
                         console.log('[ETD onDropCreate] Calling setProject');
                         setProject(p2, true);

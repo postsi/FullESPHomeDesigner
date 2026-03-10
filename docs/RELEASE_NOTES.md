@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.209
+
+- **Delete cleanup for cards and prebuilts** — When widgets from the Card Library or prebuilt widgets are deleted from the canvas, their associated data is now removed: scripts (e.g. thermostat inc/dec), `esphome_components` (e.g. wifi_signal, time, interval), and HA bindings. Scripts and prebuilt components are tagged with the card/prebuilt root widget id on insert; deleting that root (or its container) filters them out and bindings are recomputed from the remaining links so compiled YAML no longer includes orphaned sensors or scripts.
+
 ## v0.70.208
 
 - **Create native component** — From the Binding Builder panel, add a "Create component…" button that opens a dialog to create ESPHome LVGL platform components (switch, light, sensor, number, select, text_sensor, binary_sensor) bound to the selected widget. Component type is inferred from the widget (e.g. slider → number); user can type to filter or pick another. ID prefilled from Widget ID; changing it updates the widget in Properties. YAML is appended to `project.sections` (Components panel). Renaming the widget in Properties now syncs `widget:` references in Components. Button widgets get `checkable: true` when creating a switch.
