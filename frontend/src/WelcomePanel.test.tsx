@@ -31,14 +31,17 @@ describe("WelcomePanel", () => {
 
   const defaultProps = {
     devices: [] as { device_id: string; name?: string; slug?: string; hardware_recipe_id?: string | null }[],
+    recentDeviceIds: [] as string[],
     onLoadDevice: vi.fn(),
+    onOpenDevicePicker: vi.fn(),
     onAddDevice: vi.fn(),
     onManageDevices: vi.fn(),
   };
 
-  it("renders intro text, Add device and Manage devices", () => {
+  it("renders intro, Open device, Add device and Manage devices", () => {
     const { container, unmount } = render(<WelcomePanel {...defaultProps} />);
     expect(container.textContent).toMatch(/Design LVGL touch screen UIs/);
+    expect(container.textContent).toContain("Open device");
     expect(container.textContent).toContain("Add device");
     expect(container.textContent).toContain("Manage devices");
     unmount();
@@ -50,16 +53,33 @@ describe("WelcomePanel", () => {
     unmount();
   });
 
-  it("shows device list when devices are provided", () => {
+  it("shows Recent devices when recentDeviceIds and devices match", () => {
+    const devices = [
+      { device_id: "d1", name: "Living Room Panel", slug: "living_room" },
+    ];
     const { container, unmount } = render(
       <WelcomePanel
         {...defaultProps}
-        devices={[{ device_id: "d1", name: "Living Room Panel", slug: "living_room" }]}
+        devices={devices}
+        recentDeviceIds={["d1"]}
       />
     );
-    expect(container.textContent).toContain("Devices");
+    expect(container.textContent).toContain("Recent devices");
     expect(container.textContent).toContain("Living Room Panel");
     expect(container.textContent).toContain("Click a device to open its UI");
+    unmount();
+  });
+
+  it("does not show Recent devices when recentDeviceIds is empty", () => {
+    const { container, unmount } = render(
+      <WelcomePanel
+        {...defaultProps}
+        devices={[{ device_id: "d1", name: "Test" }]}
+        recentDeviceIds={[]}
+      />
+    );
+    expect(container.textContent).not.toContain("Recent devices");
+    expect(container.textContent).toContain("Open device");
     unmount();
   });
 

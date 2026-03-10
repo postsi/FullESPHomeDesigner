@@ -41,6 +41,7 @@ import ComponentsPanelLoader from "./ComponentsPanelLoader";
 import WorkflowStepper, { type WorkflowStep } from "./WorkflowStepper";
 import WelcomePanel from "./WelcomePanel";
 import ManageDevicesModal from "./ManageDevicesModal";
+import OpenDevicePickerModal from "./OpenDevicePickerModal";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -278,9 +279,20 @@ export default function App() {
   const [newDeviceSlug, setNewDeviceSlug] = useState("");
   const [newDeviceApiKey, setNewDeviceApiKey] = useState("");
 
+  const RECENT_DEVICES_KEY = "esphome_touch_designer_recent_devices";
+  const [recentDeviceIds, setRecentDeviceIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(RECENT_DEVICES_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // New device wizard: hardware-first flow
   const [editDeviceModalOpen, setEditDeviceModalOpen] = useState(false);
   const [manageDevicesOpen, setManageDevicesOpen] = useState(false);
+  const [openDevicePickerOpen, setOpenDevicePickerOpen] = useState(false);
   const [newDeviceWizardOpen, setNewDeviceWizardOpen] = useState(false);
   const [newDeviceWizardStep, setNewDeviceWizardStep] = useState<1 | 2>(1);
   const [newDeviceWizardRecipe, setNewDeviceWizardRecipe] = useState<{ id: string; label: string } | null>(null);
@@ -1425,6 +1437,13 @@ if (baseId.startsWith("glance_card")) {
       setSelectedWidgetIds([]);
       setSelectedSchema(null);
       setCurrentPageIndex(0);
+      setRecentDeviceIds((prev) => {
+        const next = [id, ...prev.filter((x) => x !== id)].slice(0, 4);
+        try {
+          localStorage.setItem(RECENT_DEVICES_KEY, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       setToast({ type: "ok", msg: `Loaded device` });
     } finally { setBusy(false); }
   }
@@ -3170,6 +3189,14 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         }}
       />
 
+      <OpenDevicePickerModal
+        open={openDevicePickerOpen}
+        onClose={() => setOpenDevicePickerOpen(false)}
+        devices={devices}
+        recipeLabels={recipeLabels}
+        onSelect={(id) => loadDevice(id)}
+      />
+
       <ManageDevicesModal
         open={manageDevicesOpen}
         onClose={() => setManageDevicesOpen(false)}
@@ -3648,6 +3675,22 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         nextStepLabel={nextStepLabel}
       />
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
+        {selectedDevice && project && (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              if (projectDirty && !window.confirm("You have unsaved changes. Go to device list anyway? Changes will be lost.")) return;
+              setSelectedDevice("");
+              setProject(null, true);
+              setSelectedWidgetIds([]);
+              setSelectedSchema(null);
+            }}
+            title="Back to device list (recent, open, add, manage)"
+          >
+            Device list
+          </button>
+        )}
         <select
           ref={deviceSelectRef}
           value={selectedDevice}
@@ -3798,8 +3841,10 @@ function nudgeSelected(dx: number, dy: number, step: number) {
           {!selectedDevice || !project ? (
             <WelcomePanel
               devices={devices}
+              recentDeviceIds={recentDeviceIds}
               recipeLabels={recipeLabels}
               onLoadDevice={loadDevice}
+              onOpenDevicePicker={() => setOpenDevicePickerOpen(true)}
               onAddDevice={openNewDeviceWizard}
               onManageDevices={() => setManageDevicesOpen(true)}
             />

@@ -1,26 +1,39 @@
 import React from "react";
 import type { DeviceSummary } from "./api";
 
+const MAX_RECENT = 4;
+
 export interface WelcomePanelProps {
-  /** List of devices to show; user clicks one to load it. */
+  /** Full list of devices. */
   devices: DeviceSummary[];
+  /** Up to 4 most recently opened device IDs (order = most recent first). */
+  recentDeviceIds: string[];
   /** Called when user clicks a device row to load that device. */
   onLoadDevice: (deviceId: string) => void;
+  /** Called when user clicks "Open device" (opens picker modal). */
+  onOpenDevicePicker: () => void;
   /** Called when user clicks "Add device". */
   onAddDevice: () => void;
   /** Called when user clicks "Manage devices" (opens manage modal). */
   onManageDevices: () => void;
-  /** Optional: recipe labels by id for display (e.g. { "jc1060...": "JC1060 4.7\" 1024×600" }). */
+  /** Optional: recipe labels by id for display. */
   recipeLabels?: Record<string, string>;
 }
 
 export default function WelcomePanel({
   devices,
+  recentDeviceIds,
   onLoadDevice,
+  onOpenDevicePicker,
   onAddDevice,
   onManageDevices,
   recipeLabels = {},
 }: WelcomePanelProps) {
+  const recentDevices = recentDeviceIds
+    .slice(0, MAX_RECENT)
+    .map((id) => devices.find((d) => d.device_id === id))
+    .filter((d): d is DeviceSummary => d != null);
+
   return (
     <div
       className="welcomePanel"
@@ -37,15 +50,15 @@ export default function WelcomePanel({
         Design LVGL touch screen UIs for your ESPHome devices. Select or add a device, then design its screen and bind it to Home Assistant.
       </p>
 
-      {devices.length > 0 ? (
+      {recentDevices.length > 0 && (
         <div className="section" style={{ marginTop: 0 }}>
-          <div className="sectionTitle">Devices</div>
+          <div className="sectionTitle">Recent devices</div>
           <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
             Click a device to open its UI.
           </p>
           <ul className="list compact" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {devices.map((d) => (
-              <li key={d.device_id}>
+            {recentDevices.map((d) => (
+              <li key={d.device_id} style={{ marginBottom: 8 }}>
                 <button
                   type="button"
                   className="row"
@@ -75,15 +88,19 @@ export default function WelcomePanel({
             ))}
           </ul>
         </div>
-      ) : (
-        <p className="muted" style={{ fontSize: 14 }}>
-          No devices yet. Add a device to get started.
-        </p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <button type="button" className="primary" onClick={onAddDevice} style={{ padding: "12px 16px", fontSize: 15 }}>
+          <button type="button" className="primary" onClick={onOpenDevicePicker} style={{ padding: "12px 16px", fontSize: 15 }}>
+            Open device
+          </button>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Choose from all devices (sorted by name).
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button type="button" className="secondary" onClick={onAddDevice} style={{ padding: "12px 16px", fontSize: 15 }}>
             Add device
           </button>
           <span className="muted" style={{ fontSize: 12 }}>
@@ -99,6 +116,12 @@ export default function WelcomePanel({
           </span>
         </div>
       </div>
+
+      {devices.length === 0 && (
+        <p className="muted" style={{ fontSize: 14 }}>
+          No devices yet. Add a device to get started.
+        </p>
+      )}
     </div>
   );
 }

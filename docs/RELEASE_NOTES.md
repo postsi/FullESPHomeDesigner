@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.3
+
+- **Welcome: Recent devices (4) + Open device** — Welcome panel shows up to 4 “Recent devices” (persisted in localStorage), then **Open device** (opens a modal with all devices sorted by name), **Add device**, **Manage devices**. Open device picker modal: `OpenDevicePickerModal.tsx`; recent IDs updated on every load.
+- **Device list (back navigation)** — When a device is loaded, a **Device list** button appears in the nav bar. Clicking it returns to the welcome view; if there are unsaved changes, a confirmation is shown (“Go to device list anyway? Changes will be lost.”).
+- **Tests** — WelcomePanel and OpenDevicePickerModal tests added/updated (70 frontend tests).
+
 ## v0.71.2
 
 - **Welcome panel: device list (Option A)** — When no device is selected, the welcome view shows the list of devices inline. Click a device to load it (no focus handoff to the dropdown). Add device and Manage devices remain as buttons. Nav bar keeps the device dropdown for switching when already in the designer.
