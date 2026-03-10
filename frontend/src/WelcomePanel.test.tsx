@@ -70,16 +70,29 @@ describe("WelcomePanel", () => {
     unmount();
   });
 
-  it("does not show Recent devices when recentDeviceIds is empty", () => {
+  it("shows Recent devices section with device list when recentDeviceIds empty but devices exist (fallback)", () => {
+    const devices = [{ device_id: "d1", name: "Test Device" }];
     const { container, unmount } = render(
       <WelcomePanel
         {...defaultProps}
-        devices={[{ device_id: "d1", name: "Test" }]}
+        devices={devices}
         recentDeviceIds={[]}
       />
     );
-    expect(container.textContent).not.toContain("Recent devices");
+    expect(container.textContent).toContain("Recent devices");
+    expect(container.textContent).toContain("Test Device");
+    expect(container.textContent).toContain("most recently opened devices once you've opened some");
     expect(container.textContent).toContain("Open device");
+    unmount();
+  });
+
+  it("shows Recent devices section with empty state when no devices at all", () => {
+    const { container, unmount } = render(
+      <WelcomePanel {...defaultProps} devices={[]} recentDeviceIds={[]} />
+    );
+    expect(container.textContent).toContain("Recent devices");
+    expect(container.textContent).toContain("No recent devices");
+    expect(container.textContent).toContain("Open or add a device to see them here");
     unmount();
   });
 

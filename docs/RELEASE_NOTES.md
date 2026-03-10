@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.4
+
+- **Recent devices always visible** — The “Recent devices” section on the welcome panel is always shown. When you have no recent history yet, it shows your existing devices (up to 4, sorted by name) so you can open one; once you’ve opened devices, it shows the most recently opened. Empty state only when there are no devices at all.
+- **Tests** — WelcomePanel tests updated for fallback list and empty-state cases (6 tests).
+
 ## v0.71.3
 
 - **Welcome: Recent devices (4) + Open device** — Welcome panel shows up to 4 “Recent devices” (persisted in localStorage), then **Open device** (opens a modal with all devices sorted by name), **Add device**, **Manage devices**. Open device picker modal: `OpenDevicePickerModal.tsx`; recent IDs updated on every load.
