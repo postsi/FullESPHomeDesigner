@@ -474,9 +474,10 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   // Simulator: live interactive preview
   const [simulationOpen, setSimulationOpen] = useState<boolean>(false);
   const [simOverrides, setSimOverrides] = useState<Record<string, { value?: number; checked?: boolean; selected_index?: number; text?: string }>>({});
-  const [colorPickerModal, setColorPickerModal] = useState<{ widgetId: string; initialHex: string } | null>(null);
+  const [colorPickerModal, setColorPickerModal] = useState<{ widgetId: string; initialHex: string; fromSimulator?: boolean } | null>(null);
   const [colorPickerHue, setColorPickerHue] = useState(0);
   const [colorPickerSat, setColorPickerSat] = useState(0);
+  const [whitePickerModal, setWhitePickerModal] = useState<{ widgetId: string; mireds: number } | null>(null);
 
   // v0.64: Hardware recipe importer (Product Mode)
   const [recipeImportOpen, setRecipeImportOpen] = useState<boolean>(false);
@@ -1464,10 +1465,60 @@ if (baseId.startsWith("glance_card")) {
         if (!Number.isNaN(num)) overrides[widgetId] = { ...overrides[widgetId], value: num * scale };
       } else if (action === "widget_checked") {
         overrides[widgetId] = { ...overrides[widgetId], checked: !!raw };
+      } else if (action === "button_bg_color") {
+        const rgb = data.attributes?.rgb_color;
+        if (Array.isArray(rgb) && rgb.length >= 3) {
+          const r = Math.max(0, Math.min(255, Number(rgb[0]) || 0));
+          const g = Math.max(0, Math.min(255, Number(rgb[1]) || 0));
+          const b = Math.max(0, Math.min(255, Number(rgb[2]) || 0));
+          overrides[widgetId] = { ...overrides[widgetId], value: (r << 16) | (g << 8) | b };
+        }
+      } else if (action === "button_white_temp") {
+        const mireds = typeof raw === "number" && !Number.isNaN(raw) ? raw : Number(data.attributes?.color_temp);
+        if (mireds != null && !Number.isNaN(mireds)) {
+          overrides[widgetId] = { ...overrides[widgetId], value: Math.max(153, Math.min(500, mireds)) };
+        }
       }
     }
     return overrides;
   }, [project, liveEntityStates]);
+
+  const handleSimulatorAction = useCallback(
+    (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number }) => {
+      const actionBindings = (project as any)?.action_bindings || [];
+      const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
+      const call = ab?.call;
+      if (!call?.domain || !call?.service) {
+        setToast({ type: "error", msg: `No action binding for ${event}. Add one in Binding Builder (Action tab) or add a display binding with "Also create action bindings" checked.` });
+        return;
+      }
+      const cur = simOverrides[widgetId];
+      const value = payload?.value ?? cur?.value;
+      const checked = payload?.checked ?? cur?.checked;
+      const selected_index = payload?.selected_index ?? cur?.selected_index;
+      const entityId = call.entity_id || (call.data && (call.data as any).entity_id);
+      const serviceData: Record<string, unknown> = entityId ? { entity_id: entityId } : {};
+      const data = call.data || {};
+      for (const [k, v] of Object.entries(data)) {
+        if (k === "entity_id") continue;
+        const isLambda = typeof v === "string" && (String(v).startsWith("!lambda") || String(v).includes("return"));
+        if (isLambda) {
+          if (k === "volume_level" && (value != null || value === 0)) serviceData[k] = Number(value) / 100;
+          else if (typeof value === "number") serviceData[k] = value;
+          else if (typeof checked === "boolean") serviceData[k] = checked;
+          else if (typeof selected_index === "number") serviceData[k] = selected_index;
+          else serviceData[k] = value ?? 0;
+        } else {
+          serviceData[k] = v;
+        }
+      }
+      callService(call.domain, call.service, serviceData).then((res) => {
+        if (res.ok) setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
+        else setToast({ type: "error", msg: res.error || "Service call failed" });
+      }).catch((err) => setToast({ type: "error", msg: String(err?.message || err) }));
+    },
+    [project, simOverrides, callService]
+  );
 
   // Derive canvas size: device.screen from project, or extract from hardware_recipe_id (e.g. jc1060p470_esp32p4_1024x600)
   const screenSize = useMemo(() => {
@@ -3329,56 +3380,15 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   simulationMode={true}
                   simOverrides={simOverrides}
                   onSimulateUpdate={(widgetId, updates) => setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], ...updates } }))}
-                  onSimulateAction={(widgetId, event, payload) => {
-                    console.log("[Simulator] action", { widgetId, event, payload });
-                    const actionBindings = (project as any)?.action_bindings || [];
-                    const ab = actionBindings.find((a: any) => String(a?.widget_id) === widgetId && String(a?.event) === event);
-                    const call = ab?.call;
-                    if (!call?.domain || !call?.service) {
-                      console.log("[Simulator] no action binding for", widgetId, event, "bindings:", actionBindings?.length);
-                      setToast({ type: "error", msg: `No action binding for ${event}. Add one in Binding Builder (Action tab) or add a display binding with "Also create action bindings" checked.` });
-                      return;
-                    }
-                    const cur = simOverrides[widgetId];
-                    // Prefer payload from Canvas so we don't rely on stale simOverrides
-                    const value = payload?.value ?? cur?.value;
-                    const checked = payload?.checked ?? cur?.checked;
-                    const selected_index = payload?.selected_index ?? cur?.selected_index;
-                    const entityId = call.entity_id || (call.data && (call.data as any).entity_id);
-                    const serviceData: Record<string, unknown> = entityId ? { entity_id: entityId } : {};
-                    const data = call.data || {};
-                    for (const [k, v] of Object.entries(data)) {
-                      if (k === "entity_id") continue;
-                      const isLambda = typeof v === "string" && (String(v).startsWith("!lambda") || String(v).includes("return"));
-                      if (isLambda) {
-                        if (k === "volume_level" && (value != null || value === 0)) serviceData[k] = Number(value) / 100;
-                        else if (typeof value === "number") serviceData[k] = value;
-                        else if (typeof checked === "boolean") serviceData[k] = checked;
-                        else if (typeof selected_index === "number") serviceData[k] = selected_index;
-                        else serviceData[k] = value ?? 0;
-                      } else {
-                        serviceData[k] = v;
-                      }
-                    }
-                    console.log("[Simulator] calling HA service", call.domain, call.service, serviceData);
-                    callService(call.domain, call.service, serviceData).then((res) => {
-                      console.log("[Simulator] call_service response", res);
-                      if (res.ok) setToast({ type: "ok", msg: `Action: ${event} → ${call.domain}.${call.service}` });
-                      else {
-                        const errMsg = res.error || "Service call failed";
-                        console.warn("[Simulator] call_service failed:", res.error, { domain: call.domain, service: call.service, data: serviceData });
-                        setToast({ type: "error", msg: errMsg });
-                      }
-                    }).catch((err) => {
-                      console.warn("[Simulator] call_service error:", err);
-                      setToast({ type: "error", msg: String(err?.message || err) });
-                    });
-                  }}
+                  onSimulateAction={handleSimulatorAction}
                   onOpenColorPicker={(widgetId, currentHex) => {
                     const { h, s } = hexToHsv(currentHex);
                     setColorPickerHue(h);
                     setColorPickerSat(s);
-                    setColorPickerModal({ widgetId, initialHex: currentHex });
+                    setColorPickerModal({ widgetId, initialHex: currentHex, fromSimulator: true });
+                  }}
+                  onOpenWhitePicker={(widgetId, currentMireds) => {
+                    setWhitePickerModal({ widgetId, mireds: Math.max(153, Math.min(500, currentMireds)) });
                   }}
                   onSelect={() => {}}
                   onSelectNone={() => {}}
@@ -3428,11 +3438,15 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   <button type="button" className="secondary" onClick={() => setColorPickerModal(null)}>Cancel</button>
                   <button type="button" className="primary" onClick={() => {
                     if (!project) return;
+                    const hexNum = parseInt(currentHex.slice(1), 16);
+                    if (colorPickerModal?.fromSimulator) {
+                      setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], value: hexNum } }));
+                      handleSimulatorAction(widgetId, "on_apply", { value: hexNum });
+                    }
                     const p2 = clone(project);
                     const pg = p2?.pages?.[safePageIndex];
                     const w = pg?.widgets?.find((x: any) => x?.id === widgetId);
                     if (w) {
-                      const hexNum = parseInt(currentHex.slice(1), 16);
                       if (!w.props) w.props = {};
                       w.props.value = hexNum;
                       if (!w.style) w.style = {};
@@ -3442,6 +3456,59 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                     }
                     setColorPickerModal(null);
                   }}>Done</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {whitePickerModal && (() => {
+        const { widgetId, mireds } = whitePickerModal;
+        const m = Math.max(153, Math.min(500, mireds));
+        const t = (m - 153) / (500 - 153);
+        const r = 255;
+        const g = Math.round(255 - 75 * t);
+        const b = Math.round(255 - 135 * t);
+        const previewHex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+        return (
+          <div className="modalOverlay" style={{ zIndex: 10002 }} onClick={() => setWhitePickerModal(null)}>
+            <div className="modal" style={{ width: 320 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modalHeader">
+                <div className="title">White temperature</div>
+                <button type="button" className="ghost" onClick={() => setWhitePickerModal(null)}>×</button>
+              </div>
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label className="muted" style={{ width: 80, fontSize: 12 }}>Mireds</label>
+                  <input
+                    type="range"
+                    min={153}
+                    max={500}
+                    value={mireds}
+                    onChange={(e) => setWhitePickerModal((prev) => (prev ? { ...prev, mireds: Number(e.target.value) } : null))}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ fontSize: 12, minWidth: 36 }}>{mireds}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: previewHex, border: "1px solid rgba(255,255,255,.3)" }} />
+                  <span className="muted" style={{ fontSize: 11 }}>Cool (153) ← → Warm (500)</span>
+                </div>
+                <p className="muted" style={{ fontSize: 11, margin: 0 }}>Apply sends this value to the bound light via action binding (on_apply).</p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="secondary" onClick={() => setWhitePickerModal(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setSimOverrides((prev) => ({ ...prev, [widgetId]: { ...prev[widgetId], value: mireds } }));
+                      handleSimulatorAction(widgetId, "on_apply", { value: mireds });
+                      setWhitePickerModal(null);
+                    }}
+                  >
+                    Apply
+                  </button>
                 </div>
               </div>
             </div>

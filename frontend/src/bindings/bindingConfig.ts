@@ -25,6 +25,7 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   qrcode: ["label_text"],
   color_picker: ["button_bg_color", "label_text"],
   white_picker: ["button_white_temp", "label_text"],
+  buttonmatrix: [],
 };
 
 /** Human-readable labels for display actions. */
@@ -58,6 +59,7 @@ export const EVENTS_BY_WIDGET_TYPE: Record<string, string[]> = {
   qrcode: [],
   color_picker: ["on_click", "on_apply"],
   white_picker: ["on_click", "on_apply"],
+  buttonmatrix: ["on_value"],
 };
 
 /** Event key -> human label. */

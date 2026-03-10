@@ -1,5 +1,15 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.211
+
+- **Canvas & simulator: full binding support for colour/white pickers** — Links with display actions `button_bg_color` and `button_white_temp` now drive the canvas and simulator: HA `rgb_color` and `color_temp` update the colour/white picker swatches in real time. Canvas uses `override.value` for both pickers when set from liveOverrides.
+- **Simulator: white picker** — Tapping a white picker in the simulator opens a modal to set colour temperature (mireds). Apply updates sim state and fires `on_apply` so action bindings (e.g. `set_light_color_temp`) are called.
+- **Simulator: colour picker Done → on_apply** — When the colour picker modal is opened from the simulator, Done now fires `on_apply` with the chosen colour so HA action bindings (e.g. `set_light_rgb`) run.
+- **Simulator: buttonmatrix** — Cell clicks in the simulator fire `on_value` with `selected_index`; action bindings for buttonmatrix can be added in the Binding Builder and tested in simulator.
+- **Simulator action handler** — Extracted to `handleSimulatorAction` in App so the same logic runs for Canvas-triggered actions and for modal Apply/Done (colour/white picker).
+- **bindingConfig** — Added `buttonmatrix` with event `on_value` for action bindings.
+- **Docs** — Added `docs/WIDGET_SIMULATOR_BINDINGS.md` with a verification matrix of all widget types (canvas render, simulator interaction, HA display/action bindings) and manual test checklist.
+
 ## v0.70.210
 
 - **Components panel test suite** — Added `scripts/test_components_panel_and_merge.py` to verify: `section_overrides` is ignored (only `project.sections` is used), list-like sections merge user Components YAML with compiler output, user-only sections appear in compile, `overridden_keys` logic, and merged output is valid YAML. Release workflow rule updated to run this script before every release.

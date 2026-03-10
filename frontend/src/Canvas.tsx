@@ -37,6 +37,8 @@ type Props = {
   onSimulateAction?: (widgetId: string, event: string, payload?: { value?: number; checked?: boolean; selected_index?: number; color?: string }) => void;
   /** When in simulation mode, opening a colour picker widget opens this callback instead of firing on_click. */
   onOpenColorPicker?: (widgetId: string, currentColorHex: string) => void;
+  /** When in simulation mode, opening a white picker widget opens this callback to set color temp (mireds). */
+  onOpenWhitePicker?: (widgetId: string, currentMireds: number) => void;
 };
 
 function snap(n: number, grid: number) {
@@ -179,6 +181,7 @@ export default function Canvas({
   onSimulateUpdate,
   onSimulateAction,
   onOpenColorPicker,
+  onOpenWhitePicker,
   onDropCreate,
   onChangeMany,
 }: Props) {
@@ -322,10 +325,11 @@ const stageRef = useRef<any>(null);
     const isColorPicker = w.type && String(w.type).toLowerCase() === "color_picker";
     const isWhitePicker = w.type && String(w.type).toLowerCase() === "white_picker";
     const fillColor = isColorPicker
-      ? toFillColor(p.value ?? s.bg_color, "#4080FF")
+      ? toFillColor(override?.value !== undefined ? override.value : (p.value ?? s.bg_color), "#4080FF")
       : isWhitePicker
         ? (() => {
-            const m = Math.max(153, Math.min(500, Number(p.value ?? 326) || 326));
+            const mireds = override?.value !== undefined ? override.value : Number(p.value ?? 326) || 326;
+            const m = Math.max(153, Math.min(500, mireds));
             const t = (m - 153) / (500 - 153);
             const r = 255;
             const g = Math.round(255 - 75 * t);
@@ -366,8 +370,9 @@ const stageRef = useRef<any>(null);
         onOpenColorPicker(w.id, fillColor);
         return;
       }
-      if (w.type === "white_picker") {
-        // Simulator: no overlay in designer; device will show overlay
+      if (w.type === "white_picker" && onOpenWhitePicker) {
+        const mireds = override?.value !== undefined ? override.value : Math.max(153, Math.min(500, Number(p.value ?? 326) || 326));
+        onOpenWhitePicker(w.id, mireds);
         return;
       }
       if (w.type === "button" || w.type === "container" || w.type === "obj") {
@@ -1338,10 +1343,17 @@ const stageRef = useRef<any>(null);
         ? ax + pad + widthWeights.slice(0, c).reduce((a: number, b: number) => a + bwPerCol * b, 0) + c * pad
         : ax + pad + c * (bwPerCol + pad);
       const cellW = (c: number) => (widthWeights && widthWeights[c] != null ? widthWeights[c] * bwPerCol : bwPerCol);
+      const numCells = Math.min(rows * cols, 24);
+      const simClick = simulationMode && onSimulateAction
+        ? (i: number) => (e: any) => {
+            e.cancelBubble = true;
+            onSimulateAction(w.id, "on_value", { selected_index: i });
+          }
+        : undefined;
       return (
         <Group key={w.id}>
           {base}
-          {Array.from({ length: Math.min(rows * cols, 24) }, (_, i) => {
+          {Array.from({ length: numCells }, (_, i) => {
             const c = i % cols;
             const r = Math.floor(i / cols);
             const bx = colX(c);
@@ -1349,7 +1361,17 @@ const stageRef = useRef<any>(null);
             const bw = cellW(c);
             return (
               <Group key={i}>
-                <Rect x={bx} y={by} width={bw} height={bh} fill="#374151" cornerRadius={4} listening={false} />
+                <Rect
+                  x={bx}
+                  y={by}
+                  width={bw}
+                  height={bh}
+                  fill="#374151"
+                  cornerRadius={4}
+                  listening={!!simClick}
+                  onClick={simClick ? (e) => simClick(i)(e) : undefined}
+                  onTap={simClick ? (e) => simClick(i)(e) : undefined}
+                />
                 <Text text={String(labels[i] ?? "").slice(0, 4)} x={bx} y={by + (bh - 10) / 2} width={bw} align="center" fontSize={Math.min(10, bh - 4)} fill={textColor} listening={false} />
               </Group>
             );
