@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.1
+
+- **WorkflowStepper fix** — Guard against `completedSteps` being undefined (fixes "e.has" error in HA/Safari when the prop was undefined). Use `completedSteps ?? new Set()` before calling `.has()`.
+- **Component tests** — Added `WorkflowStepper.test.tsx` (5 tests: render six steps, no throw when `completedSteps` is undefined, step labels and guidance) and `WelcomePanel.test.tsx` (4 tests: intro and actions, optional props, hasDevices/recentProjects). Tests run in jsdom; added `jsdom` devDependency and `environmentMatchGlobs` in vitest.config for `*.test.tsx`. [docs/TESTING.md](TESTING.md) updated.
+
 ## v0.71.0
 
 - **UX §1: Clarify main workflow** — Six-step workflow stepper at top of app (Choose device → Load/create project → Design screens → Bind entities → Test → Deploy) with current step highlighted and completed steps ticked. Welcome panel when no project is loaded: short explanation and three primary actions (Select device, Create new project, Open example / from recipe). Step-specific guidance text and “Next: …” hint. Advanced tools (LVGL settings, Components, Import/Manage recipes) de-emphasised until project has widgets. Device name and status line in stepper. New components: `WorkflowStepper.tsx`, `WelcomePanel.tsx`. See [docs/UX_IMPROVEMENT_PLAN.md](UX_IMPROVEMENT_PLAN.md).

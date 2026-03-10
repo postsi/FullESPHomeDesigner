@@ -31,6 +31,7 @@ export default function WorkflowStepper({
   nextStepLabel,
   onStepClick,
 }: WorkflowStepperProps) {
+  const safeCompleted = completedSteps ?? new Set<WorkflowStep>();
   return (
     <div
       className="workflowStepper"
@@ -50,7 +51,7 @@ export default function WorkflowStepper({
         }}
       >
         {WORKFLOW_STEPS.map(({ step, label }, idx) => {
-          const done = completedSteps.has(step as WorkflowStep);
+          const done = safeCompleted.has(step as WorkflowStep);
           const current = currentStep === step;
           const clickable = !!onStepClick;
           return (

@@ -45,9 +45,10 @@ To add a backend test: add a `test_*.py` module under `tests/` and use fixtures 
 
 ## Frontend
 
-- **Runner:** Vitest. No HA server; tests are unit tests (arc geometry, indicator color, prebuilt widgets).
+- **Runner:** Vitest. No HA server; tests are unit tests (arc geometry, indicator color, prebuilt widgets) and component tests (WorkflowStepper, WelcomePanel).
 - **Location:** `frontend/src/**/*.test.ts` (and `*.test.tsx`).
 - **Run:** `cd frontend && npm run test`.
+- **Component tests** (`.test.tsx`): run in a jsdom environment. Ensure `jsdom` is installed (`npm install` in `frontend/`); the devDependency is in `frontend/package.json`. If jsdom is missing, Vitest will report module-not-found for those tests.
 
 Tests include:
 
@@ -56,6 +57,8 @@ Tests include:
 - Prebuilt spinbox with +/- buttons structure.
 - **bindings/bindingConfig.test.ts** — `domainFromEntityId`, `getDisplayActionsForType`, `getEventsForType`, `getServicesForDomain`, and coverage of `DISPLAY_ACTIONS_BY_WIDGET_TYPE` / `EVENTS_BY_WIDGET_TYPE`.
 - **bindings/matchingActions.test.ts** — `getMatchingActionBindings` (light brightness, climate temperature, switch toggle, dropdown HVAC mode), and constants (`INPUT_WIDGET_TYPES`, `OPTION_SELECT_WIDGET_TYPES`, `CLICK_TOGGLE_WIDGET_TYPES`, `SELECT_OPTION_TEXT_SENTINEL`).
+- **WorkflowStepper.test.tsx** — Renders stepper with all six steps; **does not throw when `completedSteps` is undefined** (guards against the runtime error in HA/Safari); shows completed checkmarks and step guidance when provided.
+- **WelcomePanel.test.tsx** — Renders intro and three actions (Select device, Create new project, Open example); optional `recentProjects` and `hasDevices` behaviour.
 
 Before changing arc or binding behaviour, run `npm run test` and fix any failures.
 
