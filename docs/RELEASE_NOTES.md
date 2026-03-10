@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.216
+
+- **Unified test suite (pytest)** — All Python tests now live under `tests/` and run via `pytest tests/`. Single command: `./scripts/run_all_tests.sh` runs pytest then frontend Vitest. No Home Assistant server required.
+- **Shared fixtures** — `tests/conftest.py` mocks HA and provides `make_device`, `default_project`, `jc1060_recipe_text`. Removed duplicate mock blocks from seven standalone scripts.
+- **New backend tests** — `test_storage.py` for `_default_project` and `_migrate_project`; `test_safe_merge_markers.py` for export safe-merge marker behaviour (insert, replace, duplicate/order errors).
+- **Docs** — [docs/TESTING.md](TESTING.md) rewritten: one-command run, pytest layout, fixture usage, coverage summary. Release rule step 3 updated to reference `pytest tests/` and adding tests under `tests/` or `frontend/src/`.
+- **Dependencies** — `scripts/requirements.txt` now includes `pytest>=7.0` for local/CI test runs.
+
 ## v0.70.215
 
 - **Orphaned component handling** — When you delete a widget, any LVGL component block in Components that referenced it is now cleaned up automatically on save. Components panel has a **Cleanup orphaned** button to preview and remove such blocks; POST `/project/cleanup_orphans` returns the cleaned project and list of removed refs.

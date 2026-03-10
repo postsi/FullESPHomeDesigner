@@ -21,7 +21,7 @@ When you have made any changes to this project, complete the full release workfl
    ```bash
    ./scripts/run_all_tests.sh
    ```
-   This runs all Python test scripts (test_compile, test_spinbox_compile, test_action_yaml, test_components_sections, test_components_panel_and_merge, test_compile_split_fail, test_widget_binding_verification) and frontend `npm run test`. To add a new test, add it to `scripts/run_all_tests.sh`. If any script exits non-zero, fix failures before continuing. Do not release with failing tests.
+   This runs Python tests via `pytest tests/` and frontend `npm run test`. To add a new test, add a `test_*.py` file under `tests/` or a `*.test.ts` under `frontend/src/`. If any test fails, fix before continuing. Do not release with failing tests.
 
 4. **Rebuild the frontend** (so every release has a fresh dist; no stale assets):
    ```bash

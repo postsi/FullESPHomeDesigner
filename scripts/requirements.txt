@@ -1,12 +1,13 @@
-# Optional deps for running test scripts locally (e.g. python scripts/test_compile.py).
+# Optional deps for running tests locally (pytest + scripts).
 # NOT used by Home Assistant: the custom integration has no Python requirements
 # (see custom_components/esphome_touch_designer/manifest.json "requirements": []).
-# Install only in the environment where you run the test scripts (dev machine, CI):
+# Install only in the environment where you run tests (dev machine, CI):
 #   pip install -r scripts/requirements.txt
 #
-# PyYAML: used by test_compile.py for basic YAML validation.
-# esphome: when on PATH, test_compile.py runs "esphome config" on color-picker
-# output to catch schema errors (e.g. top_layer). Do not add esphome to the
-# integration manifest—HA cannot install it on the server.
+# pytest: unified test runner (run from repo root: pytest tests/)
+# PyYAML: used by tests for YAML validation.
+# esphome: when on PATH, test_compile runs "esphome config" on compile output.
+#   Do not add esphome to the integration manifest—HA cannot install it on the server.
+pytest>=7.0
 PyYAML>=6.0
 esphome>=2024.11
