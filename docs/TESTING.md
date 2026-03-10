@@ -16,6 +16,21 @@ Tests assert e.g.:
 
 Before changing arc behaviour, run `npm run test` and fix any failures.
 
+## Widget/binding verification (Python)
+
+Run from repo root to ensure canvas and bindings stay in sync with compilable widget types:
+
+```bash
+python3 scripts/test_widget_binding_verification.py
+```
+
+This script checks:
+- Every type in `COMPILABLE_WIDGET_TYPES` (backend) has a render branch in `Canvas.tsx`.
+- Every display action used in `bindingConfig.ts` is handled in `App.tsx` `liveOverrides`.
+- Every widget type in `DISPLAY_ACTIONS_BY_WIDGET_TYPE` / `EVENTS_BY_WIDGET_TYPE` is in `COMPILABLE_WIDGET_TYPES`.
+
+It is part of the release workflow (see `.cursor/rules/version-and-release.mdc`). When adding a new widget type or display action, update the backend (or frontend) and the other side so this script still passes.
+
 ## Built-in self-check
 Use the UI self-check/diagnostics (where available) to validate:
 - recipe discovery

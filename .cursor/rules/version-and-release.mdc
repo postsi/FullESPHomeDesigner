@@ -24,6 +24,7 @@ When you have made any changes to this project, complete the full release workfl
    - Python: `python3 scripts/test_components_sections.py`
    - Python: `python3 scripts/test_components_panel_and_merge.py`
    - Python: `python3 scripts/test_compile_split_fail.py`
+   - Python: `python3 scripts/test_widget_binding_verification.py`
    - Frontend: `cd frontend && npm run test`
    If any script exits non-zero, fix failures before continuing. Do not release with failing tests.
 

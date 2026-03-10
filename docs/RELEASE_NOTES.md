@@ -1,5 +1,11 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.213
+
+- **Widget/binding verification script** — Added `scripts/test_widget_binding_verification.py` to the release test suite. It checks: (1) every compilable widget type (backend `COMPILABLE_WIDGET_TYPES`) has a render branch in `Canvas.tsx`; (2) every display action from bindingConfig is handled in `App.tsx` liveOverrides; (3) widget types in bindingConfig are a subset of compilable types. Keeps canvas, bindings, and docs in sync when adding widgets or display actions.
+- **Release workflow** — `test_widget_binding_verification.py` is now run in step 3 of the release workflow (`.cursor/rules/version-and-release.mdc`).
+- **Docs** — `docs/TESTING.md` documents the widget/binding verification script and how to run it.
+
 ## v0.70.212
 
 - **LED display binding** — New display action `led_brightness`: bind a sensor or light attribute (0–100 or binary on/off) to an LED so the canvas/simulator shows brightness from HA. `bindingConfig`: `led: ["led_brightness"]`; `liveOverrides` and Canvas use `override.value` for LED brightness.
