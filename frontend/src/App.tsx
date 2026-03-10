@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, validateYaml, parseYamlSyntax, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
+import { collectWidgetIds, updateSectionsWidgetRef } from "./projectSections";
 import { CONTROL_TEMPLATES, type ControlTemplate } from "./controls";
 import { PREBUILT_WIDGETS, type PrebuiltWidget } from "./prebuiltWidgets";
 import { DOMAIN_PRESETS } from "./bindings/domains";
@@ -119,36 +120,6 @@ function getSpinboxChildId(project: any, containerId: string): string | null {
   if (!Array.isArray(list)) return null;
   const spinbox = list.find((w: any) => w?.parent_id === containerId && (w?.type === "spinbox"));
   return spinbox?.id ?? null;
-}
-
-/** Section keys that can contain `widget:` references (LVGL platform components). */
-const SECTION_KEYS_WITH_WIDGET_REF = ["switch", "light", "sensor", "number", "select", "text_sensor", "binary_sensor"] as const;
-
-/** Update project.sections to replace widget: oldId with widget: newId (and id: oldId with id: newId in same block when present). */
-function updateSectionsWidgetRef(sections: Record<string, string>, oldId: string, newId: string): void {
-  if (!sections || !oldId || !newId || oldId === newId) return;
-  for (const key of SECTION_KEYS_WITH_WIDGET_REF) {
-    const content = sections[key];
-    if (!content || typeof content !== "string") continue;
-    // Replace widget: oldId and widget: "oldId" with newId
-    const widgetRe = new RegExp(`(widget:\\s*)(["']?)${oldId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\2`, "g");
-    let updated = content.replace(widgetRe, `$1$2${newId}$2`);
-    // Replace id: oldId (only in lines that are id: key) when it appears in a block with widget: — do a simple line-by-line replace for id: oldId
-    const idRe = new RegExp(`^(\\s*id:\\s*)(["']?)${oldId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\2\\s*$`, "gm");
-    updated = updated.replace(idRe, `$1$2${newId}$2`);
-    if (updated !== content) sections[key] = updated;
-  }
-}
-
-function collectWidgetIds(list: any[]): Set<string> {
-  const out = new Set<string>();
-  for (const w of list || []) {
-    if (w?.id) out.add(w.id);
-    if (Array.isArray((w as any).widgets)) {
-      for (const id of collectWidgetIds((w as any).widgets)) out.add(id);
-    }
-  }
-  return out;
 }
 
 function findWidgetById(list: any[], id: string): any | null {
@@ -455,6 +426,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [compileModalOpen, setCompileModalOpen] = useState(false);
   const [compiledYaml, setCompiledYaml] = useState<string>("");
   const [compileErr, setCompileErr] = useState<string>("");
+  const [compileWarnings, setCompileWarnings] = useState<Array<{ type: string; section?: string; widget_id?: string }>>([]);
   const [autoCompile, setAutoCompile] = useState<boolean>(true);
   const [compileBusy, setCompileBusy] = useState<boolean>(false);
   const [validateYamlBusy, setValidateYamlBusy] = useState<boolean>(false);
@@ -2123,8 +2095,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
       setCompileBusy(true);
       setCompileErr("");
       try {
-        const yaml = await compileYaml(selectedDevice, project as any);
-        setCompiledYaml(yaml || "");
+        const result = await compileYaml(selectedDevice, project as any);
+        setCompiledYaml(result?.yaml ?? "");
+        setCompileWarnings(result?.warnings ?? []);
       } catch (e: any) {
         setCompileErr(String(e?.message || e));
       } finally {
@@ -2141,8 +2114,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     setCompileErr("");
     setValidateYamlResult(null);
     try {
-      const yaml = await compileYaml(selectedDevice, project as any);
-      setCompiledYaml(yaml || "");
+      const result = await compileYaml(selectedDevice, project as any);
+      setCompiledYaml(result?.yaml ?? "");
+      setCompileWarnings(result?.warnings ?? []);
     } catch (e: any) {
       setCompileErr(String(e?.message || e));
     } finally {
@@ -3352,6 +3326,11 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       </button>
                     </div>
                     {compileErr && <div className="toast error" style={{ marginBottom: 8 }}>Compile error: {compileErr}</div>}
+                    {compileWarnings.length > 0 && (
+                      <div className="toast" style={{ marginBottom: 8, background: "rgba(250,200,80,0.15)", border: "1px solid rgba(250,200,80,0.4)" }}>
+                        Component references missing widgets: {compileWarnings.map((w) => w.section && w.widget_id ? `${w.section} → widget "${w.widget_id}"` : w.type).join("; ")}. Remove or fix in Components, or delete the block.
+                      </div>
+                    )}
                     {exportErr && <div className="toast error" style={{ marginBottom: 8 }}>Export error: {exportErr}</div>}
                     <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 400, overflowY: "auto" }}>
                       {compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}

@@ -34,6 +34,9 @@ from custom_components.esphome_touch_designer.api.views import (
     _build_default_section_pieces,
     _ensure_project_sections,
     _compile_to_esphome_yaml_section_based,
+    _collect_widget_ids_from_project,
+    _remove_orphaned_widget_refs_from_sections,
+    _compile_warnings,
 )
 from custom_components.esphome_touch_designer.storage import DeviceProject, _default_project
 
@@ -190,6 +193,26 @@ def test_merged_output_valid_yaml():
     print("  merged output valid YAML: OK")
 
 
+def test_orphan_removal_and_warnings():
+    """Orphan cleanup removes blocks whose widget: id is not in project; compile warnings list them."""
+    project = dict(_default_project())
+    project["pages"] = [{"page_id": "main", "name": "Main", "widgets": [{"id": "w1", "type": "label"}]}]
+    project["sections"] = {
+        "switch": "switch:\n  - platform: lvgl\n    id: sw_orphan\n    widget: deleted_widget\n    name: Orphan\n"
+    }
+    ids = _collect_widget_ids_from_project(project)
+    assert "w1" in ids
+    assert "deleted_widget" not in ids
+    warnings = _compile_warnings(project)
+    assert any(w.get("type") == "orphan_widget_ref" and w.get("widget_id") == "deleted_widget" for w in warnings)
+    removed = _remove_orphaned_widget_refs_from_sections(project)
+    assert ("switch", "deleted_widget") in removed
+    switch_content = (project.get("sections") or {}).get("switch") or ""
+    assert "deleted_widget" not in switch_content
+    # Orphan block removed; section may be empty or have other blocks
+    print("  orphan removal and compile warnings: OK")
+
+
 def main():
     print("Testing Components panel and section merge...")
     try:
@@ -198,6 +221,7 @@ def main():
         test_merge_switch_user_only()
         test_overridden_keys_logic()
         test_merged_output_valid_yaml()
+        test_orphan_removal_and_warnings()
         print("\nAll Components panel and merge tests passed.")
         return 0
     except AssertionError as e:

@@ -1,5 +1,14 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.215
+
+- **Orphaned component handling** — When you delete a widget, any LVGL component block in Components that referenced it is now cleaned up automatically on save. Components panel has a **Cleanup orphaned** button to preview and remove such blocks; POST `/project/cleanup_orphans` returns the cleaned project and list of removed refs.
+- **Compile warnings** — The compile API returns a `warnings` array when Components blocks reference non-existent widget ids. The Compile tab shows a warning banner so you can fix or run Cleanup orphaned before export.
+- **Docs** — Added [docs/COMPONENTS_AND_CREATE_COMPONENT.md](COMPONENTS_AND_CREATE_COMPONENT.md): Components panel (Empty/Recipe/Auto/Manual, merge), Create component from Binding Builder, and compile warnings. README links to it.
+- **Frontend tests** — Extracted `projectSections.ts` with `collectWidgetIds` and `updateSectionsWidgetRef`; added `projectSections.test.ts` for widget-id collection and section widget-ref sync (used by widget rename and Create component).
+- **Components panel tooltips** — Section badges (Empty, Recipe, Auto, Manual) now have title tooltips explaining each state.
+- **Single test script** — `scripts/run_all_tests.sh` runs all Python test scripts and frontend tests. Release workflow step 3 now uses this script; add new tests there to keep CI and release in sync.
+
 ## v0.70.214
 
 - **Waveshare 7\" backlight entity** — Updated the builtin Waveshare ESP32-S3 Touch LCD 7\" hardware recipe so the backlight is exposed as a single, honest on/off control backed by the CH422G GPIO switch. Removed the fake monochromatic light and template output that previously showed a dimmer in Home Assistant without affecting the actual panel.

@@ -18,15 +18,10 @@ When you have made any changes to this project, complete the full release workfl
 2. **Add a release note** for the new version in `docs/RELEASE_NOTES.md`.
 
 3. **Run all test suites** (from repo root; all must pass before proceeding):
-   - Python: `python3 scripts/test_compile.py`
-   - Python: `python3 scripts/test_spinbox_compile.py`
-   - Python: `python3 scripts/test_action_yaml.py`
-   - Python: `python3 scripts/test_components_sections.py`
-   - Python: `python3 scripts/test_components_panel_and_merge.py`
-   - Python: `python3 scripts/test_compile_split_fail.py`
-   - Python: `python3 scripts/test_widget_binding_verification.py`
-   - Frontend: `cd frontend && npm run test`
-   If any script exits non-zero, fix failures before continuing. Do not release with failing tests.
+   ```bash
+   ./scripts/run_all_tests.sh
+   ```
+   This runs all Python test scripts (test_compile, test_spinbox_compile, test_action_yaml, test_components_sections, test_components_panel_and_merge, test_compile_split_fail, test_widget_binding_verification) and frontend `npm run test`. To add a new test, add it to `scripts/run_all_tests.sh`. If any script exits non-zero, fix failures before continuing. Do not release with failing tests.
 
 4. **Rebuild the frontend** (so every release has a fresh dist; no stale assets):
    ```bash

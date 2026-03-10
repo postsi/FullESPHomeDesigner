@@ -7,7 +7,11 @@ export async function listRecipes(): Promise<any[]> {
   return data.recipes || [];
 }
 
-export async function compileYaml(deviceId: string, project?: any): Promise<string> {
+export type CompileWarning = { type: string; section?: string; widget_id?: string };
+
+export type CompileResult = { yaml: string; warnings?: CompileWarning[] };
+
+export async function compileYaml(deviceId: string, project?: any): Promise<CompileResult> {
   const r = await fetch(`/api/esphome_touch_designer/devices/${deviceId}/compile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -15,7 +19,19 @@ export async function compileYaml(deviceId: string, project?: any): Promise<stri
   });
   if (!r.ok) throw new Error(`compile failed: ${r.status}`);
   const data = await r.json();
-  return data.yaml;
+  return { yaml: data.yaml ?? "", warnings: data.warnings ?? [] };
+}
+
+/** Remove LVGL component blocks that reference deleted widgets. Returns cleaned project and list of removed refs. */
+export async function cleanupOrphanedComponents(project: any): Promise<{ ok: boolean; project: any; removed: Array<{ section: string; widget_id: string }> }> {
+  const r = await fetch("/api/esphome_touch_designer/project/cleanup_orphans", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data?.ok !== true) throw new Error(data?.error ?? `cleanup failed: ${r.status}`);
+  return { ok: true, project: data.project, removed: data.removed ?? [] };
 }
 
 /** Per-event snippet from widget YAML preview. source: "empty" | "auto" | "edited" */

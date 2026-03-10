@@ -102,6 +102,119 @@ def _section_body_from_value(value: str | None, key: str) -> str:
     return value
 
 
+# Section keys that can contain `widget:` references (LVGL platform components). Used for orphan cleanup and compile warnings.
+SECTION_KEYS_WITH_WIDGET_REF: tuple[str, ...] = (
+    "switch",
+    "light",
+    "sensor",
+    "number",
+    "select",
+    "text_sensor",
+    "binary_sensor",
+)
+
+_WIDGET_REF_RE = re.compile(r"widget:\s*[\"']?([a-zA-Z0-9_]+)[\"']?")
+
+
+def _collect_widget_ids_from_project(project: dict) -> set[str]:
+    """Recursively collect all widget ids from project.pages[].widgets (including nested widgets)."""
+    ids: set[str] = set()
+    pages = project.get("pages") or []
+    if not isinstance(pages, list):
+        return ids
+
+    def collect(widgets: list) -> None:
+        for w in widgets or []:
+            if isinstance(w, dict) and w.get("id"):
+                ids.add(str(w["id"]).strip())
+            if isinstance(w, dict):
+                collect(w.get("widgets") or [])
+
+    for p in pages:
+        if isinstance(p, dict):
+            collect(p.get("widgets") or [])
+    return ids
+
+
+def _widget_refs_in_block(block: str) -> list[str]:
+    """Return list of widget ids referenced in a section block (e.g. '  - platform: lvgl\\n    widget: x')."""
+    return _WIDGET_REF_RE.findall(block)
+
+
+def _remove_orphaned_widget_refs_from_sections(project: dict) -> list[tuple[str, str]]:
+    """Remove from project.sections any LVGL platform blocks whose widget: id is not in the project's widgets. Mutates project. Returns list of (section_key, removed_widget_id)."""
+    sections = project.get("sections")
+    if not sections or not isinstance(sections, dict):
+        return []
+    valid_ids = _collect_widget_ids_from_project(project)
+    removed: list[tuple[str, str]] = []
+    for section_key in SECTION_KEYS_WITH_WIDGET_REF:
+        raw = sections.get(section_key)
+        if not raw or not str(raw).strip():
+            continue
+        body = _section_body_from_value(raw, section_key)
+        if not body.strip():
+            continue
+        # Split into list-item blocks (body is indented; items start with "  - ")
+        parts = re.split(r"\n  - ", body)
+        if not parts:
+            continue
+        # First part may be empty or "  - ..."; rest are "platform: ..." without leading "  - "
+        kept_blocks: list[str] = []
+        for i, block in enumerate(parts):
+            if not block.strip():
+                continue
+            # Normalize: first block might start with "  - ", rest don't
+            if i == 0 and block.strip().startswith("  - "):
+                block = block.strip()[4:].lstrip()
+            elif i > 0:
+                block = block.strip()
+            refs = _widget_refs_in_block(block)
+            if not refs:
+                kept_blocks.append(block)
+                continue
+            if all(wid in valid_ids for wid in refs):
+                kept_blocks.append(block)
+            else:
+                for wid in refs:
+                    if wid not in valid_ids:
+                        removed.append((section_key, wid))
+        n_original = sum(1 for p in parts if p.strip())
+        if len(kept_blocks) < n_original:
+            new_body = ""
+            if kept_blocks:
+                new_body = "  - " + kept_blocks[0]
+                if len(kept_blocks) > 1:
+                    new_body += "\n  - ".join(kept_blocks[1:])
+            sections[section_key] = _section_full_block(section_key, new_body.rstrip())
+    return removed
+
+
+def _compile_warnings(project: dict) -> list[dict]:
+    """Return list of warnings for compile (e.g. widget: refs in project.sections that point to non-existent widgets)."""
+    warnings: list[dict] = []
+    valid_ids = _collect_widget_ids_from_project(project)
+    sections = project.get("sections") or {}
+    if not isinstance(sections, dict):
+        return warnings
+    for section_key in SECTION_KEYS_WITH_WIDGET_REF:
+        raw = sections.get(section_key)
+        if not raw or not str(raw).strip():
+            continue
+        body = _section_body_from_value(raw, section_key)
+        if not body.strip():
+            continue
+        parts = re.split(r"\n  - ", body)
+        for block in parts:
+            if not block.strip():
+                continue
+            for wid in _widget_refs_in_block(block):
+                if wid not in valid_ids:
+                    warnings.append({"type": "orphan_widget_ref", "section": section_key, "widget_id": wid})
+                    break
+    return warnings
+
+
 def _display_id_from_recipe(recipe_text: str) -> str | None:
     """Return the first display id from recipe (e.g. 'stub_display') so lvgl can reference it, or None."""
     if not recipe_text or "display:" not in recipe_text:
@@ -3873,12 +3986,35 @@ class DeviceProjectView(HomeAssistantView):
         project = body.get("project")
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "invalid_project"}, status_code=400)
+        # Remove LVGL component blocks that reference deleted widgets (orphan cleanup on save)
+        removed = _remove_orphaned_widget_refs_from_sections(project)
         device.project = project
         storage.upsert_device(device)
         await storage.async_save()
-        return self.json({"ok": True})
+        return self.json({"ok": True, "removed_orphans": [{"section": s, "widget_id": w} for s, w in removed]})
 
 
+class CleanupOrphansView(HomeAssistantView):
+    """POST with { project } returns project with orphaned widget refs removed from sections (for preview without saving)."""
+    url = f"/api/{DOMAIN}/project/cleanup_orphans"
+    name = f"api:{DOMAIN}:project_cleanup_orphans"
+    requires_auth = False
+
+    async def post(self, request):
+        try:
+            body = await request.json()
+        except Exception:
+            return self.json({"ok": False, "error": "invalid_json"}, status_code=400)
+        project = body.get("project")
+        if not isinstance(project, dict):
+            return self.json({"ok": False, "error": "invalid_project"}, status_code=400)
+        project = dict(project)
+        removed = _remove_orphaned_widget_refs_from_sections(project)
+        return self.json({
+            "ok": True,
+            "project": project,
+            "removed": [{"section": s, "widget_id": w} for s, w in removed],
+        })
 
 
 
@@ -4497,11 +4633,13 @@ class CompileView(HomeAssistantView):
                 device.project = original_project
                 device.hardware_recipe_id = original_recipe
             yaml_text = yaml_text.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
-            return self.json({"ok": True, "yaml": yaml_text, "mode": "preview"})
+            warnings = _compile_warnings(device.project or {})
+            return self.json({"ok": True, "yaml": yaml_text, "warnings": warnings, "mode": "preview"})
 
         yaml_text = compile_to_esphome_yaml(device, recipe_text=recipe_text)
         yaml_text = yaml_text.replace(ETD_DEVICE_NAME_PLACEHOLDER, json.dumps(device.slug or "device"))
-        return self.json({"ok": True, "yaml": yaml_text, "mode": "stored"})
+        warnings = _compile_warnings(device.project or {})
+        return self.json({"ok": True, "yaml": yaml_text, "warnings": warnings, "mode": "stored"})
 
 
 class ValidateYamlView(HomeAssistantView):
@@ -4684,6 +4822,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(SchemaDetailView)
     hass.http.register_view(DevicesView)
     hass.http.register_view(DeviceProjectView)
+    hass.http.register_view(CleanupOrphansView)
 
     # Custom cards (v1: snapshot as card, stored under config)
     hass.http.register_view(CardsListView)

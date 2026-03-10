@@ -4,7 +4,7 @@
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { getSectionsDefaults } from "./lib/apiSections";
-import { parseYamlSyntax } from "./lib/api";
+import { parseYamlSyntax, cleanupOrphanedComponents } from "./lib/api";
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
@@ -40,6 +40,8 @@ export default function SectionBasedComponentsPanel({
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
+  const [cleanupBusy, setCleanupBusy] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   const recipeId = (project?.device?.hardware_recipe_id ?? project?.hardware?.recipe_id ?? "").trim() || "sunton_2432s028r_320x240";
 
@@ -296,6 +298,7 @@ export default function SectionBasedComponentsPanel({
                               <span
                                 className={isEmpty ? "muted" : undefined}
                                 style={{ fontSize: 10 }}
+                                title={stateLabel === "Empty" ? "No content in this section" : stateLabel === "Recipe" ? "Content from hardware recipe" : stateLabel === "Auto" ? "Added by app (bindings, prebuilts)" : "You edited this section in Components"}
                               >
                                 {stateLabel}
                               </span>
@@ -308,6 +311,7 @@ export default function SectionBasedComponentsPanel({
                                     background: isManual ? "rgba(100,160,255,0.25)" : "rgba(255,255,255,0.12)",
                                     color: isManual ? "rgba(200,220,255,0.95)" : "rgba(255,255,255,0.65)",
                                   }}
+                                  title={stateLabel === "Empty" ? "No content in this section" : stateLabel === "Recipe" ? "Content from hardware recipe" : stateLabel === "Auto" ? "Added by app (bindings, prebuilts)" : "You edited this section in Components"}
                                 >
                                   {stateLabel}
                                 </span>
@@ -364,9 +368,51 @@ export default function SectionBasedComponentsPanel({
             </>
           )}
         </div>
+        {cleanupMessage && (
+          <div className="muted" style={{ padding: "8px 16px", fontSize: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            {cleanupMessage}
+          </div>
+        )}
         <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="secondary" onClick={requestClose}>
             Close
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            title="Remove Components blocks that reference deleted widgets"
+            onClick={async () => {
+              setCleanupMessage(null);
+              setCleanupBusy(true);
+              try {
+                const res = await cleanupOrphanedComponents(project);
+                if (res.removed.length > 0) {
+                  setProject(res.project, true);
+                  setProjectDirty(true);
+                  setSections(res.project.sections || {});
+                  if (onSaveAndPersist) {
+                    setSaving(true);
+                    try {
+                      await onSaveAndPersist(res.project);
+                      setCleanupMessage(`Removed ${res.removed.length} orphaned reference(s) and saved.`);
+                    } finally {
+                      setSaving(false);
+                    }
+                  } else {
+                    setCleanupMessage(`Removed ${res.removed.length} orphaned reference(s). Save to persist.`);
+                  }
+                } else {
+                  setCleanupMessage("No orphaned component references found.");
+                }
+              } catch (e: any) {
+                setCleanupMessage(e?.message ?? "Cleanup failed");
+              } finally {
+                setCleanupBusy(false);
+              }
+            }}
+            disabled={loading || cleanupBusy}
+          >
+            {cleanupBusy ? "Cleanup…" : "Cleanup orphaned"}
           </button>
           <button type="button" className="secondary" onClick={resetAll} disabled={loading}>
             Reset all
