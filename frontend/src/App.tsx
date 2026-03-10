@@ -509,6 +509,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [saveCardErr, setSaveCardErr] = useState<string>("");
   // v0.70.137: Context menu for deleting custom cards
   const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; cardId: string; cardName: string } | null>(null);
+  const [pageTabContextMenu, setPageTabContextMenu] = useState<{ x: number; y: number; pageIndex: number } | null>(null);
 
   async function refreshCustomCards() {
     try {
@@ -2034,6 +2035,20 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     setSelectedWidgetIds([]);
   }
 
+  function deletePage(pageIndex: number) {
+    if (!project || !Array.isArray(project.pages) || project.pages.length <= 1) return;
+    const name = project.pages[pageIndex]?.name || `Page ${pageIndex + 1}`;
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const p2 = clone(project);
+    p2.pages = p2.pages.filter((_: any, i: number) => i !== pageIndex);
+    setProject(p2);
+    setProjectDirty(true);
+    if (currentPageIndex >= p2.pages.length) setCurrentPageIndex(Math.max(0, p2.pages.length - 1));
+    else if (currentPageIndex > pageIndex) setCurrentPageIndex(currentPageIndex - 1);
+    setSelectedWidgetIds([]);
+    setPageTabContextMenu(null);
+  }
+
   async function addWidget() {
     if (!project) return;
     const sr = await getWidgetSchema(newWidgetType);
@@ -3174,6 +3189,50 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         </div>
       )}
 
+      {/* Context menu for page tab (delete page) */}
+      {pageTabContextMenu && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 9999 }}
+          onClick={() => setPageTabContextMenu(null)}
+          onContextMenu={(e) => { e.preventDefault(); setPageTabContextMenu(null); }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: pageTabContextMenu.x,
+              top: pageTabContextMenu.y,
+              background: "#2a2a2a",
+              border: "1px solid #444",
+              borderRadius: 6,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+              minWidth: 140,
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "10px 12px",
+                textAlign: "left",
+                background: "transparent",
+                border: "none",
+                color: "#ef4444",
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#3a3a3a")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+              onClick={() => deletePage(pageTabContextMenu.pageIndex)}
+            >
+              🗑 Delete page
+            </button>
+          </div>
+        </div>
+      )}
+
       <LvglSettingsModal
         open={lvglSettingsOpen}
         onClose={() => setLvglSettingsOpen(false)}
@@ -3695,7 +3754,6 @@ function nudgeSelected(dx: number, dy: number, step: number) {
           </>
         )}
         {/* Group: Device & deploy */}
-        <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
         <span className="muted" style={{ marginRight: 4 }}>|</span>
@@ -3703,8 +3761,6 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", opacity: showAdvancedToolsProminent ? 1 : 0.7 }}>
           <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
           <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
-          <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
-          <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
         </span>
       </nav>
 
@@ -3848,7 +3904,11 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                         fontWeight: safePageIndex === idx ? 600 : 400,
                       }}
                       onClick={() => { setCurrentPageIndex(idx); setSelectedWidgetIds([]); setSelectedSchema(null); }}
-                      title={`Page ${idx + 1}`}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (pages.length > 1) setPageTabContextMenu({ x: e.clientX, y: e.clientY, pageIndex: idx });
+                      }}
+                      title={pages.length > 1 ? `Page ${idx + 1} (right-click to delete)` : `Page ${idx + 1}`}
                     >
                       {p?.name || `Page ${idx + 1}`}
                     </button>
@@ -3883,7 +3943,6 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                 <button className="secondary" disabled={!clipboard?.length} onClick={pasteClipboard}>Paste</button>
                 <button className="secondary" disabled={!selectedWidgetIds.length} onClick={copySelected}>Copy</button>
                 <button className="secondary" disabled={!selectedWidgetIds.length} onClick={deleteSelected}>Del</button>
-                <button className="secondary" disabled={busy} onClick={saveProject}>Save</button>
               </div>
               {/* Physical screen dimensions - prominent box above canvas */}
               <div style={{

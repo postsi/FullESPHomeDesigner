@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.7
+
+- **Delete page** — Right-click a page tab to open a context menu with “Delete page”. At least one page is required; confirmation before delete.
+- **Save button** — Removed from nav bar and from the toolbar above the canvas. Save still available via Ctrl+S.
+- **Recipe buttons removed** — “Import recipe” and “Manage recipes” removed from the nav for now (functionality deemed not useful at the moment).
+- **Components panel fix** — Fixed crash “Can't find variable: isUserEdited” in SectionBasedComponentsPanel (use `isManual` for textarea styling).
+
 ## v0.71.6
 
 - **§2 Navigation and layout** — **2.1** Nav bar grouped with separators: Device (list, details) | Device & deploy (Save, Compile, Save as card) | Advanced (LVGL settings, Components, Import recipe, Manage recipes). **2.2** Page navigation is now tabs above the canvas (Page 1 | Page 2 | … | + Page) instead of a dropdown; current page is obvious at a glance. See [docs/UX_IMPROVEMENT_PLAN.md](UX_IMPROVEMENT_PLAN.md) §2.

@@ -332,8 +332,8 @@ export default function SectionBasedComponentsPanel({
                                   fontSize: 11,
                                   padding: 8,
                                   borderRadius: 4,
-                                  border: isUserEdited ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.15)",
-                                  background: isUserEdited ? "rgba(100,160,255,0.05)" : "rgba(0,0,0,0.2)",
+                                  border: isManual ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.15)",
+                                  background: isManual ? "rgba(100,160,255,0.05)" : "rgba(0,0,0,0.2)",
                                   color: "#e2e8f0",
                                   resize: "vertical",
                                 }}
