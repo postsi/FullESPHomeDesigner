@@ -1,31 +1,32 @@
 import React from "react";
+import type { DeviceSummary } from "./api";
 
 export interface WelcomePanelProps {
-  /** Called when user wants to focus/use the device selector (e.g. scroll to nav). */
-  onSelectDevice: () => void;
-  /** Called when user clicks "Create new project" (New device wizard). */
-  onNewDevice: () => void;
-  /** Called when user clicks "Open example project" (e.g. New device with recipe or import). */
-  onOpenExample: () => void;
-  /** Whether any devices exist (to tailor copy). */
-  hasDevices: boolean;
-  /** Optional: recent project entries for quick resume (not implemented yet). */
-  recentProjects?: { deviceId: string; name: string }[];
+  /** List of devices to show; user clicks one to load it. */
+  devices: DeviceSummary[];
+  /** Called when user clicks a device row to load that device. */
+  onLoadDevice: (deviceId: string) => void;
+  /** Called when user clicks "Add device". */
+  onAddDevice: () => void;
+  /** Called when user clicks "Manage devices" (opens manage modal). */
+  onManageDevices: () => void;
+  /** Optional: recipe labels by id for display (e.g. { "jc1060...": "JC1060 4.7\" 1024×600" }). */
+  recipeLabels?: Record<string, string>;
 }
 
 export default function WelcomePanel({
-  onSelectDevice,
-  onNewDevice,
-  onOpenExample,
-  hasDevices,
-  recentProjects = [],
+  devices,
+  onLoadDevice,
+  onAddDevice,
+  onManageDevices,
+  recipeLabels = {},
 }: WelcomePanelProps) {
   return (
     <div
       className="welcomePanel"
       style={{
         padding: 32,
-        maxWidth: 560,
+        maxWidth: 600,
         margin: "0 auto",
         display: "flex",
         flexDirection: "column",
@@ -33,48 +34,71 @@ export default function WelcomePanel({
       }}
     >
       <p className="muted" style={{ fontSize: 15, margin: 0, lineHeight: 1.5 }}>
-        ESPHome Touch Designer lets you design LVGL touch screens for your ESPHome devices. Choose a device, load or create a project, then design screens and bind them to Home Assistant.
+        Design LVGL touch screen UIs for your ESPHome devices. Select or add a device, then design its screen and bind it to Home Assistant.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <button type="button" className="primary" onClick={onSelectDevice} style={{ padding: "12px 16px", fontSize: 15 }}>
-            {hasDevices ? "Select device" : "Select device (create one first if needed)"}
-          </button>
-          <span className="muted" style={{ fontSize: 12 }}>
-            Use the device dropdown in the bar above to pick an ESPHome device. Its project will load when you select it.
-          </span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <button type="button" className="secondary" onClick={onNewDevice} style={{ padding: "12px 16px", fontSize: 15 }}>
-            Create new project
-          </button>
-          <span className="muted" style={{ fontSize: 12 }}>
-            Add a new device with a hardware profile (recipe). You can then design its screens and deploy.
-          </span>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <button type="button" className="secondary" onClick={onOpenExample} style={{ padding: "12px 16px", fontSize: 15 }}>
-            Open example / from recipe
-          </button>
-          <span className="muted" style={{ fontSize: 12 }}>
-            Create a device from a built-in or imported recipe to get a ready-made project you can customise.
-          </span>
-        </div>
-      </div>
-      {recentProjects.length > 0 && (
-        <div className="section" style={{ marginTop: 8 }}>
-          <div className="sectionTitle">Recent projects</div>
+
+      {devices.length > 0 ? (
+        <div className="section" style={{ marginTop: 0 }}>
+          <div className="sectionTitle">Devices</div>
+          <p className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+            Click a device to open its UI.
+          </p>
           <ul className="list compact" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {recentProjects.map((p) => (
-              <li key={p.deviceId}>
-                <button type="button" className="ghost" onClick={onSelectDevice} style={{ textAlign: "left", width: "100%" }}>
-                  {p.name || p.deviceId}
+            {devices.map((d) => (
+              <li key={d.device_id}>
+                <button
+                  type="button"
+                  className="row"
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border, #333)",
+                    background: "rgba(255,255,255,0.03)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    alignItems: "flex-start",
+                  }}
+                  onClick={() => onLoadDevice(d.device_id)}
+                >
+                  <span style={{ fontWeight: 600 }}>{d.name || d.device_id}</span>
+                  {d.hardware_recipe_id && (
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {recipeLabels[d.hardware_recipe_id] || d.hardware_recipe_id}
+                    </span>
+                  )}
                 </button>
               </li>
             ))}
           </ul>
         </div>
+      ) : (
+        <p className="muted" style={{ fontSize: 14 }}>
+          No devices yet. Add a device to get started.
+        </p>
       )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button type="button" className="primary" onClick={onAddDevice} style={{ padding: "12px 16px", fontSize: 15 }}>
+            Add device
+          </button>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Add a device by choosing a hardware recipe (built-in or imported). You then design its screen and deploy. Creating new hardware recipes is done elsewhere.
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <button type="button" className="secondary" onClick={onManageDevices} style={{ padding: "12px 16px", fontSize: 15 }}>
+            Manage devices
+          </button>
+          <span className="muted" style={{ fontSize: 12 }}>
+            Copy, rename, or delete devices and their UIs.
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

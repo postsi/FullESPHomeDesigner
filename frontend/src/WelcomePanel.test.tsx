@@ -30,47 +30,45 @@ describe("WelcomePanel", () => {
   });
 
   const defaultProps = {
-    onSelectDevice: vi.fn(),
-    onNewDevice: vi.fn(),
-    onOpenExample: vi.fn(),
-    hasDevices: true,
+    devices: [] as { device_id: string; name?: string; slug?: string; hardware_recipe_id?: string | null }[],
+    onLoadDevice: vi.fn(),
+    onAddDevice: vi.fn(),
+    onManageDevices: vi.fn(),
   };
 
-  it("renders intro text and three primary actions", () => {
+  it("renders intro text, Add device and Manage devices", () => {
     const { container, unmount } = render(<WelcomePanel {...defaultProps} />);
-    expect(container.textContent).toMatch(/ESPHome Touch Designer lets you design LVGL/);
-    expect(container.textContent).toContain("Select device");
-    expect(container.textContent).toContain("Create new project");
-    expect(container.textContent).toContain("Open example / from recipe");
+    expect(container.textContent).toMatch(/Design LVGL touch screen UIs/);
+    expect(container.textContent).toContain("Add device");
+    expect(container.textContent).toContain("Manage devices");
     unmount();
   });
 
-  it("does not throw when optional recentProjects is undefined", () => {
-    expect(() => {
-      const { unmount } = render(
-        <WelcomePanel {...defaultProps} recentProjects={undefined} />
-      );
-      unmount();
-    }).not.toThrow();
-  });
-
-  it("shows different Select device label when hasDevices is false", () => {
-    const { container, unmount } = render(
-      <WelcomePanel {...defaultProps} hasDevices={false} />
-    );
-    expect(container.textContent).toMatch(/Select device \(create one first if needed\)/);
+  it("shows No devices yet when devices list is empty", () => {
+    const { container, unmount } = render(<WelcomePanel {...defaultProps} />);
+    expect(container.textContent).toContain("No devices yet");
     unmount();
   });
 
-  it("shows Recent projects when recentProjects is non-empty", () => {
+  it("shows device list when devices are provided", () => {
     const { container, unmount } = render(
       <WelcomePanel
         {...defaultProps}
-        recentProjects={[{ deviceId: "dev1", name: "My Device" }]}
+        devices={[{ device_id: "d1", name: "Living Room Panel", slug: "living_room" }]}
       />
     );
-    expect(container.textContent).toContain("Recent projects");
-    expect(container.textContent).toContain("My Device");
+    expect(container.textContent).toContain("Devices");
+    expect(container.textContent).toContain("Living Room Panel");
+    expect(container.textContent).toContain("Click a device to open its UI");
     unmount();
+  });
+
+  it("does not throw when recipeLabels is undefined", () => {
+    expect(() => {
+      const { unmount } = render(
+        <WelcomePanel {...defaultProps} devices={[{ device_id: "d1", name: "Test" }]} recipeLabels={undefined} />
+      );
+      unmount();
+    }).not.toThrow();
   });
 });

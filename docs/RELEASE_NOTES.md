@@ -1,5 +1,12 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.2
+
+- **Welcome panel: device list (Option A)** — When no device is selected, the welcome view shows the list of devices inline. Click a device to load it (no focus handoff to the dropdown). Add device and Manage devices remain as buttons. Nav bar keeps the device dropdown for switching when already in the designer.
+- **Manage devices** — New “Manage devices” button (welcome panel and nav) opens a modal to copy, rename, or delete devices and their UIs. Open loads the device and closes the modal. Copy duplicates a device and its UI (new name/slug); rename updates name and slug; delete confirms then removes the device.
+- **Language: devices and hardware recipes only** — User-facing copy uses “device” and “hardware recipe” only. Stepper step 2: “Load or add device”; guidance “Load this device’s UI, or add a new device using a hardware recipe.” Removed “project” from welcome and stepper. Load-device toast: “Loaded device”. Delete (nav) confirms with “Delete device … and its UI?”
+- **Tests** — WelcomePanel tests updated for device list and new props. ManageDevicesModal.test.tsx added (4 tests). WorkflowStepper step 2 label test updated.
+
 ## v0.71.1
 
 - **WorkflowStepper fix** — Guard against `completedSteps` being undefined (fixes "e.has" error in HA/Safari when the prop was undefined). Use `completedSteps ?? new Set()` before calling `.has()`.

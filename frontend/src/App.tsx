@@ -40,6 +40,7 @@ import LvglSettingsModal, { type LvglConfig } from "./LvglSettingsModal";
 import ComponentsPanelLoader from "./ComponentsPanelLoader";
 import WorkflowStepper, { type WorkflowStep } from "./WorkflowStepper";
 import WelcomePanel from "./WelcomePanel";
+import ManageDevicesModal from "./ManageDevicesModal";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -279,6 +280,7 @@ export default function App() {
 
   // New device wizard: hardware-first flow
   const [editDeviceModalOpen, setEditDeviceModalOpen] = useState(false);
+  const [manageDevicesOpen, setManageDevicesOpen] = useState(false);
   const [newDeviceWizardOpen, setNewDeviceWizardOpen] = useState(false);
   const [newDeviceWizardStep, setNewDeviceWizardStep] = useState<1 | 2>(1);
   const [newDeviceWizardRecipe, setNewDeviceWizardRecipe] = useState<{ id: string; label: string } | null>(null);
@@ -559,6 +561,12 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const selectedDeviceObj = useMemo(() => devices.find((d) => d.device_id === selectedDevice) || null, [devices, selectedDevice]);
   const selectedRecipeId = selectedDeviceObj?.hardware_recipe_id || null;
 
+  const recipeLabels = useMemo(() => {
+    const m: Record<string, string> = {};
+    (recipes || []).forEach((r: any) => { m[r.id] = r.label || r.id; });
+    return m;
+  }, [recipes]);
+
   const deviceSelectRef = useRef<HTMLSelectElement | null>(null);
 
   const totalWidgetCount = useMemo(() => project?.pages?.reduce((acc: number, p: any) => acc + (p?.widgets?.length ?? 0), 0) ?? 0, [project]);
@@ -583,7 +591,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
     }
     const guidance: Record<WorkflowStep, string> = {
       1: "Select the ESPHome device you want to design screens for.",
-      2: "Load the project for this device or create a new one (e.g. from a recipe).",
+      2: "Load this device's UI, or add a new device using a hardware recipe.",
       3: "Arrange widgets on your pages. Use the palette on the left and the properties panel on the right.",
       4: "Connect widgets to Home Assistant entities and actions so they show data and control devices.",
       5: "Interact with the screen in the simulator to verify layout and behaviour before deploying.",
@@ -591,7 +599,7 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
     };
     const nextLabels: Record<WorkflowStep, string | null> = {
       1: "Select device",
-      2: "Load or create project",
+      2: "Load or add device",
       3: "Add widgets to your pages",
       4: "Set up bindings",
       5: "Test in simulator",
@@ -1373,7 +1381,6 @@ if (baseId.startsWith("glance_card")) {
   }
 
   async function removeDevice(id: string) {
-    if (!confirm(`Delete ${id}?`)) return;
     setBusy(true);
     try {
       const res = await deleteDevice(entryId, id);
@@ -1381,6 +1388,29 @@ if (baseId.startsWith("glance_card")) {
       setToast({ type: "ok", msg: "Device deleted" });
       if (selectedDevice === id) { setSelectedDevice(""); setProject(null); }
       await refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function copyDevice(sourceId: string, newName: string, newSlug: string) {
+    setBusy(true);
+    try {
+      const projRes = await getProject(entryId, sourceId);
+      if (!projRes.ok) return setToast({ type: "error", msg: projRes.error });
+      const source = devices.find((d) => d.device_id === sourceId);
+      const newDeviceId = friendlyToId(newSlug) || friendlyToId(newName) || "device_copy";
+      const upsertRes = await upsertDevice(entryId, {
+        device_id: newDeviceId,
+        name: newName,
+        slug: newSlug,
+        hardware_recipe_id: source?.hardware_recipe_id ?? null,
+      });
+      if (!upsertRes.ok) return setToast({ type: "error", msg: upsertRes.error });
+      const putRes = await putProject(entryId, newDeviceId, projRes.project);
+      if (!putRes.ok) return setToast({ type: "error", msg: putRes.error });
+      setToast({ type: "ok", msg: `Device "${newName}" created` });
+      await refresh();
+      setManageDevicesOpen(false);
+      await loadDevice(newDeviceId);
     } finally { setBusy(false); }
   }
 
@@ -1395,7 +1425,7 @@ if (baseId.startsWith("glance_card")) {
       setSelectedWidgetIds([]);
       setSelectedSchema(null);
       setCurrentPageIndex(0);
-      setToast({ type: "ok", msg: `Loaded project for ${id}` });
+      setToast({ type: "ok", msg: `Loaded device` });
     } finally { setBusy(false); }
   }
 
@@ -3140,6 +3170,24 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         }}
       />
 
+      <ManageDevicesModal
+        open={manageDevicesOpen}
+        onClose={() => setManageDevicesOpen(false)}
+        devices={devices}
+        recipeLabels={recipeLabels}
+        busy={busy}
+        onOpen={(id) => { loadDevice(id); setManageDevicesOpen(false); }}
+        onRename={async (id, payload) => {
+          const dev = devices.find((d) => d.device_id === id);
+          const res = await upsertDevice(entryId, { device_id: id, name: payload.name, slug: payload.slug, hardware_recipe_id: dev?.hardware_recipe_id ?? null });
+          if (!res.ok) return setToast({ type: "error", msg: res.error });
+          setToast({ type: "ok", msg: "Device renamed" });
+          await refresh();
+        }}
+        onCopy={copyDevice}
+        onDelete={removeDevice}
+      />
+
       {editDeviceModalOpen && selectedDeviceObj && (
         <div className="modalOverlay" onClick={() => setEditDeviceModalOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
@@ -3235,7 +3283,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
           <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
             <div className="modalHeader">
               <div>
-                <div className="title">New device</div>
+                <div className="title">Add device</div>
                 <div className="muted">
                   {newDeviceWizardStep === 1 ? "Step 1: Choose a hardware profile" : "Step 2: Device details"}
                 </div>
@@ -3619,9 +3667,10 @@ function nudgeSelected(dx: number, dy: number, step: number) {
             </option>
           ))}
         </select>
-        <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Create a new device with a hardware profile">New device</button>
+        <button className="secondary" disabled={busy || !entryId} onClick={openNewDeviceWizard} title="Add a device using a built-in or imported recipe">Add device</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="Edit the selected device">Edit device</button>
-        <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
+        <button className="danger" disabled={busy || !selectedDevice} onClick={() => selectedDevice && confirm(`Delete device "${selectedDeviceObj?.name || selectedDevice}" and its UI? This cannot be undone.`) && removeDevice(selectedDevice)} title="Delete selected device">Delete</button>
+        <button className="ghost" disabled={busy} onClick={() => setManageDevicesOpen(true)} title="Copy, rename, or delete devices">Manage devices</button>
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
@@ -3748,10 +3797,11 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         <div className="designerPanelCenter">
           {!selectedDevice || !project ? (
             <WelcomePanel
-              hasDevices={devices.length > 0}
-              onSelectDevice={() => deviceSelectRef.current?.focus()}
-              onNewDevice={openNewDeviceWizard}
-              onOpenExample={openNewDeviceWizard}
+              devices={devices}
+              recipeLabels={recipeLabels}
+              onLoadDevice={loadDevice}
+              onAddDevice={openNewDeviceWizard}
+              onManageDevices={() => setManageDevicesOpen(true)}
             />
           ) : (
             <>

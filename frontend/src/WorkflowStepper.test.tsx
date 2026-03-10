@@ -34,7 +34,7 @@ describe("WorkflowStepper", () => {
       <WorkflowStepper currentStep={1} completedSteps={new Set()} />
     );
     expect(container.textContent).toMatch(/1\. Choose device/);
-    expect(container.textContent).toMatch(/2\. Load \/ create project/);
+    expect(container.textContent).toMatch(/2\. Load or add device/);
     expect(container.textContent).toMatch(/6\. Deploy/);
     unmount();
   });
@@ -58,7 +58,7 @@ describe("WorkflowStepper", () => {
         completedSteps={undefined as unknown as Set<WorkflowStep>}
       />
     );
-    expect(container.textContent).toMatch(/2\. Load \/ create project/);
+    expect(container.textContent).toMatch(/2\. Load or add device/);
     unmount();
   });
 

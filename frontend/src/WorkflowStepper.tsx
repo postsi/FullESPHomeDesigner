@@ -2,7 +2,7 @@ import React from "react";
 
 export const WORKFLOW_STEPS = [
   { step: 1, label: "Choose device" },
-  { step: 2, label: "Load / create project" },
+  { step: 2, label: "Load or add device" },
   { step: 3, label: "Design screens" },
   { step: 4, label: "Bind entities" },
   { step: 5, label: "Test" },
