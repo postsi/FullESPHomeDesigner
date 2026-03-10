@@ -2,7 +2,9 @@
 
 Tracking document for UI/UX recommendations. Use the checkboxes to mark progress. No coding until each item is agreed and prioritised.
 
-**Revert strategy:** Note current release (e.g. v0.70.0) before starting. If we don’t like the result, create a new release from that tag (e.g. v0.72.0) so “latest” is the old UI again; HACS Update then reverts everyone without manual deployment.
+**Revert strategy:** Note current release before starting. If we don’t like the result, create a new release from that tag so “latest” is the old UI again; HACS Update then reverts everyone without manual deployment.
+
+**Pre-change release (for revert):** **v0.70.217** — Git tag `v0.70.217`. To revert: create a new release (e.g. v0.71.x) from this tag so “latest” serves the pre–UX-change experience again.
 
 ---
 
@@ -12,12 +14,12 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 | # | Item | Status |
 |---|------|--------|
-| 1.1 | **Define and surface the core journey** — Name steps: 1. Choose device → 2. Load/create project → 3. Design screens → 4. Bind entities → 5. Test → 6. Deploy. Show as a horizontal stepper or mini roadmap (top of app or main panel), current step highlighted, completed steps ticked. | [ ] |
-| 1.2 | **First-run / empty-state experience** — When no project is loaded, show a welcome panel: short explanation, three primary actions (Select device, Create new project, Open example project), short note under each. Optionally “Recent projects” for returning users. | [ ] |
-| 1.3 | **Single primary action per step** — In each step one button is visually dominant (e.g. “Continue with this device”, “Go to designer”, “Set up bindings”, “Test in simulator”, “Deploy to device”). Secondary/advanced actions visible but subdued. | [ ] |
-| 1.4 | **Contextual guidance at each step** — Short step-specific helper text at top of main content (1–2 sentences), e.g. “Select the ESPHome device you want to design screens for.” Optional “Learn more” link. | [ ] |
-| 1.5 | **Progressive disclosure of advanced tools** — Hide or de-emphasise sections editing, recipes, complex LVGL tuning until project is loaded and user has used the designer; then expose via “Advanced tools” group or “(Advanced)” labels. | [ ] |
-| 1.6 | **Clear status and next-step hint** — Always show: current device and project name; current step (e.g. “Step 3 of 6: Design screens”); “Next: Set up bindings →” style hint. Mark steps complete in stepper when done enough. | [ ] |
+| 1.1 | **Define and surface the core journey** — Name steps: 1. Choose device → 2. Load/create project → 3. Design screens → 4. Bind entities → 5. Test → 6. Deploy. Show as a horizontal stepper or mini roadmap (top of app or main panel), current step highlighted, completed steps ticked. | [x] |
+| 1.2 | **First-run / empty-state experience** — When no project is loaded, show a welcome panel: short explanation, three primary actions (Select device, Create new project, Open example project), short note under each. Optionally “Recent projects” for returning users. | [x] |
+| 1.3 | **Single primary action per step** — In each step one button is visually dominant (e.g. “Continue with this device”, “Go to designer”, “Set up bindings”, “Test in simulator”, “Deploy to device”). Secondary/advanced actions visible but subdued. | [x] |
+| 1.4 | **Contextual guidance at each step** — Short step-specific helper text at top of main content (1–2 sentences), e.g. “Select the ESPHome device you want to design screens for.” Optional “Learn more” link. | [x] |
+| 1.5 | **Progressive disclosure of advanced tools** — Hide or de-emphasise sections editing, recipes, complex LVGL tuning until project is loaded and user has used the designer; then expose via “Advanced tools” group or “(Advanced)” labels. | [x] |
+| 1.6 | **Clear status and next-step hint** — Always show: current device and project name; current step (e.g. “Step 3 of 6: Design screens”); “Next: Set up bindings →” style hint. Mark steps complete in stepper when done enough. | [x] |
 
 ---
 
@@ -98,4 +100,4 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 ---
 
-*Last updated: plan created; no code changes yet.*
+*Last updated: §1 Clarify the main workflow implemented on branch `ui-workflow-stepper`.*

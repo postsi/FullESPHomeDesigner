@@ -38,6 +38,8 @@ import {
 } from "./api";
 import LvglSettingsModal, { type LvglConfig } from "./LvglSettingsModal";
 import ComponentsPanelLoader from "./ComponentsPanelLoader";
+import WorkflowStepper, { type WorkflowStep } from "./WorkflowStepper";
+import WelcomePanel from "./WelcomePanel";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -556,6 +558,54 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
 
   const selectedDeviceObj = useMemo(() => devices.find((d) => d.device_id === selectedDevice) || null, [devices, selectedDevice]);
   const selectedRecipeId = selectedDeviceObj?.hardware_recipe_id || null;
+
+  const deviceSelectRef = useRef<HTMLSelectElement | null>(null);
+
+  const totalWidgetCount = useMemo(() => project?.pages?.reduce((acc: number, p: any) => acc + (p?.widgets?.length ?? 0), 0) ?? 0, [project]);
+  const bindingCount = (haBindingCounts.entities + haBindingCounts.links + haBindingCounts.actions) || 0;
+  const { currentWorkflowStep, completedWorkflowSteps, stepGuidance, nextStepLabel } = useMemo(() => {
+    const completed = new Set<WorkflowStep>();
+    let current: WorkflowStep = 1;
+    if (selectedDevice) {
+      completed.add(1);
+      if (project) {
+        completed.add(2);
+        if (totalWidgetCount > 0) completed.add(3);
+        if (bindingCount > 0) completed.add(4);
+        if (totalWidgetCount === 0) current = 3;
+        else if (bindingCount === 0) current = 4;
+        else current = 5;
+      } else {
+        current = 2;
+      }
+    } else {
+      current = 1;
+    }
+    const guidance: Record<WorkflowStep, string> = {
+      1: "Select the ESPHome device you want to design screens for.",
+      2: "Load the project for this device or create a new one (e.g. from a recipe).",
+      3: "Arrange widgets on your pages. Use the palette on the left and the properties panel on the right.",
+      4: "Connect widgets to Home Assistant entities and actions so they show data and control devices.",
+      5: "Interact with the screen in the simulator to verify layout and behaviour before deploying.",
+      6: "Export YAML and deploy to your device.",
+    };
+    const nextLabels: Record<WorkflowStep, string | null> = {
+      1: "Select device",
+      2: "Load or create project",
+      3: "Add widgets to your pages",
+      4: "Set up bindings",
+      5: "Test in simulator",
+      6: null,
+    };
+    return {
+      currentWorkflowStep: current,
+      completedWorkflowSteps: completed,
+      stepGuidance: guidance[current],
+      nextStepLabel: nextLabels[current],
+    };
+  }, [selectedDevice, project, totalWidgetCount, bindingCount]);
+
+  const showAdvancedToolsProminent = project != null && totalWidgetCount > 0;
 
   // v0.68: Validate and display hardware recipe metadata + issues.
   useEffect(() => {
@@ -3542,8 +3592,16 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         );
       })()}
 
+      <WorkflowStepper
+        currentStep={currentWorkflowStep}
+        completedWorkflowSteps={completedWorkflowSteps}
+        deviceName={selectedDeviceObj?.name || selectedDevice || null}
+        stepGuidance={stepGuidance}
+        nextStepLabel={nextStepLabel}
+      />
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
         <select
+          ref={deviceSelectRef}
           value={selectedDevice}
           onChange={(e) => {
             const id = e.target.value;
@@ -3567,10 +3625,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
-        <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
-        <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
-        <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
-        <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
+        <span style={{ display: "inline-flex", gap: 8, alignItems: "center", opacity: showAdvancedToolsProminent ? 1 : 0.7 }}>
+          <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
+          <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
+          <button className="ghost" onClick={() => { setRecipeImportOpen(true); setRecipeImportErr(""); setRecipeImportOk(null); }} title="Import a hardware recipe from YAML">Import recipe</button>
+          <button className="ghost" onClick={() => { setRecipeMgrOpen(true); setRecipeMgrErr(""); }} title="Rename or delete custom recipes">Manage recipes</button>
+        </span>
       </nav>
 
       <main
@@ -3687,9 +3747,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
 
         <div className="designerPanelCenter">
           {!selectedDevice || !project ? (
-            <div className="muted" style={{ padding: 24 }}>
-              Select a device from the dropdown above, or click <strong>New device</strong> to create one.
-            </div>
+            <WelcomePanel
+              hasDevices={devices.length > 0}
+              onSelectDevice={() => deviceSelectRef.current?.focus()}
+              onNewDevice={openNewDeviceWizard}
+              onOpenExample={openNewDeviceWizard}
+            />
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
