@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.10
+
+- **Deploy button** — The nav “Compile” button is renamed to **Deploy**. Clicking it compiles and saves YAML to `/config/esphome/` (same as “Export to /config/esphome/” in the Compile dialog). If the project has unsaved changes, it saves first, then exports. A toast shows **Deployment successful** or **Deployment failed: &lt;reason&gt;** so the user knows the result without opening the dialog.
+
 ## v0.71.9
 
 - **Save button** — One Save button restored in the nav bar (Device & deploy group). Shows “Save (unsaved)” when there are unsaved changes; Ctrl+S still works.

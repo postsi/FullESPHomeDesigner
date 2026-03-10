@@ -2326,6 +2326,38 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     } finally { setBusy(false); }
   }
 
+  /** Compile and write to /config/esphome/ (same as Export in Compile dialog). Shows toast on success/fail. */
+  async function deployToConfig() {
+    if (!selectedDevice || !entryId || !project) return;
+    setBusy(true);
+    try {
+      if (projectDirty) {
+        const res = await putProject(entryId, selectedDevice, project);
+        if (!res.ok) {
+          setToast({ type: "error", msg: `Deployment failed: ${res.error}` });
+          return;
+        }
+        setProjectDirty(false);
+      }
+      const preview: any = await exportDeviceYamlPreview(selectedDevice, entryId);
+      if (!preview?.ok) {
+        setToast({ type: "error", msg: `Deployment failed: ${preview?.error ?? "preview failed"}` });
+        return;
+      }
+      const expected = preview.existing_hash || "";
+      const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected, entryId);
+      if (!res?.ok) {
+        setToast({ type: "error", msg: `Deployment failed: ${res?.error ?? res?.detail ?? "export failed"}` });
+        return;
+      }
+      setToast({ type: "ok", msg: "Deployment successful" });
+    } catch (e: any) {
+      setToast({ type: "error", msg: `Deployment failed: ${e?.message ?? "unknown error"}` });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -3759,7 +3791,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         )}
         {/* Group: Device & deploy */}
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
-        <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
+        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Compile and save YAML to /config/esphome/">Deploy</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
         <span className="muted" style={{ marginRight: 4 }}>|</span>
         {/* Group: Advanced */}
