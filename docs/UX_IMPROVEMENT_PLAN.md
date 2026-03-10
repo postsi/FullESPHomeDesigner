@@ -6,6 +6,8 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 **Pre-change release (for revert):** **v0.70.217** — Git tag `v0.70.217`. To revert: create a new release (e.g. v0.71.x) from this tag so “latest” serves the pre–UX-change experience again.
 
+**Pre-§2 release (revert point for Navigation phase):** **v0.71.5** — Git tag `v0.71.5`. If §2 Navigation and layout changes are not wanted, create a new release from this tag to roll back to the current UI.
+
 ---
 
 ## 1. Clarify the main workflow
@@ -29,9 +31,63 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 | # | Item | Status |
 |---|------|--------|
-| 2.1 | **Group tools by task** — e.g. “Layout” (widgets, pages, alignment), “Data & bindings”, “Device & deploy”, instead of a flat list of modals/panels. | [ ] |
-| 2.2 | **Prominent page navigation** — Tabs or clear page list near the canvas so users always know which screen they are editing. | [ ] |
+| 2.1 | **Group tools by task** (nav: groups with separators) — e.g. “Layout” (widgets, pages, alignment), “Data & bindings”, “Device & deploy”, instead of a flat list of modals/panels. | [x] |
+| 2.2 | **Prominent page navigation** — Tabs or clear page list near the canvas so users always know which screen they are editing. | [x] |
 | 2.3 | **Prefer panels over modals** — For frequently used flows (bindings, properties, LVGL settings), use side panels/drawers that don’t block the canvas where possible. | [ ] |
+
+### §2 Detailed proposal (no coding until agreed)
+
+**2.1 Group tools by task**
+
+- **Current state:** The nav bar and left panel mix: Device list, Device details, Save, Compile, Save as card, LVGL settings, Components, Import recipe, Manage recipes. The left panel has Std LVGL / Card Library / Widgets tabs and the canvas area has page dropdown + alignment buttons. No clear grouping by "what I'm doing".
+- **Proposal:**
+  - Introduce **task groups** in the main chrome (nav or a compact toolbar), e.g.:
+    - **Layout** — Page list/tabs, Add page, alignment (Align L/C/R, T/M/B, Dist H/V), Undo/Redo. Optionally move "widget palette" (Std LVGL, Card Library, Widgets) under a "Layout" or "Add" group so it's clear this is "arranging the screen".
+    - **Data & bindings** — One entry point that opens the bindings/links/actions surface (panel or modal to start). Keeps "bindings" as one mental bucket.
+    - **Device & deploy** — Save, Compile, Export, Deploy (and optionally "Device details" if we keep it here). "Everything that touches the device or output" in one group.
+    - **Advanced** — LVGL settings, Components, Import recipe, Manage recipes. Already de‑emphasised; group under one "Advanced" or "More" control to reduce clutter.
+  - **UI shape:** Either (A) a nav bar with grouped buttons/dropdowns ("Layout", "Data & bindings", "Device & deploy", "Advanced"), or (B) keep a single bar but add visual separators (e.g. `|`) and order buttons by group. Option (A) is clearer; (B) is a smaller change.
+  - **Left panel:** Keep palette (Std LVGL, Card Library, Widgets) as is for now; we can later label it "Add to screen" or fold it under Layout if we add a Layout dropdown.
+
+**2.2 Prominent page navigation**
+
+- **Current state:** Page choice is a dropdown in the center content area ("Page 1", "Page 2", etc.) with Add page nearby. It works but is easy to miss; "which screen am I on?" isn't always obvious.
+- **Proposal:**
+  - Place **page navigation** immediately above or directly beside the canvas (e.g. horizontal **tabs**: "Page 1 | Page 2 | Page 3" or a small "Pages" strip), so the active screen is obvious at a glance.
+  - Keep "Add page" in the same row or one click away (e.g. "+ Page" tab or button next to the tabs).
+  - Ensure the **current page is always named** in that strip (existing page name or "Page N"); no reliance on the stepper alone for "which screen".
+  - Optional: small thumbnail or label under each tab if we have page names (e.g. "Home", "Settings") for quicker scanning.
+
+**2.3 Prefer panels over modals**
+
+- **Current state:** Bindings, properties (inspector), LVGL settings, Components, etc. open as modals or full overlays. They block the canvas, so users must close them to see the result of a change.
+- **Proposal:**
+  - **Right-hand panel (drawer):** Use a persistent or openable **right-side panel** for:
+    - **Properties** — Current selection (widget/screen) with "Nothing selected" when appropriate. Open by default when a widget is selected; can be collapsed to an icon or "Properties" tab.
+    - **Bindings** — Same panel, different "tab" or section: "Properties | Bindings". So "inspect and bind" live in one place that doesn't cover the canvas.
+  - **LVGL settings & Components:** Either (A) move into the same right panel as tabs "Properties | Bindings | LVGL | Components", or (B) keep as modals but make them **resizable and/or draggable** so the user can position them beside the canvas (half-screen). (A) is more "panel-first"; (B) is a lighter change.
+  - **Recipe import / Manage recipes:** Can stay as modals (less frequent). Optional: "Import recipe" could open a compact panel from the side instead of a centre modal.
+  - **Behaviour:** Panel width resizable (e.g. 260–400px); collapse to a narrow strip with icons to get more canvas space. No modal overlay for Properties/Bindings when the panel is open so the canvas remains visible.
+
+**Summary table**
+
+| Item | Current | Proposed |
+|------|--------|----------|
+| 2.1  | Flat list of buttons | Groups: Layout, Data & bindings, Device & deploy, Advanced |
+| 2.2  | Page dropdown in content | Tabs or strip above/beside canvas; "Add page" in same row |
+| 2.3  | Modals for properties, bindings, LVGL, Components | Right-side panel (Properties + Bindings); LVGL/Components either in same panel or resizable modals |
+
+**Risks / decisions**
+
+- **2.1:** Grouping might need a second pass once we see it in the UI (e.g. "Save as card" could sit under Layout or under Advanced). We can start with the four groups above and adjust.
+- **2.2:** Tabs need to work on small viewports; we may need a dropdown fallback for many pages (e.g. "Page 1 ▼").
+- **2.3:** Right panel reduces horizontal space for the canvas; resizable/collapsible panel is important. We could default to collapsed on first run and remember user preference.
+
+**Decisions (approved)**
+
+- **2.1:** **B** — Keep a single nav bar; add visual separators (e.g. `|`) and order buttons by group (Layout → Data & bindings → Device & deploy → Advanced). No dropdowns for groups.
+- **2.2:** **Tabs** — Page navigation as tabs (e.g. "Page 1 | Page 2 | + Page") above the canvas.
+- **2.3:** **Keep as-is** — Leave existing panels/modals broadly as they are; no right-side panel or modal-to-panel change in this phase.
 
 ---
 

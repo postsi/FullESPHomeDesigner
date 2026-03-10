@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.6
+
+- **§2 Navigation and layout** — **2.1** Nav bar grouped with separators: Device (list, details) | Device & deploy (Save, Compile, Save as card) | Advanced (LVGL settings, Components, Import recipe, Manage recipes). **2.2** Page navigation is now tabs above the canvas (Page 1 | Page 2 | … | + Page) instead of a dropdown; current page is obvious at a glance. See [docs/UX_IMPROVEMENT_PLAN.md](UX_IMPROVEMENT_PLAN.md) §2.
+
 ## v0.71.5
 
 - **Nav bar simplified** — All device actions (open, add, manage, delete) live on the welcome panel / Device list. When a device is loaded, the nav bar shows only **Device list** (back to welcome) and **Device details** (renamed from “Edit device”; view/edit name, slug, API key, recipe). Removed from nav: device dropdown, Add device, Delete, Manage devices. Delete device is only in the Manage devices dialog. Modal title for device edit is now “Device details”.

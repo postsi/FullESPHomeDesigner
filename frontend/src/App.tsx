@@ -3673,6 +3673,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         nextStepLabel={nextStepLabel}
       />
       <nav className="bar" style={{ padding: "10px 16px", gap: 12, flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--color-border, #333)" }}>
+        {/* Group: Device (when loaded) */}
         {selectedDevice && project && (
           <>
             <button
@@ -3690,11 +3691,15 @@ function nudgeSelected(dx: number, dy: number, step: number) {
               Device list
             </button>
             <button className="secondary" disabled={busy || !selectedDevice} onClick={openEditDeviceModal} title="View or edit device name, slug, API key, recipe">Device details</button>
+            <span className="muted" style={{ marginRight: 4 }}>|</span>
           </>
         )}
+        {/* Group: Device & deploy */}
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice} onClick={() => { setCompileModalOpen(true); refreshCompile(); }} title="Compile and view YAML">Compile</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
+        <span className="muted" style={{ marginRight: 4 }}>|</span>
+        {/* Group: Advanced */}
         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", opacity: showAdvancedToolsProminent ? 1 : 0.7 }}>
           <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
           <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
@@ -3829,12 +3834,37 @@ function nudgeSelected(dx: number, dy: number, step: number) {
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                <select value={safePageIndex} onChange={(e) => { setCurrentPageIndex(Number(e.target.value)); setSelectedWidgetIds([]); setSelectedSchema(null); }} title="Page">
+                {/* Page tabs */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 0, border: "1px solid var(--color-border, #333)", borderRadius: 8, overflow: "hidden" }}>
                   {pages.map((p, idx) => (
-                    <option key={p?.page_id ?? `page-${idx}`} value={idx}>{p?.name || `Page ${idx + 1}`}</option>
+                    <button
+                      key={p?.page_id ?? `page-${idx}`}
+                      type="button"
+                      className={safePageIndex === idx ? "primary" : "ghost"}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 0,
+                        borderRight: idx < pages.length - 1 ? "1px solid var(--color-border, #333)" : "none",
+                        fontWeight: safePageIndex === idx ? 600 : 400,
+                      }}
+                      onClick={() => { setCurrentPageIndex(idx); setSelectedWidgetIds([]); setSelectedSchema(null); }}
+                      title={`Page ${idx + 1}`}
+                    >
+                      {p?.name || `Page ${idx + 1}`}
+                    </button>
                   ))}
-                </select>
-                <button className="secondary" disabled={busy} onClick={addPage}>Add page</button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    style={{ padding: "6px 10px", borderRadius: 0, borderLeft: "1px solid var(--color-border, #333)" }}
+                    disabled={busy}
+                    onClick={addPage}
+                    title="Add page"
+                  >
+                    + Page
+                  </button>
+                </div>
+                <span className="muted">|</span>
                 <button className="secondary" disabled={!projectHist.canUndo} onClick={projectHist.undo}>Undo</button>
                 <button className="secondary" disabled={!projectHist.canRedo} onClick={projectHist.redo}>Redo</button>
                 <span className="muted">|</span>
