@@ -386,7 +386,9 @@ export default function SectionBasedComponentsPanel({
               setCleanupMessage(null);
               setCleanupBusy(true);
               try {
-                const res = await cleanupOrphanedComponents(project);
+                // Pass project with panel's current sections so backend has full content to clean
+                const projectWithSections = { ...project, sections: { ...(project.sections || {}), ...sections } };
+                const res = await cleanupOrphanedComponents(projectWithSections);
                 if (res.removed.length > 0) {
                   setProject(res.project, true);
                   setProjectDirty(true);

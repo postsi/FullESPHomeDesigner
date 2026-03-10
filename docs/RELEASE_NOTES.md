@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.9
+
+- **Save button** — One Save button restored in the nav bar (Device & deploy group). Shows “Save (unsaved)” when there are unsaved changes; Ctrl+S still works.
+- **Cleanup orphaned** — Components panel “Cleanup orphaned” now passes the panel’s current section content to the API so the backend can find and remove orphaned widget refs (previously only stored project.sections was sent, which could be empty or stale).
+
 ## v0.71.8
 
 - **Delete page context menu** — Context menu now closes when you click “Delete page” or click outside (capture index before closing).
