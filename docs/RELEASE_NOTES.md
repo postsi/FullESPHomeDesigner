@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.214
+
+- **Waveshare 7\" backlight entity** — Updated the builtin Waveshare ESP32-S3 Touch LCD 7\" hardware recipe so the backlight is exposed as a single, honest on/off control backed by the CH422G GPIO switch. Removed the fake monochromatic light and template output that previously showed a dimmer in Home Assistant without affecting the actual panel.
+
 ## v0.70.213
 
 - **Widget/binding verification script** — Added `scripts/test_widget_binding_verification.py` to the release test suite. It checks: (1) every compilable widget type (backend `COMPILABLE_WIDGET_TYPES`) has a render branch in `Canvas.tsx`; (2) every display action from bindingConfig is handled in `App.tsx` liveOverrides; (3) widget types in bindingConfig are a subset of compilable types. Keeps canvas, bindings, and docs in sync when adding widgets or display actions.
