@@ -2,7 +2,7 @@
 
 ## v0.70.209
 
-- **Delete cleanup for cards and prebuilts** — When widgets from the Card Library or prebuilt widgets are deleted from the canvas, their associated data is now removed: scripts (e.g. thermostat inc/dec), `esphome_components` (e.g. wifi_signal, time, interval), and HA bindings. Scripts and prebuilt components are tagged with the card/prebuilt root widget id on insert; deleting that root (or its container) filters them out and bindings are recomputed from the remaining links so compiled YAML no longer includes orphaned sensors or scripts.
+- **Delete cleanup for cards and prebuilts** — When widgets from the Card Library or prebuilt widgets are deleted from the canvas, their associated data is now removed: scripts (e.g. thermostat inc/dec), esphome_components (e.g. wifi_signal, time, interval), and HA bindings. Scripts and prebuilt components are tagged with the card/prebuilt root widget id on insert; deleting that root (or its container) removes them. Bindings are recomputed from remaining links so sensors/text_sensors/binary_sensors no longer appear in compiled YAML for deleted widgets.
 
 ## v0.70.208
 
