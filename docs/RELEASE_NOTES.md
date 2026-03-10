@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.70.217
+
+- **Broader test coverage (no HA deployment)** — Backend: `test_compiler_helpers.py` (25 tests) for pure helpers (`_safe_id`, `_slugify_entity_id`, `_esphome_safe_page_id`, `_hex_color_for_yaml`, `_yaml_quote`, `_split_esphome_block`, `_validate_recipe_text`, `_extract_recipe_metadata` / `_extract_recipe_metadata_from_text`, `_read_recipe_file`, default wifi/logger YAML). `test_compile_widgets_and_bindings.py` (14 tests) for compile with label, button, switch, slider, bar, arc, dropdown, led, checkbox and display bindings (label_text, arc_value, bar_value, widget_checked). Frontend: `bindingConfig.test.ts` and `matchingActions.test.ts` for display actions, events, services, `domainFromEntityId`, and `getMatchingActionBindings`. Total: 78 pytest + 53 Vitest tests. [docs/TESTING.md](TESTING.md) updated.
+
 ## v0.70.216
 
 - **Unified test suite (pytest)** — All Python tests now live under `tests/` and run via `pytest tests/`. Single command: `./scripts/run_all_tests.sh` runs pytest then frontend Vitest. No Home Assistant server required.

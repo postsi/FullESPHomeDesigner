@@ -38,6 +38,8 @@ pip install -r scripts/requirements.txt
 - **test_widget_binding_verification.py** — Canvas covers all compilable types; App liveOverrides handle all display actions; bindingConfig widget types ⊆ compilable.
 - **test_storage.py** — `_default_project` and `_migrate_project` (defaults, migration, unknown fields).
 - **test_safe_merge_markers.py** — Export safe-merge marker behaviour (insert, replace, duplicate/order errors).
+- **test_compiler_helpers.py** — Pure helpers: `_safe_id`, `_slugify_entity_id`, `_esphome_safe_page_id`, `_hex_color_for_yaml`, `_yaml_quote`, `_split_esphome_block`, `_section_full_block`/`_section_body_from_value`, `_validate_recipe_text`, `_extract_recipe_metadata` / `_extract_recipe_metadata_from_text`, `_read_recipe_file`, `_default_wifi_yaml`, `_default_logger_yaml`.
+- **test_compile_widgets_and_bindings.py** — Compile with one widget per type (label, button, switch, slider, bar, arc, dropdown, led, checkbox) and with display bindings (label_text, arc_value, bar_value, widget_checked) so `_compile_ha_bindings` and `_emit_widget_from_schema` paths are exercised.
 
 To add a backend test: add a `test_*.py` module under `tests/` and use fixtures from `tests/conftest.py` (`make_device`, `default_project`, `jc1060_recipe_text`) as needed.
 
@@ -52,6 +54,8 @@ Tests include:
 - Arc drawing (rotation, start/end angles, pointerAngleToValue).
 - Arc indicator color (defaults, indicator.bg_color).
 - Prebuilt spinbox with +/- buttons structure.
+- **bindings/bindingConfig.test.ts** — `domainFromEntityId`, `getDisplayActionsForType`, `getEventsForType`, `getServicesForDomain`, and coverage of `DISPLAY_ACTIONS_BY_WIDGET_TYPE` / `EVENTS_BY_WIDGET_TYPE`.
+- **bindings/matchingActions.test.ts** — `getMatchingActionBindings` (light brightness, climate temperature, switch toggle, dropdown HVAC mode), and constants (`INPUT_WIDGET_TYPES`, `OPTION_SELECT_WIDGET_TYPES`, `CLICK_TOGGLE_WIDGET_TYPES`, `SELECT_OPTION_TEXT_SENTINEL`).
 
 Before changing arc or binding behaviour, run `npm run test` and fix any failures.
 
