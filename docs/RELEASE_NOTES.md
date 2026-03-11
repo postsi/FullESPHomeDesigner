@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.15
+
+- **Canvas logic tests** — Pure canvas helpers (resize/drag clamping, snap, colors, layout, box selection) moved to `canvasUtils.ts` and covered by 36 unit tests. Catches regressions like the resize-handle bug (negative width/height from Konva). Tests: `clampResizeBox`, `clampDragPosition`, `snap`, `toFillColor`, `fontSizeFromFontId`, `textLayoutFromWidget`, `safeWidgets`, `computeLayoutPositions`, `widgetsInSelectionRect`, `parentInfo`/`absPos`.
+- **CodeMirror brighter syntax** — YAML editor uses a custom highlight style so keys (e.g. `id:`), strings, numbers, and comments are easier to read on the dark theme.
+
 ## v0.71.14
 
 - **CodeMirror for all YAML** — Every place that displays or edits YAML now uses CodeMirror 6: syntax highlighting, line numbers, and consistent dark theme. Applies to Components panel sections, Binding Builder overrides, Widget YAML tab (full preview and per-event boxes), recipe import paste, template wizard service data, and the Compile modal.

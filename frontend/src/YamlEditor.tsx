@@ -6,6 +6,8 @@ import React, { useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { yaml } from "@codemirror/lang-yaml";
 import { EditorView } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 
 export type YamlEditorProps = {
   value: string;
@@ -20,6 +22,18 @@ export type YamlEditorProps = {
   /** Border/style when "manual" or highlighted (e.g. Components panel) */
   variant?: "default" | "manual";
 };
+
+/** Brighter syntax colours for YAML on dark background (keys, strings, etc. easy to read). */
+const brightYamlHighlight = HighlightStyle.define([
+  { tag: tags.keyword, color: "#c084fc" },
+  { tag: [tags.propertyName, tags.name], color: "#7dd3fc" },
+  { tag: tags.labelName, color: "#93c5fd" },
+  { tag: [tags.string, tags.inserted], color: "#86efac" },
+  { tag: [tags.number, tags.integer], color: "#fde047" },
+  { tag: [tags.bool, tags.atom], color: "#fdba74" },
+  { tag: [tags.comment, tags.meta], color: "#94a3b8" },
+  { tag: [tags.definition(tags.name), tags.separator], color: "#e2e8f0" },
+]);
 
 const darkTheme = EditorView.theme({
   "&": { fontSize: "11px" },
@@ -60,6 +74,7 @@ export default function YamlEditor({
     const exts = [
       yaml(),
       darkTheme,
+      syntaxHighlighting(brightYamlHighlight),
       EditorView.lineWrapping,
     ];
     if (variant === "manual") exts.push(manualTheme);

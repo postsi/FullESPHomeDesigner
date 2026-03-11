@@ -1,6 +1,20 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
 import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
+import {
+  snap,
+  toFillColor,
+  fontSizeFromFontId,
+  textLayoutFromWidget,
+  safeWidgets,
+  computeLayoutPositions,
+  clampResizeBox,
+  clampDragPosition,
+  clampDragPositionCentered,
+  widgetsInSelectionRect,
+  parentInfo as parentInfoUtil,
+  absPos as absPosUtil,
+} from "./canvasUtils";
 
 type Widget = {
   id: string;
@@ -43,130 +57,6 @@ type Props = {
   onOpenTextarea?: (widgetId: string, currentText: string) => void;
 };
 
-function snap(n: number, grid: number) {
-  if (!grid || grid <= 1) return n;
-  return Math.round(n / grid) * grid;
-}
-
-/** Normalize color to CSS fill (templates use numeric 0xrrggbb). */
-function toFillColor(val: any, fallback: string): string {
-  if (typeof val === "number" && val >= 0 && val <= 0xffffff) {
-    return "#" + val.toString(16).padStart(6, "0");
-  }
-  if (typeof val === "string" && /^#?[0-9a-fA-F]{6}$/.test(val)) return val.startsWith("#") ? val : "#" + val;
-  return fallback;
-}
-
-/** Parse pixel size from font id for canvas preview (e.g. montserrat_14 → 14, asset:file.ttf:16 → 16). */
-function fontSizeFromFontId(fontId: any): number | null {
-  if (fontId == null || typeof fontId !== "string") return null;
-  const s = String(fontId).trim();
-  if (!s) return null;
-  // asset:filename:size
-  const assetMatch = /:(\d+)$/.exec(s);
-  if (assetMatch) return parseInt(assetMatch[1], 10) || null;
-  // montserrat_14, roboto_18, etc.
-  const underscoreMatch = /_(\d+)$/.exec(s);
-  if (underscoreMatch) return parseInt(underscoreMatch[1], 10) || null;
-  return null;
-}
-
-/** LVGL text_align (LEFT, CENTER, RIGHT, AUTO) + padding -> Konva Text position and align.
- * text_align controls text alignment within the widget; use it when set, else fall back to
- * align (widget position) for backward compatibility. */
-function textLayoutFromWidget(
-  ax: number,
-  ay: number,
-  width: number,
-  height: number,
-  props: Record<string, unknown> = {},
-  style: Record<string, unknown> = {}
-): { x: number; y: number; width: number; height: number; align: "left" | "center" | "right"; verticalAlign: "top" | "middle" | "bottom" } {
-  const padLeft = Number(style.pad_all ?? style.pad_left ?? 0);
-  const padRight = Number(style.pad_all ?? style.pad_right ?? 0);
-  const padTop = Number(style.pad_all ?? style.pad_top ?? 0);
-  const padBottom = Number(style.pad_all ?? style.pad_bottom ?? 0);
-  const contentW = Math.max(0, width - padLeft - padRight);
-  const contentH = Math.max(0, height - padTop - padBottom);
-  const left = ax + padLeft;
-  const top = ay + padTop;
-
-  // text_align (style) = text alignment within widget (LEFT, CENTER, RIGHT, AUTO)
-  const textAlign = String(style.text_align ?? "LEFT").toUpperCase();
-  let horizontal: "left" | "center" | "right";
-  if (textAlign === "LEFT" || textAlign === "AUTO") {
-    horizontal = "left";
-  } else if (textAlign === "RIGHT") {
-    horizontal = "right";
-  } else {
-    horizontal = "center";
-  }
-
-  // vertical: LVGL has no vertical text align. Use widget align as hint so canvas matches device
-  // (position widget with CENTER/LEFT_MID etc. for vertically centered text).
-  const align = String(props.align ?? style.align ?? "TOP_LEFT").toUpperCase();
-  const vertical: "top" | "middle" | "bottom" =
-    align === "TOP_LEFT" || align === "TOP_MID" || align === "TOP_RIGHT"
-      ? "top"
-      : align === "BOTTOM_LEFT" || align === "BOTTOM_MID" || align === "BOTTOM_RIGHT"
-        ? "bottom"
-        : "middle";
-
-  return {
-    x: left,
-    y: top,
-    width: contentW,
-    height: contentH,
-    align: horizontal,
-    verticalAlign: vertical,
-  };
-}
-
-// Ensure only valid widgets (avoids "undefined is not an object (evaluating '*.id')" when array has holes)
-function safeWidgets(list: Widget[]): Widget[] {
-  return (list || []).filter((w): w is Widget => !!w && typeof w === "object" && w.id != null);
-}
-
-// --- v0.31: simple layout preview for container.flex_* ---
-function computeLayoutPositions(widgets: Widget[]): Map<string, {x:number;y:number}> {
-  const list = safeWidgets(widgets);
-  const byId = new Map<string, Widget>();
-  list.forEach(w => byId.set(w.id, w));
-  const children = new Map<string, Widget[]>();
-  list.forEach(w => {
-    if (w.parent_id) {
-      let arr = children.get(w.parent_id);
-      if (!arr) { arr = []; children.set(w.parent_id, arr); }
-      arr.push(w);
-    }
-  });
-
-  const pos = new Map<string, {x:number;y:number}>();
-  function walk(parentId: string) {
-    const parent = byId.get(parentId);
-    if (!parent) return;
-    const kids = children.get(parentId) || [];
-    const layout = String((parent.props || {}).layout || "");
-    if (!layout.startsWith("flex_")) return;
-    const gap = Number((parent.props || {}).gap || 6);
-    const pad = Number((parent.style || {}).pad_left || 0);
-    let cx = parent.x + pad;
-    let cy = parent.y + Number((parent.style || {}).pad_top || 0);
-    const isRow = layout === "flex_row";
-    // stable order: y then x then id
-    kids.sort((a,b) => (a.y-b.y) || (a.x-b.x) || a.id.localeCompare(b.id));
-    kids.forEach(k => {
-      pos.set(k.id, { x: cx, y: cy });
-      if (isRow) cx += (k.w || 0) + gap;
-      else cy += (k.h || 0) + gap;
-    });
-    kids.forEach(k => walk(k.id));
-  }
-  list.filter(w => !w.parent_id).forEach(w => walk(w.id));
-  return pos;
-}
-
-
 export default function Canvas({
   widgets: rawWidgets,
   selectedIds,
@@ -188,7 +78,7 @@ export default function Canvas({
   onDropCreate,
   onChangeMany,
 }: Props) {
-  const widgets = useMemo(() => safeWidgets(rawWidgets), [rawWidgets]);
+  const widgets = useMemo(() => safeWidgets(rawWidgets) as Widget[], [rawWidgets]);
     const layoutPos = useMemo(() => computeLayoutPositions(widgets), [widgets]);
 const stageRef = useRef<any>(null);
   const trRef = useRef<any>(null);
@@ -220,15 +110,11 @@ const stageRef = useRef<any>(null);
     const minY = Math.min(startY, endY);
     const maxY = Math.max(startY, endY);
     const topLevel = widgets.filter((w) => !w.parent_id);
-    const idsInBox: string[] = [];
-    for (const w of topLevel) {
+    const items = topLevel.map((w) => {
       const { ax, ay } = absPos(w);
-      const ww = w.w || 100;
-      const hh = w.h || 50;
-      if (!(ax + ww < minX || ax > maxX || ay + hh < minY || ay > maxY)) {
-        idsInBox.push(w.id);
-      }
-    }
+      return { id: w.id, ax, ay, w: w.w || 100, h: w.h || 50 };
+    });
+    const idsInBox = widgetsInSelectionRect(minX, maxX, minY, maxY, items);
     setSelectionBox(null);
     if (idsInBox.length > 0) {
       onSelectNone();
@@ -269,51 +155,8 @@ const stageRef = useRef<any>(null);
     return m;
   }, [widgets]);
 
-  // Parent position (top-left in canvas coords) and parent content size for align math.
-  const parentInfo = (w: Widget): { ax: number; ay: number; pw: number; ph: number } => {
-    if (!w.parent_id) {
-      return { ax: 0, ay: 0, pw: width, ph: height };
-    }
-    const p = widgetById.get(w.parent_id);
-    if (!p) return { ax: 0, ay: 0, pw: width, ph: height };
-    const grand = parentInfo(p);
-    const align = String((p.props || {}).align ?? "TOP_LEFT").toUpperCase();
-    const px = p.x, py = p.y, pw = p.w || 100, ph = p.h || 50;
-    if (align === "TOP_LEFT" || !align) {
-      return { ax: grand.ax + px, ay: grand.ay + py, pw, ph };
-    }
-    const pw2 = grand.pw / 2, ph2 = grand.ph / 2;
-    let pax = grand.ax, pay = grand.ay;
-    if (align === "CENTER") { pax = grand.ax + grand.pw / 2 - pw / 2; pay = grand.ay + grand.ph / 2 - ph / 2; }
-    else if (align === "TOP_MID") { pax = grand.ax + grand.pw / 2 - pw / 2; }
-    else if (align === "TOP_RIGHT") { pax = grand.ax + grand.pw - pw; }
-    else if (align === "LEFT_MID") { pay = grand.ay + grand.ph / 2 - ph / 2; }
-    else if (align === "RIGHT_MID") { pax = grand.ax + grand.pw - pw; pay = grand.ay + grand.ph / 2 - ph / 2; }
-    else if (align === "BOTTOM_LEFT") { pay = grand.ay + grand.ph - ph; }
-    else if (align === "BOTTOM_MID") { pax = grand.ax + grand.pw / 2 - pw / 2; pay = grand.ay + grand.ph - ph; }
-    else if (align === "BOTTOM_RIGHT") { pax = grand.ax + grand.pw - pw; pay = grand.ay + grand.ph - ph; }
-    return { ax: pax, ay: pay, pw, ph };
-  };
-
-  // Visual top-left (ax, ay) so canvas matches device. We store x,y as top-left; backend converts on emit.
-  const absPos = (w: Widget): { ax: number; ay: number } => {
-    const { ax: pax, ay: pay, pw, ph } = parentInfo(w);
-    const align = String((w.props || {}).align ?? "TOP_LEFT").toUpperCase();
-    const x = w.x, y = w.y, ww = w.w || 100, hh = w.h || 50;
-    if (align === "TOP_LEFT" || !align) return { ax: pax + x, ay: pay + y };
-    const pw2 = pw / 2, ph2 = ph / 2;
-    let ox = 0, oy = 0;
-    if (align === "CENTER") { ox = x + ww / 2 - pw2; oy = y + hh / 2 - ph2; }
-    else if (align === "TOP_MID") { ox = x + ww / 2 - pw2; }
-    else if (align === "TOP_RIGHT") { ox = x + ww - pw; }
-    else if (align === "LEFT_MID") { oy = y + hh / 2 - ph2; }
-    else if (align === "RIGHT_MID") { ox = x + ww - pw; oy = y + hh / 2 - ph2; }
-    else if (align === "BOTTOM_LEFT") { oy = y + hh - ph; }
-    else if (align === "BOTTOM_MID") { ox = x + ww / 2 - pw2; oy = y + hh - ph; }
-    else if (align === "BOTTOM_RIGHT") { ox = x + ww - pw; oy = y + hh - ph; }
-    const centerX = pax + pw2 + ox, centerY = pay + ph2 + oy;
-    return { ax: centerX - ww / 2, ay: centerY - hh / 2 };
-  };
+  const parentInfo = (w: Widget) => parentInfoUtil(w, widgetById, width, height);
+  const absPos = (w: Widget) => absPosUtil(w, widgetById, width, height);
 
   const renderWidget = (w: Widget, isSel: boolean, opts?: { localPosition?: boolean }) => {
     const { ax, ay } = opts?.localPosition ? { ax: w.x, ay: w.y } : absPos(w);
@@ -493,14 +336,11 @@ const stageRef = useRef<any>(null);
           ? (simDraggable ? (pos) => ({ x: (transformAngle !== 0 || transformZoom !== 1 ? ax + w.w / 2 : ax), y: (transformAngle !== 0 || transformZoom !== 1 ? ay + w.h / 2 : ay) }) : undefined)
           : (pos) => {
               const isCentered = transformAngle !== 0 || transformZoom !== 1;
-              const cx = isCentered
-                ? Math.max(w.w / 2, Math.min(width - w.w / 2, pos.x))
-                : Math.max(0, Math.min(width - w.w, pos.x));
-              const cy = isCentered
-                ? Math.max(w.h / 2, Math.min(height - w.h / 2, pos.y))
-                : Math.max(0, Math.min(height - w.h, pos.y));
-              setDragAtLimit(cx !== pos.x || cy !== pos.y);
-              return { x: cx, y: cy };
+              const r = isCentered
+                ? clampDragPositionCentered(pos.x, pos.y, w.w, w.h, width, height)
+                : clampDragPosition(pos.x, pos.y, w.w, w.h, width, height);
+              setDragAtLimit(r.atLimit);
+              return { x: r.x, y: r.y };
             }}
         onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
         onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
@@ -708,10 +548,9 @@ const stageRef = useRef<any>(null);
             clipFunc={clip ? (ctx) => { ctx.rect(0, 0, w.w, w.h); } : undefined}
             draggable={!w.parent_id && (!simulationMode || !simDraggable)}
             dragBoundFunc={!simulationMode && !w.parent_id ? (pos) => {
-              const cx = Math.max(0, Math.min(width - w.w, pos.x));
-              const cy = Math.max(0, Math.min(height - w.h, pos.y));
-              setDragAtLimit(cx !== pos.x || cy !== pos.y);
-              return { x: cx, y: cy };
+              const r = clampDragPosition(pos.x, pos.y, w.w, w.h, width, height);
+              setDragAtLimit(r.atLimit);
+              return { x: r.x, y: r.y };
             } : undefined}
             onClick={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!e.evt.shiftKey)}
             onTap={simulationMode ? (e) => { e.cancelBubble = true; handleSimClick(); } : (e) => onSelect(w.parent_id || w.id, !!(e.evt as any).shiftKey)}
@@ -1612,13 +1451,9 @@ const stageRef = useRef<any>(null);
           anchorStroke="#fff"
           borderStroke="#06b6d4"
           boundBoxFunc={(oldBox, newBox) => {
-            let x = Math.max(0, Math.min(width, newBox.x));
-            let y = Math.max(0, Math.min(height, newBox.y));
-            let w = Math.max(20, Math.min(newBox.width, width - x));
-            let h = Math.max(20, Math.min(newBox.height, height - y));
-            const clamped = x !== newBox.x || y !== newBox.y || w !== newBox.width || h !== newBox.height;
+            const { box, clamped } = clampResizeBox(newBox, width, height, 20);
             if (clamped) setResizeAtLimit(true);
-            return { x, y, width: w, height: h };
+            return box;
           }}
         />
         {selectionBox && (

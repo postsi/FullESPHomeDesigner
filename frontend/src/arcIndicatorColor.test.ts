@@ -4,15 +4,7 @@
  * not the same as the track (which would be invisible).
  */
 import { describe, it, expect } from "vitest";
-
-/** Same logic as Canvas.tsx toFillColor: normalize 0xrrggbb or #hex to CSS fill. */
-function toFillColor(val: unknown, fallback: string): string {
-  if (typeof val === "number" && val >= 0 && val <= 0xffffff) {
-    return "#" + val.toString(16).padStart(6, "0");
-  }
-  if (typeof val === "string" && /^#?[0-9a-fA-F]{6}$/.test(val)) return val.startsWith("#") ? val : "#" + val;
-  return fallback;
-}
+import { toFillColor } from "./canvasUtils";
 
 /** Rule used in Canvas for arc indicator stroke: indicator.bg_color only, default #10b981 (never style.bg_color). */
 function getArcIndicatorStrokeColor(indicatorBgColor: unknown): string {
