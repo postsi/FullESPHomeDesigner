@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.12
+
+- **§4 Bindings and actions (UX plan)** — **4.1** Binding Builder uses human copy: “This widget will show…” for Display and “When the user does an action… call a Home Assistant service” for Action. **4.2** Entity search is word-based: type any word (e.g. shed) to match entity id or friendly name; multi-word requires all words. “Add recommended” in HA Bindings panel is labelled with “Recommended: adds common bindings for the selected domain”. **4.3** HA Bindings panel shows per-binding human summaries: display links as “Shows &lt;name&gt; (entity_id) → action” and action bindings as “On click → Toggle (light.shed)”. Pre-§4 revert point: v0.71.11 (tag `v0.71.11`). New tests: entitySearch (word matching), bindingConfig (formatDisplayBindingSummary, formatActionBindingSummary).
+
 ## v0.71.11
 
 - **§3 Widget selection and editing (UX plan)** — **3.1** Clear selection: cyan dashed outline and visible resize handles (cyan anchors) on selected widgets; properties panel shows **Nothing selected** when no widget is selected, with short guidance. **3.2** Inline feedback: when drag or resize would go out of bounds, the canvas shows an overlay (“At screen edge” or “At max size”) instead of silent clamping. Drag and resize are constrained to the canvas; resize minimum 20×20 and max to canvas size. Pre-§3 revert point: v0.71.10 (tag `v0.71.10`).

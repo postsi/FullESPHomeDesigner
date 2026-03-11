@@ -10,6 +10,8 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 **Pre-§3 release (revert point for Widget selection phase):** **v0.71.10** — Git tag `v0.71.10`. If §3 Widget selection and editing changes are not wanted, create a new release from this tag to roll back.
 
+**Pre-§4 release (revert point for Bindings phase):** **v0.71.11** — Git tag `v0.71.11`. If §4 Bindings and actions changes are not wanted, create a new release from this tag to roll back.
+
 ---
 
 ## 1. Clarify the main workflow
@@ -110,9 +112,9 @@ Tracking document for UI/UX recommendations. Use the checkboxes to mark progress
 
 | # | Item | Status |
 |---|------|--------|
-| 4.1 | **Explain bindings in human terms** — When creating/editing a binding, use copy like “This widget will show…” and “When the user does X, call Y service” alongside technical names. | [ ] |
-| 4.2 | **Pre-filter and suggest** — Show most relevant entities/services first (by widget type and domain); label “recommended” options clearly. | [ ] |
-| 4.3 | **Visualise connections** — In bindings panel, per-widget short readable summary (e.g. “Shows Living room temperature (sensor.living_room_temp)”) so users can audit at a glance. | [ ] |
+| 4.1 | **Explain bindings in human terms** — When creating/editing a binding, use copy like “This widget will show…” and “When the user does X, call Y service” alongside technical names. | [x] |
+| 4.2 | **Pre-filter and suggest** — Show most relevant entities/services first (by widget type and domain); label “recommended” options clearly. | [x] |
+| 4.3 | **Visualise connections** — In bindings panel, per-widget short readable summary (e.g. “Shows Living room temperature (sensor.living_room_temp)”) so users can audit at a glance. | [x] |
 
 ---
 

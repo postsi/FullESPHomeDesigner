@@ -12,7 +12,10 @@ import {
   domainFromEntityId,
   DISPLAY_ACTION_LABELS,
   EVENT_LABELS,
+  formatDisplayBindingSummary,
+  formatActionBindingSummary,
 } from "./bindings/bindingConfig";
+import { entityMatchesBindingSearch } from "./bindings/entitySearch";
 import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYPES, CLICK_TOGGLE_WIDGET_TYPES } from "./bindings/matchingActions";
 import {
   deleteDevice,
@@ -4337,6 +4340,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                     for (const b of preset.recommended) { (p2 as any).bindings.push({ ...b, entity_id }); }
                     setProject(p2);
                   }}>Add recommended</button>
+                <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Recommended: adds common bindings for the selected domain (e.g. state, brightness for light).</div>
                 </div>
                 {(() => {
                   const bindings = (project as any)?.bindings || [];
@@ -4391,10 +4395,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                                   const src = ln?.source || {}; const tgt = ln?.target || {}; const wid = String(tgt?.widget_id || "").trim();
                                   const ent = String(src?.entity_id || "").trim(); const attr = String(src?.attribute || "").trim(); const action = String(tgt?.action || "").trim();
                                   const isSelected = selectedWidgetIds.includes(wid); const hasOverride = !!tgt?.yaml_override;
+                                  const summary = formatDisplayBindingSummary(ln, entities);
                                   return (
                                     <li key={`l-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
                                       {hasOverride && <span title="Custom YAML">✎ </span>}
-                                      <code>{wid || "(no widget)"}</code> {" → "} {ent ? <code>{ent}{attr ? ` [${attr}]` : ""}</code> : "(no entity)"} {action ? ` · ${action}` : ""}
+                                      <span title={summary}>{summary}</span>
+                                      <span className="muted" style={{ fontSize: 11 }}> — <code>{wid || "(no widget)"}</code> ← <code>{ent || "—"}{attr ? ` [${attr}]` : ""}</code></span>
                                     </li>
                                   );
                                 })}
@@ -4419,10 +4425,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                                 {group.map(({ index, ab }) => {
                                   const wid = String(ab?.widget_id || "").trim(); const call = ab?.call || {};
                                   const isSelected = selectedWidgetIds.includes(wid); const hasOverride = !!ab?.yaml_override;
+                                  const summary = formatActionBindingSummary(ab, entities);
                                   return (
                                     <li key={`a-${index}`} style={isSelected ? { fontWeight: 600 } : {}}>
                                       {hasOverride && <span title="Custom YAML">✎ </span>}
-                                      <code>{wid}</code> {" · "} <span className="muted">{ab?.event || "?"}</span> {" → "} <code>{call?.domain || "?"}.{call?.service || "?"}</code> {call?.entity_id ? ` (${call.entity_id})` : ""}
+                                      <span>{summary}</span>
+                                      <span className="muted" style={{ fontSize: 11 }}> — <code>{wid}</code></span>
                                     </li>
                                   );
                                 })}
@@ -4498,7 +4506,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   const bindDomain = domainFromEntityId(bindEntity || actionEntity || "");
                   const serviceOptions = getServicesForDomain(bindDomain);
                   const filteredEntities = entities.filter(
-                    (e) => !entityQuery || String(e.entity_id).toLowerCase().includes(entityQuery.toLowerCase()) || String(e.friendly_name || "").toLowerCase().includes(entityQuery.toLowerCase())
+                    (e) => e?.entity_id && entityMatchesBindingSearch(e, entityQuery)
                   ).slice(0, 200);
                   const selectedEntityAttrs = (() => {
                       if (!bindEntity) return [];
@@ -4515,6 +4523,11 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       </div>
                       <div style={{ marginTop: 10, marginBottom: 10, padding: 8, borderRadius: 4, border: "1px solid var(--divider-color, rgba(0,0,0,0.12))" }}>
                         <div className="sectionTitle" style={{ fontSize: 12, marginBottom: 4 }}>{builderMode === "display" ? "Display bindings for this widget" : "Action bindings for this widget"}</div>
+                        {builderMode === "display" ? (
+                          <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>This widget will show a value from Home Assistant (entity or attribute) in this widget.</div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 11, marginBottom: 8 }}>When the user does an action (e.g. tap, release), call a Home Assistant service.</div>
+                        )}
                         {builderMode === "display" ? (linksForWidget.length === 0 ? (
                           <div className="muted" style={{ fontSize: 12 }}>No display bindings. Use the form below to add one.</div>
                         ) : (
@@ -4647,7 +4660,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
                           <div>
                             <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Entity</div>
-                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Type to search; pick from list.</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Type any word to match entity id or name (e.g. shed). Pick from list.</div>
                             <input
                               placeholder="Search entities..."
                               value={entityQuery}
@@ -4818,7 +4831,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                                 {actionEntityDropdownOpen && (
                                   <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid var(--divider-color)", borderRadius: 4, marginTop: 2, background: "var(--panel-bg, #1e293b)" }}>
                                     {entities
-                                      .filter((e) => !e?.entity_id ? false : !actionEntity.trim() ? true : (String(e.entity_id).toLowerCase().includes(actionEntity.trim().toLowerCase()) || String(e?.friendly_name || "").toLowerCase().includes(actionEntity.trim().toLowerCase())))
+                                      .filter((e) => e?.entity_id && entityMatchesBindingSearch(e, actionEntity))
                                       .slice(0, 200)
                                       .map((e) => (
                                         <div

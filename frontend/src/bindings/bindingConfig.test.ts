@@ -7,6 +7,8 @@ import {
   getEventsForType,
   getServicesForDomain,
   domainFromEntityId,
+  formatDisplayBindingSummary,
+  formatActionBindingSummary,
   DISPLAY_ACTIONS_BY_WIDGET_TYPE,
   EVENTS_BY_WIDGET_TYPE,
 } from "./bindingConfig";
@@ -81,6 +83,45 @@ describe("bindingConfig", () => {
         expect(EVENTS_BY_WIDGET_TYPE[t], `missing ${t}`).toBeDefined();
         expect(Array.isArray(EVENTS_BY_WIDGET_TYPE[t])).toBe(true);
       }
+    });
+  });
+
+  describe("formatDisplayBindingSummary (§4.3)", () => {
+    const entities = [
+      { entity_id: "sensor.living_room_temp", friendly_name: "Living room temperature" },
+      { entity_id: "light.shed", friendly_name: "Shed" },
+    ];
+    it("returns human summary with friendly_name when entity is in list", () => {
+      const ln = { source: { entity_id: "sensor.living_room_temp", attribute: "" }, target: { action: "label_text" } };
+      expect(formatDisplayBindingSummary(ln, entities)).toContain("Living room temperature");
+      expect(formatDisplayBindingSummary(ln, entities)).toContain("sensor.living_room_temp");
+      expect(formatDisplayBindingSummary(ln, entities)).toContain("Show as text");
+    });
+    it("falls back to entity_id when entity not in list", () => {
+      const ln = { source: { entity_id: "sensor.unknown" }, target: { action: "label_text" } };
+      const s = formatDisplayBindingSummary(ln, entities);
+      expect(s).toContain("sensor.unknown");
+    });
+    it("handles no entity", () => {
+      expect(formatDisplayBindingSummary({ source: {} }, entities)).toBe("Shows (no entity)");
+    });
+  });
+
+  describe("formatActionBindingSummary (§4.3)", () => {
+    const entities = [
+      { entity_id: "light.shed", friendly_name: "Shed" },
+    ];
+    it("returns event label and service label with entity_id", () => {
+      const ab = { event: "on_click", call: { domain: "light", service: "light.toggle", entity_id: "light.shed" } };
+      const s = formatActionBindingSummary(ab, entities);
+      expect(s).toContain("On click");
+      expect(s).toContain("Toggle");
+      expect(s).toContain("light.shed");
+    });
+    it("handles missing call", () => {
+      const s = formatActionBindingSummary({ event: "on_click" }, entities);
+      expect(s).toContain("On click");
+      expect(s).toContain("?");
     });
   });
 });

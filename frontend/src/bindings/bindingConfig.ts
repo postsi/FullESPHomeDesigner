@@ -152,3 +152,39 @@ export function domainFromEntityId(entityId: string): string {
   const dot = String(entityId || "").indexOf(".");
   return dot > 0 ? String(entityId).slice(0, dot) : "";
 }
+
+type EntityLike = { entity_id?: string; friendly_name?: string };
+
+/** Human summary for a display binding (link): "Shows Living room temp (sensor.living_room_temp)" */
+export function formatDisplayBindingSummary(
+  ln: { source?: { entity_id?: string; attribute?: string }; target?: { action?: string } },
+  entities: EntityLike[]
+): string {
+  const ent = String(ln?.source?.entity_id || "").trim();
+  const attr = String(ln?.source?.attribute || "").trim();
+  const action = String(ln?.target?.action || "").trim();
+  const label = ent ? (entities.find((e) => e?.entity_id === ent)?.friendly_name || ent) : "";
+  const actionLabel = action ? (DISPLAY_ACTION_LABELS[action as DisplayAction] || action) : "";
+  if (!ent) return "Shows (no entity)";
+  const part = label || ent;
+  const attrPart = attr ? ` · ${attr}` : "";
+  return `Shows ${part} (${ent})${attrPart}${actionLabel ? ` → ${actionLabel}` : ""}`;
+}
+
+/** Human summary for an action binding: "On click → Toggle (light.shed)" */
+export function formatActionBindingSummary(
+  ab: { event?: string; call?: { domain?: string; service?: string; entity_id?: string } },
+  entities: EntityLike[]
+): string {
+  const ev = String(ab?.event || "").trim();
+  const call = ab?.call || {};
+  const domain = String(call?.domain || "").trim();
+  const service = String(call?.service || "").trim();
+  const entityId = String(call?.entity_id || "").trim();
+  const eventLabel = ev ? (EVENT_LABELS[ev] || ev) : "?";
+  const opts = getServicesForDomain(domain);
+  const serviceLabel = opts.find((o) => o.service === service)?.label || service;
+  const entityLabel = entityId ? (entities.find((e) => e?.entity_id === entityId)?.friendly_name || entityId) : "";
+  const target = !service && !entityId ? "?" : (entityId ? `${serviceLabel || service || "?"} (${entityId})` : (serviceLabel || service || "?"));
+  return `${eventLabel} → ${target}`;
+}
