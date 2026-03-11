@@ -11,7 +11,6 @@ from custom_components.esphome_touch_designer.api.views import (
     _section_body_from_value,
     _parse_recipe_into_sections,
     _build_default_section_pieces,
-    _ensure_project_sections,
     _compile_to_esphome_yaml_section_based,
     ETD_DEVICE_NAME_PLACEHOLDER,
 )
@@ -63,13 +62,9 @@ def test_build_default_pieces(jc1060_recipe_text, default_project):
 
 
 def test_ensure_and_compile(jc1060_recipe_text, default_project):
-    """Ensure project sections then compile; output is valid YAML with esphome first."""
+    """Compile uses recipe + compiler; output is valid YAML with esphome first."""
     project = dict(default_project)
     project.setdefault("device", {})["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
-    sections = project.get("sections") or {}
-    assert "esphome" in sections
-    assert sections["esphome"].strip().startswith("esphome:"), sections["esphome"][:50]
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
@@ -86,14 +81,60 @@ def test_ensure_and_compile(jc1060_recipe_text, default_project):
     assert "esphome" in parsed and parsed["esphome"]["name"] == "test_device"
 
 
-def test_legacy_migration(jc1060_recipe_text):
-    """Legacy body-only project.sections is migrated to full block."""
-    project = {"sections": {"esphome": "  name: legacy\n  min_version: 2024.1.0"}}
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
-    full = project["sections"]["esphome"]
-    assert full.strip().startswith("esphome:"), full[:50]
-    parsed = yaml.safe_load(full)
-    assert parsed["esphome"]["name"] in ("legacy", ETD_DEVICE_NAME_PLACEHOLDER)
+def test_user_addition_merged(jc1060_recipe_text, default_project):
+    """User addition in project.sections is merged into that section at compile."""
+    project = dict(default_project)
+    project.setdefault("device", {})["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
+    project["sections"] = {"logger": "  level: DEBUG\n"}
+    device = DeviceProject(
+        device_id="test", slug="test_device", name="Test",
+        hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
+    )
+    out = _compile_to_esphome_yaml_section_based(device, jc1060_recipe_text)
+    assert "logger:" in out and "DEBUG" in out
+
+
+def test_compile_esphome_components_without_stored_sections(jc1060_recipe_text, default_project):
+    """Create-Component: esphome_components has switch block, project.sections empty; compile emits switch from compiler."""
+    project = dict(default_project)
+    project.setdefault("device", {})["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
+    project["pages"] = [{
+        "page_id": "main", "name": "Main",
+        "widgets": [{"id": "sw1", "type": "switch", "x": 10, "y": 20, "w": 100, "h": 40, "props": {}}],
+    }]
+    project["esphome_components"] = [
+        "switch:\n  - platform: lvgl\n    id: sw1\n    widget: sw1\n    name: \"Switch\""
+    ]
+    project["sections"] = {}
+    device = DeviceProject(
+        device_id="test", slug="test_device", name="Test",
+        hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
+    )
+    out = _compile_to_esphome_yaml_section_based(device, jc1060_recipe_text)
+    assert "switch:" in out and "platform: lvgl" in out and "widget: sw1" in out
+
+
+def test_compile_merge_user_addition_and_compiler(jc1060_recipe_text, default_project):
+    """User addition in project.sections['switch'] is merged with compiler switch (e.g. from Create Component)."""
+    project = dict(default_project)
+    project.setdefault("device", {})["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
+    project["pages"] = [{
+        "page_id": "main", "name": "Main",
+        "widgets": [{"id": "sw1", "type": "switch", "x": 10, "y": 20, "w": 100, "h": 40, "props": {}}],
+    }]
+    project["esphome_components"] = [
+        "switch:\n  - platform: lvgl\n    id: sw1\n    widget: sw1\n    name: \"Switch\""
+    ]
+    project["sections"] = {
+        "switch": "  - platform: rest\n    id: my_rest\n    name: My REST Switch\n",
+    }
+    device = DeviceProject(
+        device_id="test", slug="test_device", name="Test",
+        hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
+    )
+    out = _compile_to_esphome_yaml_section_based(device, jc1060_recipe_text)
+    assert "switch:" in out and "platform: lvgl" in out and "widget: sw1" in out
+    assert "platform: rest" in out and "my_rest" in out
 
 
 def test_lvgl_widget_yaml_compiles(jc1060_recipe_text, default_project):
@@ -108,7 +149,6 @@ def test_lvgl_widget_yaml_compiles(jc1060_recipe_text, default_project):
         "page_id": "main", "name": "Main",
         "widgets": [{"id": "w1", "type": "label", "x": 10, "y": 20, "w": 200, "h": 30, "props": {"text": "Hello"}}],
     }]
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,

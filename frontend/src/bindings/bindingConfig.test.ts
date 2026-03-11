@@ -30,10 +30,8 @@ describe("bindingConfig", () => {
     it("returns label_text for label", () => {
       expect(getDisplayActionsForType("label")).toEqual(["label_text"]);
     });
-    it("returns arc_value and label_text for arc", () => {
-      const actions = getDisplayActionsForType("arc");
-      expect(actions).toContain("arc_value");
-      expect(actions).toContain("label_text");
+    it("returns only arc_value for arc (no text; default ESPHome arc has no label)", () => {
+      expect(getDisplayActionsForType("arc")).toEqual(["arc_value"]);
     });
     it("returns default label_text for unknown type", () => {
       expect(getDisplayActionsForType("unknown")).toEqual(["label_text"]);

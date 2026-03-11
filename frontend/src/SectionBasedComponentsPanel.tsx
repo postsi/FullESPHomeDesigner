@@ -1,6 +1,7 @@
 /**
- * Section-based ESPHome Components panel. Uses project.sections (full section YAML).
- * Compiler concatenates stored sections; Reset = default, Save = store to project.
+ * Section-based ESPHome Components panel. Shows only user-added YAML per section.
+ * Auto/recipe content is merged at compile time; use Full YAML to see the complete result.
+ * Reset = clear addition; Save = store additions to project.
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { getSectionsDefaults } from "./lib/apiSections";
@@ -35,7 +36,7 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
-  const [overriddenKeys, setOverriddenKeys] = useState<Set<string>>(new Set());
+  const [keysWithAddition, setKeysWithAddition] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
@@ -55,7 +56,7 @@ export default function SectionBasedComponentsPanel({
         if (cancelled) return;
         setDefaults(defSections && typeof defSections === "object" ? defSections : {});
         setCategories(cat);
-        setOverriddenKeys(new Set(Array.isArray(ovKeys) ? ovKeys : []));
+        setKeysWithAddition(new Set(Array.isArray(ovKeys) ? ovKeys : []));
         setSections(effective);
         setHasLocalEdits(false);
       })
@@ -70,19 +71,25 @@ export default function SectionBasedComponentsPanel({
 
   const setSectionContent = useCallback((key: string, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));
+    setKeysWithAddition((prev) => {
+      const next = new Set(prev);
+      if ((value || "").trim()) next.add(key);
+      else next.delete(key);
+      return next;
+    });
     setHasLocalEdits(true);
     setSyntaxError(null);
   }, []);
 
   const resetSection = useCallback((key: string) => {
-    setSections((prev) => ({ ...prev, [key]: (defaults[key] || "").trim() }));
-    setOverriddenKeys((prev) => {
+    setSections((prev) => ({ ...prev, [key]: "" }));
+    setKeysWithAddition((prev) => {
       const next = new Set(prev);
       next.delete(key);
       return next;
     });
     setHasLocalEdits(true);
-  }, [defaults]);
+  }, []);
 
   const saveAll = useCallback(async () => {
     setSyntaxError(null);
@@ -96,16 +103,18 @@ export default function SectionBasedComponentsPanel({
       }
     }
     const p2 = clone(project);
-    p2.sections = { ...(p2.sections || {}), ...sections };
+    p2.sections = {};
+    for (const k of Object.keys(sections)) {
+      const c = (sections[k] ?? "").trim();
+      if (c) p2.sections[k] = c;
+    }
     if (p2.section_overrides !== undefined) delete p2.section_overrides;
     setProject(p2, true);
     setProjectDirty(true);
-    setOverriddenKeys((prev) => {
+    setKeysWithAddition((prev) => {
       const next = new Set(prev);
       for (const k of Object.keys(sections)) {
-        const c = (sections[k] ?? "").trim();
-        const d = (defaults[k] ?? "").trim();
-        if (c !== d) next.add(k);
+        if ((sections[k] ?? "").trim()) next.add(k);
         else next.delete(k);
       }
       return next;
@@ -132,14 +141,15 @@ export default function SectionBasedComponentsPanel({
       }
     }
     const p2 = clone(project);
-    p2.sections = { ...(p2.sections || {}), [key]: content };
+    p2.sections = { ...(p2.sections || {}) };
+    if ((content || "").trim()) p2.sections[key] = content;
+    else delete p2.sections[key];
     if (p2.section_overrides !== undefined) delete p2.section_overrides;
     setProject(p2, true);
     setProjectDirty(true);
-    setOverriddenKeys((prev) => {
+    setKeysWithAddition((prev) => {
       const next = new Set(prev);
-      const d = (defaults[key] ?? "").trim();
-      if (content !== d) next.add(key);
+      if ((content || "").trim()) next.add(key);
       else next.delete(key);
       return next;
     });
@@ -154,10 +164,14 @@ export default function SectionBasedComponentsPanel({
   }, [project, sections, defaults, setProject, setProjectDirty, onSaveAndPersist]);
 
   const resetAll = useCallback(() => {
-    setSections({ ...defaults });
-    setOverriddenKeys(new Set());
+    setSections((prev) => {
+      const next = { ...prev };
+      for (const k of Object.keys(next)) next[k] = "";
+      return next;
+    });
+    setKeysWithAddition(new Set());
     setHasLocalEdits(true);
-  }, [defaults]);
+  }, []);
 
   const requestClose = useCallback(() => {
     if (hasLocalEdits && !window.confirm("You have unsaved changes. Close anyway?")) return;
@@ -199,9 +213,7 @@ export default function SectionBasedComponentsPanel({
           </button>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          <strong title="Top-level ESPHome blocks (switch, sensor, wifi, etc.) that are merged into the final device YAML.">Sections</strong> — Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Recipe</span> = from hardware recipe;{" "}
-          <span style={{ color: "rgba(255,255,255,0.8)" }}>Auto</span> = added by the app (compiler);{" "}
-          <span style={{ color: "rgba(100,180,255,0.95)" }}>Manual</span> = your stored YAML. Reset = back to default; Save = store to project.
+          <strong title="Additional YAML per top-level ESPHome block (switch, sensor, etc.). Merged with app/recipe content at compile.">Sections</strong> — Add your own YAML here; it is merged into each section. Use <strong>Full YAML</strong> to see the complete result. Reset = clear; Save = store.
         </div>
         <div style={{ padding: "0 16px 8px", fontSize: 11, background: "rgba(200,160,80,0.08)", borderBottom: "1px solid rgba(200,160,80,0.2)", color: "rgba(220,200,140,0.95)" }}>
           Advanced: editing raw YAML here can break the device if invalid. Validate with Deploy or Full YAML before flashing.
@@ -227,7 +239,6 @@ export default function SectionBasedComponentsPanel({
               {categoryOrder.map((catLabel) => {
                 const keys = categories[catLabel] || [];
                 const withContent = keys.filter((k) => (sections[k] ?? "").trim().length > 0);
-                const defaultsSafe = defaults ?? {};
                 return (
                   <details key={catLabel} style={{ marginBottom: 12 }}>
                     <summary
@@ -244,41 +255,12 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const effective = (sections[sectionKey] ?? "").trim();
-                        const defaultContent = (defaultsSafe[sectionKey] ?? "").trim();
-                        const hasManual = overriddenKeys.has(sectionKey);
-                        const hasAnyContent = !!(effective || defaultContent);
-                        const isEmpty = !hasAnyContent;
+                        const hasAddition = keysWithAddition.has(sectionKey) || !!effective;
+                        const isEmpty = !effective;
 
-                        // Heuristic: sections that typically come only from the recipe (no compiler)
-                        const recipeOnlyKeys: Record<string, true> = {
-                          esphome: true,
-                          esp32: true,
-                          esp8266: true,
-                          rp2040: true,
-                          wifi: true,
-                          ota: true,
-                          logger: true,
-                          i2c: true,
-                          spi: true,
-                          uart: true,
-                          display: true,
-                          touchscreen: true,
-                        };
-
-                        let stateLabel: "Empty" | "Recipe" | "Auto" | "Manual";
-                        if (isEmpty) {
-                          stateLabel = "Empty";
-                        } else if (hasManual) {
-                          stateLabel = "Manual";
-                        } else if (defaultContent && recipeOnlyKeys[sectionKey]) {
-                          stateLabel = "Recipe";
-                        } else {
-                          stateLabel = "Auto";
-                        }
-
-                        const isManual = stateLabel === "Manual";
-                        const bgSection = isManual ? "rgba(100,160,255,0.08)" : "rgba(255,255,255,0.03)";
-                        const borderSection = isManual ? "1px solid rgba(100,160,255,0.25)" : "1px solid rgba(255,255,255,0.08)";
+                        const stateLabel = isEmpty ? "Empty" : "Additional";
+                        const bgSection = hasAddition ? "rgba(100,160,255,0.06)" : "rgba(255,255,255,0.03)";
+                        const borderSection = hasAddition ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.08)";
                         return (
                           <details
                             key={sectionKey}
@@ -303,36 +285,36 @@ export default function SectionBasedComponentsPanel({
                               <span
                                 className={isEmpty ? "muted" : undefined}
                                 style={{ fontSize: 10 }}
-                                title={stateLabel === "Empty" ? "No content in this section" : stateLabel === "Recipe" ? "Content from hardware recipe" : stateLabel === "Auto" ? "Added by app (bindings, prebuilts)" : "You edited this section in Components"}
+                                title={isEmpty ? "No additional YAML" : "You have added YAML to this section"}
                               >
                                 {stateLabel}
                               </span>
-                              {!isEmpty && (
+                              {hasAddition && (
                                 <span
                                   style={{
                                     fontSize: 10,
                                     padding: "1px 6px",
                                     borderRadius: 4,
-                                    background: isManual ? "rgba(100,160,255,0.25)" : "rgba(255,255,255,0.12)",
-                                    color: isManual ? "rgba(200,220,255,0.95)" : "rgba(255,255,255,0.65)",
+                                    background: "rgba(100,160,255,0.2)",
+                                    color: "rgba(200,220,255,0.95)",
                                   }}
-                                  title={stateLabel === "Empty" ? "No content in this section" : stateLabel === "Recipe" ? "Content from hardware recipe" : stateLabel === "Auto" ? "Added by app (bindings, prebuilts)" : "You edited this section in Components"}
+                                  title="Additional YAML will be merged at compile"
                                 >
-                                  {stateLabel}
+                                  Additional
                                 </span>
                               )}
                             </summary>
                             <div style={{ padding: "0 10px 10px" }}>
                               {isEmpty && (
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No content (recipe/compiler did not emit this section). Add YAML below to override.</div>
+                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No additional YAML. Add content below to merge into this section at compile.</div>
                               )}
                               <YamlEditor
                                 value={sections[sectionKey] ?? ""}
                                 onChange={(v) => setSectionContent(sectionKey, v)}
-                                placeholder={`${sectionKey}:\n  # ...`}
+                                placeholder={`# Additional ${sectionKey} (e.g. list items)\n  - platform: ...\n    id: ...`}
                                 minHeight={100}
                                 maxHeight="35vh"
-                                variant={isManual ? "manual" : "default"}
+                                variant={hasAddition ? "manual" : "default"}
                               />
                               <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 <button

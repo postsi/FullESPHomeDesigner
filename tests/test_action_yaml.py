@@ -9,7 +9,6 @@ from custom_components.esphome_touch_designer.api.views import (
     _preview_widget_yaml,
     _compile_to_esphome_yaml_section_based,
     _parse_yaml_syntax,
-    _ensure_project_sections,
 )
 from custom_components.esphome_touch_designer.storage import DeviceProject, _default_project
 
@@ -109,7 +108,6 @@ def test_compile_uses_stored_override(jc1060_recipe_text):
         "call": {"domain": "light", "service": "toggle", "entity_id": "light.room", "data": {}},
         "yaml_override": "then:\n  - logger.log: stored_override_used",
     }]
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,

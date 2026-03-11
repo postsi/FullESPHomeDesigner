@@ -10,7 +10,7 @@ export const DISPLAY_ACTIONS_BY_WIDGET_TYPE: Record<string, DisplayAction[]> = {
   label: ["label_text"],
   button: ["label_text", "widget_checked"],
   container: ["label_text", "widget_checked"],
-  arc: ["arc_value", "label_text"],
+  arc: ["arc_value"],
   slider: ["slider_value", "label_text"],
   dropdown: ["label_text"],
   switch: ["widget_checked", "label_text"],

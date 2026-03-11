@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.17
+
+- **Components panel: additional YAML only** — The Components dialog now shows only **user-added YAML** per section (additional to app/recipe). Each section is **Empty** or **Additional**; use **Full YAML** to see the complete compiled result. Save stores only your additions; the compiler merges them with recipe and app-generated content. Create Component no longer syncs into sections (avoids duplicate blocks). Fix: section body uses `.rstrip()` so leading indent is preserved and compiled YAML stays valid.
+
 ## v0.71.16
 
 - **Resize handle fix** — Canvas resize no longer jumps when you start dragging a handle. Konva’s Transformer expects the box returned from `boundBoxFunc` to include `rotation`; we now preserve it so the transform stays correct.

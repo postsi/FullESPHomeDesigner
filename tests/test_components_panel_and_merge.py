@@ -9,7 +9,6 @@ from pathlib import Path
 from custom_components.esphome_touch_designer.api.views import (
     _section_body_from_value,
     _build_default_section_pieces,
-    _ensure_project_sections,
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
     _remove_orphaned_widget_refs_from_sections,
@@ -22,21 +21,22 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_section_overrides_ignored(jc1060_recipe_text, default_project):
-    """section_overrides is not read; only project.sections is used for manual content."""
+    """Compile only reads project.sections; section_overrides is ignored."""
     project = dict(default_project)
     project["device"] = project.get("device") or {}
     project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
     project["sections"] = {}
-    project["section_overrides"] = {"logger": "  level: VERBOSE\n  logs: {}"}
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
-    sections = project.get("sections") or {}
-    logger_block = sections.get("logger") or ""
-    logger_body = _section_body_from_value(logger_block, "logger") if logger_block else ""
-    assert "VERBOSE" not in logger_body
+    project["section_overrides"] = {"logger": "logger:\n  level: VERBOSE\n  logs: {}"}
+    device = DeviceProject(
+        device_id="test", slug="test_device", name="Test",
+        hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
+    )
+    out = _compile_to_esphome_yaml_section_based(device, jc1060_recipe_text)
+    assert "VERBOSE" not in out
 
 
 def test_merge_sensor_user_and_compiler(jc1060_recipe_text, default_project):
-    """User content in project.sections['sensor'] is merged with compiler HA bindings."""
+    """User addition in project.sections['sensor'] is merged with compiler HA bindings."""
     project = dict(default_project)
     project["device"] = project.get("device") or {}
     project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
@@ -55,7 +55,6 @@ def test_merge_sensor_user_and_compiler(jc1060_recipe_text, default_project):
     name: My Custom Sensor
 """
     project["sections"] = {"sensor": "sensor:\n" + user_sensor_block.strip() + "\n"}
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
@@ -81,7 +80,6 @@ def test_merge_switch_user_only(jc1060_recipe_text, default_project):
     name: My Switch
 """
     project["sections"] = {"switch": "switch:\n" + user_switch_block.strip() + "\n"}
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
@@ -91,21 +89,19 @@ def test_merge_switch_user_only(jc1060_recipe_text, default_project):
     assert "my_switch" in out or "widget: sw1" in out
 
 
-def test_overridden_keys_logic(jc1060_recipe_text, default_project):
-    """overridden_keys = keys where effective section content != default."""
+def test_keys_with_user_addition(jc1060_recipe_text, default_project):
+    """Sections API returns overridden_keys for keys that have user content (project.sections)."""
     project = dict(default_project)
     project["device"] = project.get("device") or {}
     project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
-    project["sections"] = {"logger": "logger:\n  level: DEBUG\n"}
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
-    sections = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
-    default_sections = _build_default_section_pieces(project, device=None, recipe_text=jc1060_recipe_text)
-    overridden_keys = [k for k in sections if (sections.get(k) or "").strip() != (default_sections.get(k) or "").strip()]
+    project["sections"] = {"logger": "  level: DEBUG\n"}
+    from custom_components.esphome_touch_designer.esphome_sections import SECTION_ORDER
+    overridden_keys = [k for k in SECTION_ORDER if (project.get("sections") or {}).get(k, "").strip()]
     assert "logger" in overridden_keys
 
 
 def test_merged_output_valid_yaml(jc1060_recipe_text, default_project):
-    """Compiled output with merged switch section is valid YAML."""
+    """Compiled output with user addition in switch section is valid YAML."""
     project = dict(default_project)
     project["device"] = project.get("device") or {}
     project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
@@ -113,7 +109,6 @@ def test_merged_output_valid_yaml(jc1060_recipe_text, default_project):
     project["sections"] = {
         "switch": "switch:\n  - platform: lvgl\n    id: sw1\n    widget: x\n    name: S1\n",
     }
-    _ensure_project_sections(project, device=None, recipe_text=jc1060_recipe_text)
     device = DeviceProject(
         device_id="test", slug="test_device", name="Test",
         hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,

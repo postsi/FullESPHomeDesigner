@@ -2877,7 +2877,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
               <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
                 <button className="ghost" onClick={() => setCreateNativeComponentOpen(false)}>Cancel</button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const rawId = createNativeComponentId.replace(/[^a-zA-Z0-9_]/g, "_").replace(/^_+|_+$/g, "").trim();
                     if (!rawId) { setToast({ type: "error", msg: "Invalid ID" }); return; }
                     if (!allowedTypes.includes(createNativeComponentType)) { setToast({ type: "error", msg: "Invalid component type for this widget" }); return; }

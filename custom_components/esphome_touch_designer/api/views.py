@@ -102,6 +102,19 @@ def _section_body_from_value(value: str | None, key: str) -> str:
     return value
 
 
+def _normalize_section_body_indent(body: str) -> str:
+    """Ensure section body has at least 2-space indent (for merging user addition into a section)."""
+    if not body or not body.strip():
+        return body
+    lines = body.splitlines()
+    if not lines:
+        return body
+    first = next((ln for ln in lines if ln.strip()), "")
+    if first.startswith("  ") or first.startswith("\t"):
+        return body
+    return "\n".join("  " + ln if ln.strip() else ln for ln in lines)
+
+
 # Section keys that can contain `widget:` references (LVGL platform components). Used for orphan cleanup and compile warnings.
 SECTION_KEYS_WITH_WIDGET_REF: tuple[str, ...] = (
     "switch",
@@ -1563,53 +1576,47 @@ def _build_section_engine_pieces(
 
 
 def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: str) -> str:
-    """Compiler: emit stored project.sections in order, with compiler-generated sections (lvgl, script, etc.) refreshed from project."""
+    """Compiler: for each section, emit (recipe + app-generated content) + user-added YAML from project.sections.
+    Components panel stores only additional YAML per section; auto/recipe content is merged here."""
     project = dict(device.project or {})
-    _ensure_project_sections(project, device, recipe_text)
-    pieces = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
-    compiler_pieces = _build_compiler_sections(project, device)
-    # Script: use compiler output only to avoid duplicate script ids (e.g. color picker). Recipe's manage_run_and_sleep is added via needs_stub below when missing.
-    script_body_compiler = (compiler_pieces.get("script") or "").rstrip()
-    script_body_pieces = _section_body_from_value((pieces.get("script") or "").strip(), "script") if (pieces.get("script") or "").strip() else ""
-    combined_script_body = (script_body_compiler or script_body_pieces or "").rstrip()
-    if combined_script_body:
-        compiler_pieces["script"] = combined_script_body + "\n"
-    # Add stub if output esphome (stored or recipe) references manage_run_and_sleep but script doesn't define it
-    esphome_body = _section_body_from_value(pieces.get("esphome"), "esphome") or ""
+    stored_additions = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
+    auto_pieces = _build_default_section_pieces(project, device, recipe_text)
+    # Script stub if recipe or user esphome references manage_run_and_sleep but script doesn't define it
+    script_block = auto_pieces.get("script") or ""
+    script_body = _section_body_from_value(script_block, "script") if script_block else ""
+    esphome_body = _section_body_from_value(auto_pieces.get("esphome"), "esphome") or ""
+    user_esphome_raw = (stored_additions.get("esphome") or "").strip()
     needs_stub = (
-        "manage_run_and_sleep" in (esphome_body + recipe_text)
-        and "id: manage_run_and_sleep" not in (compiler_pieces.get("script") or "")
+        "manage_run_and_sleep" in (esphome_body + user_esphome_raw + recipe_text)
+        and "id: manage_run_and_sleep" not in (script_body or "")
     )
     if needs_stub:
         stub = "  - id: manage_run_and_sleep\n    then:\n      - delay: 1ms\n"
-        current = (compiler_pieces.get("script") or "").rstrip()
-        compiler_pieces["script"] = (current + "\n" + stub.rstrip() + "\n") if current else (stub.rstrip() + "\n")
+        script_body = (script_body.rstrip() + "\n" + stub.rstrip()) if script_body else stub.rstrip()
+        auto_pieces["script"] = _section_full_block("script", script_body)
 
-    # For list-like sections, merge stored content with compiler output instead of overwriting so
-    # user-defined components (e.g. LVGL platform switch/number) coexist with HA bindings.
-    MERGE_LIST_SECTIONS: set[str] = {
-        "sensor",
-        "text_sensor",
-        "binary_sensor",
-        "switch",
-        "number",
-        "select",
-        "light",
+    # List sections: merge auto + user addition. Mapping sections (esphome, logger, wifi, etc.): user replaces auto when present.
+    LIST_SECTIONS: set[str] = {
+        "sensor", "text_sensor", "binary_sensor", "switch", "number", "select", "light",
     }
-
-    for k, v in compiler_pieces.items():
-        body_compiler = (v or "").rstrip()
-        if k in MERGE_LIST_SECTIONS and body_compiler:
-            existing_block = pieces.get(k) or ""
-            existing_body = _section_body_from_value(existing_block, k) if existing_block else ""
-            existing_body = (existing_body or "").rstrip()
-            if existing_body:
-                merged_body = existing_body + "\n\n" + body_compiler + "\n"
+    pieces: dict[str, str] = {}
+    for key in SECTION_ORDER:
+        auto_block = auto_pieces.get(key) or ""
+        auto_body = (_section_body_from_value(auto_block, key) or "").rstrip() if auto_block else ""
+        user_raw = stored_additions.get(key) or ""
+        user_body = (_section_body_from_value(user_raw, key) or "").rstrip() if user_raw else ""
+        if user_body and key in LIST_SECTIONS:
+            user_body = _normalize_section_body_indent(user_body).rstrip()
+        if key in LIST_SECTIONS:
+            if auto_body and user_body:
+                merged_body = auto_body + "\n\n" + user_body
             else:
-                merged_body = body_compiler + "\n"
-            pieces[k] = _section_full_block(k, merged_body.rstrip())
+                merged_body = user_body or auto_body
         else:
-            pieces[k] = _section_full_block(k, body_compiler)
+            merged_body = user_body if user_body else auto_body
+        if merged_body or key in ("wifi", "ota", "logger"):
+            merged_body = (merged_body or "").lstrip("\n\r").rstrip()
+            pieces[key] = _section_full_block(key, merged_body)
     header = (
         "---\n"
         f"# Generated by {DOMAIN} v{_integration_version()}\n"
@@ -4592,16 +4599,22 @@ class SectionsDefaultsView(HomeAssistantView):
             if entry_id:
                 storage = _get_storage(hass, entry_id)
                 device = storage.get_device(device_id)
-        recipe_path = (_find_recipe_path_by_id(hass, recipe_id) if hass else None) or (RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml")
-        recipe_text = recipe_path.read_text("utf-8") if recipe_path and recipe_path.exists() else ""
-        project = dict(project)
-        _ensure_project_sections(project, device=device, recipe_text=recipe_text)
-        sections = dict((project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {})
-        default_sections = _build_default_section_pieces(project, device=device, recipe_text=recipe_text)
+        # Components panel shows only user-added YAML per section (additional to app/recipe). No auto/recipe content here.
+        stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
+        sections_full = {}
+        for key in SECTION_ORDER:
+            raw = (stored.get(key) or "").strip()
+            if raw and not (raw.startswith(key + ":") or raw.startswith(key + " :")):
+                raw = _section_full_block(key, raw)
+            sections_full[key] = raw or ""
         if device is not None and getattr(device, "slug", None):
-            _substitute_device_name_in_sections(sections, device.slug)
-            _substitute_device_name_in_sections(default_sections, device.slug)
-        overridden_keys = [k for k in sections if (sections.get(k) or "").strip() != (default_sections.get(k) or "").strip()]
+            _substitute_device_name_in_sections(sections_full, device.slug)
+        sections = {
+            key: (_section_body_from_value(sections_full[key], key) or "").strip()
+            for key in SECTION_ORDER
+        }
+        default_sections = {key: "" for key in SECTION_ORDER}
+        overridden_keys = [k for k in SECTION_ORDER if (sections.get(k) or "").strip()]
         return self.json({
             "ok": True,
             "sections": sections,
