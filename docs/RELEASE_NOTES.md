@@ -1,5 +1,13 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.14
+
+- **CodeMirror for all YAML** — Every place that displays or edits YAML now uses CodeMirror 6: syntax highlighting, line numbers, and consistent dark theme. Applies to Components panel sections, Binding Builder overrides, Widget YAML tab (full preview and per-event boxes), recipe import paste, template wizard service data, and the Compile modal.
+- **Full YAML button** — New **Full YAML** button (next to Deploy) opens a read-only view of the full compiled ESPHome YAML in CodeMirror. Compiles on open; Copy button to clipboard.
+- **About and licenses** — **About** in the nav opens a dialog with app description and CodeMirror (MIT) credit. `THIRD_PARTY_LICENSES.md` added in the repo.
+- **§5.1 Differentiate recipe / card / section** — Device details: short description under Hardware recipe (“Recipe = base device YAML…”). Card Library: one-line “Cards = reusable UI snippets.” Components panel: “Sections” label with tooltip (top-level ESPHome blocks).
+- **§5.2 Guard rails for Components** — Components panel shows an advanced warning: “Editing raw YAML here can break the device if invalid. Validate with Deploy or Full YAML before flashing.”
+
 ## v0.71.13
 
 - **Delete widget → remove Component YAML** — When you delete a widget on the canvas, any Create-component block in the Components section that referenced that widget (e.g. `switch:` / `light:` with `widget: <id>`) is now removed from `project.esphome_components`. Applies to all widget types that can create a component (switch, light, sensor, number, select, text_sensor, binary_sensor). Backend save and “Cleanup orphaned” also remove such orphaned blocks from `esphome_components`. New test: `test_orphan_removal_esphome_components`.

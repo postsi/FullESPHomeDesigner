@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getSectionsDefaults } from "./lib/apiSections";
 import { parseYamlSyntax, cleanupOrphanedComponents } from "./lib/api";
+import YamlEditor from "./YamlEditor";
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
@@ -198,9 +199,12 @@ export default function SectionBasedComponentsPanel({
           </button>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Recipe</span> = from hardware recipe;{" "}
+          <strong title="Top-level ESPHome blocks (switch, sensor, wifi, etc.) that are merged into the final device YAML.">Sections</strong> — Edit top-level ESPHome sections. <span style={{ color: "rgba(255,255,255,0.6)" }}>Recipe</span> = from hardware recipe;{" "}
           <span style={{ color: "rgba(255,255,255,0.8)" }}>Auto</span> = added by the app (compiler);{" "}
           <span style={{ color: "rgba(100,180,255,0.95)" }}>Manual</span> = your stored YAML. Reset = back to default; Save = store to project.
+        </div>
+        <div style={{ padding: "0 16px 8px", fontSize: 11, background: "rgba(200,160,80,0.08)", borderBottom: "1px solid rgba(200,160,80,0.2)", color: "rgba(220,200,140,0.95)" }}>
+          Advanced: editing raw YAML here can break the device if invalid. Validate with Deploy or Full YAML before flashing.
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "0 16px 16px" }}>
           {loading && (
@@ -322,22 +326,13 @@ export default function SectionBasedComponentsPanel({
                               {isEmpty && (
                                 <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No content (recipe/compiler did not emit this section). Add YAML below to override.</div>
                               )}
-                              <textarea
+                              <YamlEditor
                                 value={sections[sectionKey] ?? ""}
-                                onChange={(e) => setSectionContent(sectionKey, e.target.value)}
+                                onChange={(v) => setSectionContent(sectionKey, v)}
                                 placeholder={`${sectionKey}:\n  # ...`}
-                                style={{
-                                  width: "100%",
-                                  minHeight: 100,
-                                  fontFamily: "ui-monospace, monospace",
-                                  fontSize: 11,
-                                  padding: 8,
-                                  borderRadius: 4,
-                                  border: isManual ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.15)",
-                                  background: isManual ? "rgba(100,160,255,0.05)" : "rgba(0,0,0,0.2)",
-                                  color: "#e2e8f0",
-                                  resize: "vertical",
-                                }}
+                                minHeight={100}
+                                maxHeight="35vh"
+                                variant={isManual ? "manual" : "default"}
                               />
                               <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 <button

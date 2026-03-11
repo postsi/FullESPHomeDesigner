@@ -45,6 +45,7 @@ import WorkflowStepper, { type WorkflowStep } from "./WorkflowStepper";
 import WelcomePanel from "./WelcomePanel";
 import ManageDevicesModal from "./ManageDevicesModal";
 import OpenDevicePickerModal from "./OpenDevicePickerModal";
+import YamlEditor from "./YamlEditor";
 
 type Toast = { type: "ok" | "error"; msg: string };
 
@@ -466,6 +467,14 @@ const [lintOpen, setLintOpen] = useState<boolean>(false);
   const [exportResult, setExportResult] = useState<any>(null);
   const [exportErr, setExportErr] = useState<string>("");
 
+  // Full YAML: view full compiled output in CodeMirror (read-only)
+  const [fullYamlOpen, setFullYamlOpen] = useState<boolean>(false);
+  const [fullYamlContent, setFullYamlContent] = useState<string>("");
+  const [fullYamlBusy, setFullYamlBusy] = useState<boolean>(false);
+  const [fullYamlError, setFullYamlError] = useState<string>("");
+
+  // About / licenses modal
+  const [aboutOpen, setAboutOpen] = useState<boolean>(false);
 
   // v0.62: Built-in self-check (verification suite) — runs backend checks without deploying.
   const [selfCheckBusy, setSelfCheckBusy] = useState<boolean>(false);
@@ -2257,6 +2266,32 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     }
   }
 
+  // When Full YAML modal opens, compile and show result
+  useEffect(() => {
+    if (!fullYamlOpen) return;
+    const device = selectedDevice;
+    const proj = project;
+    if (!device || !proj) {
+      setFullYamlError("Select a device and load a project first.");
+      setFullYamlBusy(false);
+      return;
+    }
+    let cancelled = false;
+    setFullYamlBusy(true);
+    setFullYamlError("");
+    compileYaml(device, proj as any)
+      .then((result) => {
+        if (!cancelled) setFullYamlContent(result?.yaml ?? "");
+      })
+      .catch((e: any) => {
+        if (!cancelled) setFullYamlError(String(e?.message || e));
+      })
+      .finally(() => {
+        if (!cancelled) setFullYamlBusy(false);
+      });
+    return () => { cancelled = true; };
+  }, [fullYamlOpen]);
+
   async function previewExport() {
     if (!selectedDevice || !entryId) return;
     setExportBusy(true);
@@ -2565,12 +2600,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       <div className="muted" style={{ marginTop: 6 }}>
                         Optional: service data YAML (will be merged under data:).
                       </div>
-                      <textarea
-                        rows={5}
-                        placeholder={'brightness_pct: 50\ntransition: 1'}
-                        value={tmplServiceData}
-                        onChange={(e) => setTmplServiceData(e.target.value)}
-                      />
+                      <YamlEditor value={tmplServiceData} onChange={setTmplServiceData} minHeight={100} placeholder="brightness_pct: 50\ntransition: 1" />
                     </div>
                   )}
                 </div>
@@ -2910,12 +2940,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
 
             <div className="field">
               <div className="fieldLabel">device YAML</div>
-              <textarea
-                value={recipeImportYaml}
-                onChange={(e)=>setRecipeImportYaml(e.target.value)}
-                style={{ width: "100%", minHeight: 220, fontFamily: "monospace" }}
-                placeholder="Paste YAML here…"
-              />
+              <YamlEditor value={recipeImportYaml} onChange={setRecipeImportYaml} minHeight={220} placeholder="Paste YAML here…" />
             </div>
 
             {recipeImportErr && <div className="error" style={{ marginTop: 10 }}>{recipeImportErr}</div>}
@@ -3353,7 +3378,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
             <select
               value={editDeviceRecipeId}
               onChange={(e) => setEditDeviceRecipeId(e.target.value)}
-              title="Hardware profile (resolution, display, touch)"
+              title="Recipe = base YAML for this device (display, touch, pins). One recipe per device."
               style={{ width: "100%", padding: "8px 10px" }}
             >
               <option value="">(none)</option>
@@ -3361,6 +3386,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                 <option key={r.id} value={r.id}>{r.label || r.id}</option>
               ))}
             </select>
+            <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>Recipe = base device YAML (display, touch, pins). Defines resolution and hardware.</div>
             <label className="label">API key</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
@@ -3571,12 +3597,84 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       </div>
                     )}
                     {exportErr && <div className="toast error" style={{ marginBottom: 8 }}>Export error: {exportErr}</div>}
-                    <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto", padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "rgba(255,255,255,0.02)", maxHeight: 400, overflowY: "auto" }}>
-                      {compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")}
-                    </pre>
+                    <div style={{ minHeight: 200, maxHeight: 400 }}>
+                      <YamlEditor readOnly value={compiledYaml || (compileBusy ? "Compiling…" : "No YAML yet.")} minHeight={200} maxHeight={400} />
+                    </div>
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fullYamlOpen && (
+        <div className="modalOverlay" onClick={() => setFullYamlOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 960, maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div className="modalHeader">
+              <div className="title">Full YAML</div>
+              <button className="ghost" onClick={() => setFullYamlOpen(false)}>Close</button>
+            </div>
+            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", padding: 12 }}>
+              {fullYamlError && <div className="toast error" style={{ marginBottom: 8 }}>{fullYamlError}</div>}
+              {fullYamlBusy && <div className="muted" style={{ marginBottom: 8 }}>Compiling…</div>}
+              <div style={{ flex: 1, minHeight: 300 }}>
+                <YamlEditor
+                  readOnly
+                  value={fullYamlBusy ? "Compiling…" : fullYamlContent}
+                  minHeight={300}
+                  maxHeight="75vh"
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <button
+                  className="secondary"
+                  disabled={!fullYamlContent || fullYamlBusy}
+                  onClick={async () => {
+                    if (!fullYamlContent) return;
+                    try {
+                      if (navigator.clipboard?.writeText) {
+                        await navigator.clipboard.writeText(fullYamlContent);
+                        setToast({ type: "ok", msg: "Copied to clipboard" });
+                      } else {
+                        const ta = document.createElement("textarea");
+                        ta.value = fullYamlContent;
+                        ta.style.position = "fixed";
+                        ta.style.left = "-9999px";
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                        setToast({ type: "ok", msg: "Copied to clipboard" });
+                      }
+                    } catch {
+                      setToast({ type: "error", msg: "Copy failed" });
+                    }
+                  }}
+                >
+                  Copy
+                </button>
+                <button className="secondary" onClick={() => setFullYamlOpen(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {aboutOpen && (
+        <div className="modalOverlay" onClick={() => setAboutOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modalHeader">
+              <div className="title">About</div>
+              <button className="ghost" onClick={() => setAboutOpen(false)}>Close</button>
+            </div>
+            <div style={{ padding: 16 }}>
+              <p style={{ marginBottom: 12 }}><strong>ESPHome Touch Designer</strong> — A Lovelace-style UI designer for ESP32 LVGL touch screens. Compiles designs into ESPHome YAML and deploys through Home Assistant.</p>
+              <p className="muted" style={{ fontSize: 12, marginBottom: 16 }}>YAML editing in this app uses CodeMirror 6.</p>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
+                <div style={{ fontSize: 12, marginBottom: 8 }}><strong>CodeMirror 6</strong></div>
+                <p className="muted" style={{ fontSize: 11, margin: 0 }}>Copyright (c) 2018–2024 by Marijn Haverbeke and others. Licensed under the MIT License. <a href="https://codemirror.net/" target="_blank" rel="noopener noreferrer" style={{ color: "rgba(100,180,255,0.9)" }}>codemirror.net</a></p>
+              </div>
             </div>
           </div>
         </div>
@@ -3813,12 +3911,14 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         {/* Group: Device & deploy */}
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Compile and save YAML to /config/esphome/">Deploy</button>
-        <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card">Save as card</button>
+        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={() => setFullYamlOpen(true)} title="View full compiled ESPHome YAML">Full YAML</button>
+        <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card (reusable UI snippet you can drop on other projects)">Save as card</button>
         <span className="muted" style={{ marginRight: 4 }}>|</span>
         {/* Group: Advanced */}
         <span style={{ display: "inline-flex", gap: 8, alignItems: "center", opacity: showAdvancedToolsProminent ? 1 : 0.7 }}>
           <button className="ghost" disabled={!project} onClick={() => setLvglSettingsOpen(true)} title="Theme, style definitions, gradients, main LVGL config">LVGL settings</button>
           <button className="ghost" disabled={!project} onClick={() => setComponentsOpen(true)} title="Edit ESPHome top-level sections (wifi, sensor, lvgl, etc.)">Components</button>
+          <button className="ghost" onClick={() => setAboutOpen(true)} title="About and third-party licenses">About</button>
         </span>
       </nav>
 
@@ -3851,7 +3951,8 @@ function nudgeSelected(dx: number, dy: number, step: number) {
             )}
             {paletteTab === "cards" && (
               <>
-                <div className="sectionTitle">Card Library</div>
+                <div className="sectionTitle" title="Card = reusable UI snippet (e.g. thermostat, fan) you can drop on the canvas.">Card Library</div>
+                <div className="muted" style={{ fontSize: 10, marginBottom: 8 }}>Cards = reusable UI snippets. Drop onto the canvas.</div>
                 <div className="palette">
                   {[...(CONTROL_TEMPLATES || []), ...(pluginControls || [])].filter((t: any) => t && String((t as any).title ?? "").startsWith("Card Library • ") && !String((t as any).title ?? "").startsWith("Card Library disabled • ")).map((t: any) => (
                     <div
@@ -4659,7 +4760,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                         {editingLinkOverride?.widgetId === widgetId && (
                           <div style={{ marginTop: 8, padding: 8, background: "rgba(255,255,255,.04)", borderRadius: 4 }}>
                             <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Custom YAML for this display binding (used by compiler instead of generated).</div>
-                            <textarea value={editingOverrideYaml} onChange={(e) => setEditingOverrideYaml(e.target.value)} rows={4} style={{ width: "100%", fontFamily: "monospace", fontSize: 11, boxSizing: "border-box" }} placeholder="e.g. - lvgl.label.update:&#10;    id: my_id&#10;    text: !lambda return x;" />
+                            <YamlEditor value={editingOverrideYaml} onChange={setEditingOverrideYaml} minHeight={100} maxHeight={200} placeholder="e.g. - lvgl.label.update:&#10;    id: my_id&#10;    text: !lambda return x;" />
                             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                               <button type="button" onClick={() => {
                                 if (!project) return;
@@ -4955,20 +5056,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                         )}
                         {!widgetYamlPreviewLoading && widgetYamlPreview != null && (
                           <>
-                            <pre style={{
-                              background: "rgba(0,0,0,0.3)",
-                              padding: 10,
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontFamily: "ui-monospace, monospace",
-                              maxHeight: 280,
-                              overflow: "auto",
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                              border: "1px solid rgba(255,255,255,0.1)",
-                            }}>
-                              {widgetYamlPreview || "(empty)"}
-                            </pre>
+                            <YamlEditor readOnly value={widgetYamlPreview || "(empty)"} minHeight={120} maxHeight={280} />
                             <button
                               type="button"
                               className="secondary"
@@ -5028,25 +5116,15 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                                   {isDirty && <span className="muted" style={{ fontSize: 10 }}>unsaved</span>}
                                   {hasValue && !isDirty && "✓"}
                                 </summary>
-                                <textarea
+                                <YamlEditor
                                   value={draftValue}
-                                  onChange={(e) => {
-                                    setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }));
+                                  onChange={(v) => {
+                                    setWidgetEventDrafts((prev) => ({ ...prev, [draftKey]: v }));
                                     setWidgetEventError(null);
                                   }}
                                   placeholder={source === "auto" ? "Auto-generated (edit to customize and Save)" : `then:\n  - logger.log: \"${ev} triggered\"\n  - lvgl.page.next:`}
-                                  style={{
-                                    width: "100%",
-                                    minHeight: 80,
-                                    fontFamily: "ui-monospace, monospace",
-                                    fontSize: 11,
-                                    padding: 8,
-                                    borderRadius: 4,
-                                    border: "1px solid rgba(255,255,255,0.15)",
-                                    background: "rgba(0,0,0,0.2)",
-                                    color: "#e2e8f0",
-                                    resize: "vertical",
-                                  }}
+                                  minHeight={80}
+                                  maxHeight={180}
                                 />
                                 <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
                                   <button
