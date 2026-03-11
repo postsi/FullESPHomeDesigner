@@ -4567,9 +4567,36 @@ class PreviewWidgetYamlView(HomeAssistantView):
         return self.json({"ok": True, "yaml": yaml_str, "event_snippets": event_snippets})
 
 
+def _build_sections_panel_data(project: dict, device=None) -> dict:
+    """Build sections-panel response data from project only (user-added YAML in project.sections).
+    Components panel shows only user additions; no recipe or compiler content. Used by SectionsDefaultsView.
+    Returns dict with sections, default_sections, keys_with_additions (categories added by view).
+    """
+    stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
+    sections_full = {}
+    for key in SECTION_ORDER:
+        raw = (stored.get(key) or "").strip()
+        if raw and not (raw.startswith(key + ":") or raw.startswith(key + " :")):
+            raw = _section_full_block(key, raw)
+        sections_full[key] = raw or ""
+    if device is not None and getattr(device, "slug", None):
+        _substitute_device_name_in_sections(sections_full, device.slug)
+    sections = {
+        key: (_section_body_from_value(sections_full[key], key) or "").strip()
+        for key in SECTION_ORDER
+    }
+    default_sections = {key: "" for key in SECTION_ORDER}
+    keys_with_additions = [k for k in SECTION_ORDER if (sections.get(k) or "").strip()]
+    return {
+        "sections": sections,
+        "default_sections": default_sections,
+        "keys_with_additions": keys_with_additions,
+    }
+
+
 class SectionsDefaultsView(HomeAssistantView):
-    """Return default section content (recipe + compiler) for the Components panel.
-    POST body: { project, recipe_id? }. Response: { ok, sections: { key: content } }.
+    """Return only user-added section content (project.sections) for the Components panel.
+    No recipe or compiler content. POST body: { project, recipe_id?, device_id? }.
     """
 
     url = f"/api/{DOMAIN}/sections/defaults"
@@ -4584,11 +4611,6 @@ class SectionsDefaultsView(HomeAssistantView):
         if not isinstance(body, dict):
             return self.json({"ok": False, "error": "body must be JSON object"}, status_code=400)
         project = body.get("project")
-        # Same recipe_id resolution as compile: body, project.hardware.recipe_id, project.device.hardware_recipe_id
-        _rid = (body.get("recipe_id") or "").strip() if isinstance(body.get("recipe_id"), str) else ""
-        if not _rid and isinstance(project, dict):
-            _rid = (project.get("hardware") or {}).get("recipe_id") or (project.get("device") or {}).get("hardware_recipe_id") or ""
-        recipe_id = (_rid or "sunton_2432s028r_320x240").strip() or "sunton_2432s028r_320x240"
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "project required"}, status_code=400)
         hass = request.app.get("hass") if request.app else None
@@ -4599,28 +4621,13 @@ class SectionsDefaultsView(HomeAssistantView):
             if entry_id:
                 storage = _get_storage(hass, entry_id)
                 device = storage.get_device(device_id)
-        # Components panel shows only user-added YAML per section (additional to app/recipe). No auto/recipe content here.
-        stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
-        sections_full = {}
-        for key in SECTION_ORDER:
-            raw = (stored.get(key) or "").strip()
-            if raw and not (raw.startswith(key + ":") or raw.startswith(key + " :")):
-                raw = _section_full_block(key, raw)
-            sections_full[key] = raw or ""
-        if device is not None and getattr(device, "slug", None):
-            _substitute_device_name_in_sections(sections_full, device.slug)
-        sections = {
-            key: (_section_body_from_value(sections_full[key], key) or "").strip()
-            for key in SECTION_ORDER
-        }
-        default_sections = {key: "" for key in SECTION_ORDER}
-        keys_with_additions = [k for k in SECTION_ORDER if (sections.get(k) or "").strip()]
+        data = _build_sections_panel_data(project, device)
         return self.json({
             "ok": True,
-            "sections": sections,
-            "default_sections": default_sections,
+            "sections": data["sections"],
+            "default_sections": data["default_sections"],
             "categories": dict(SECTION_CATEGORIES),
-            "keys_with_additions": keys_with_additions,
+            "keys_with_additions": data["keys_with_additions"],
         })
 
 

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.19
+
+- **Components panel: user-only content** — The sections API and panel now return and display **only user-added YAML** (project.sections). Recipe and compiler-generated content no longer appears in the dialog; only sections you added show content and are marked "Additional."
+- **Test for sections API contract** — New test `test_sections_panel_returns_only_user_additions` asserts that the API returns only project.sections content and that `keys_with_additions` is derived solely from user additions.
+
 ## v0.71.18
 
 - **Components API naming** — Sections API and frontend now use **`keys_with_additions`** instead of `overridden_keys` for keys that have user-added YAML (matches “additional YAML” wording).

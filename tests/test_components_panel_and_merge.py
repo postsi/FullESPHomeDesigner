@@ -9,6 +9,7 @@ from pathlib import Path
 from custom_components.esphome_touch_designer.api.views import (
     _section_body_from_value,
     _build_default_section_pieces,
+    _build_sections_panel_data,
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
     _remove_orphaned_widget_refs_from_sections,
@@ -98,6 +99,38 @@ def test_keys_with_user_addition(jc1060_recipe_text, default_project):
     from custom_components.esphome_touch_designer.esphome_sections import SECTION_ORDER
     keys_with_additions = [k for k in SECTION_ORDER if (project.get("sections") or {}).get(k, "").strip()]
     assert "logger" in keys_with_additions
+
+
+def test_sections_panel_returns_only_user_additions(default_project):
+    """Components panel API returns only project.sections content; no recipe/compiler content.
+    Ensures sections and keys_with_additions are derived solely from user-added YAML.
+    """
+    from custom_components.esphome_touch_designer.esphome_sections import SECTION_ORDER
+
+    # Empty project.sections -> all section content empty, keys_with_additions empty
+    project_empty = dict(default_project)
+    project_empty["sections"] = {}
+    data_empty = _build_sections_panel_data(project_empty)
+    assert data_empty["keys_with_additions"] == []
+    for key in SECTION_ORDER:
+        assert (data_empty["sections"].get(key) or "").strip() == "", (
+            f"Section {key} should be empty when project.sections is empty"
+        )
+
+    # Only user-added logger -> only logger has content and is in keys_with_additions
+    user_logger = "  level: DEBUG\n"
+    project_logger = dict(default_project)
+    project_logger["sections"] = {"logger": user_logger}
+    data_logger = _build_sections_panel_data(project_logger)
+    assert "logger" in data_logger["keys_with_additions"]
+    assert (data_logger["sections"].get("logger") or "").strip()
+    # Sections that user did not add must be empty (e.g. wifi from recipe must not appear)
+    for key in SECTION_ORDER:
+        if key != "logger":
+            assert (data_logger["sections"].get(key) or "").strip() == "", (
+                f"Section {key} must be empty when not in project.sections"
+            )
+    assert data_logger["keys_with_additions"] == ["logger"]
 
 
 def test_merged_output_valid_yaml(jc1060_recipe_text, default_project):
