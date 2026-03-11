@@ -1453,7 +1453,7 @@ const stageRef = useRef<any>(null);
           boundBoxFunc={(oldBox, newBox) => {
             const { box, clamped } = clampResizeBox(newBox, width, height, 20);
             if (clamped) setResizeAtLimit(true);
-            return box;
+            return { ...box, rotation: newBox.rotation ?? oldBox.rotation ?? 0 };
           }}
         />
         {selectionBox && (

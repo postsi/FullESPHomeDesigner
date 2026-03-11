@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.16
+
+- **Resize handle fix** — Canvas resize no longer jumps when you start dragging a handle. Konva’s Transformer expects the box returned from `boundBoxFunc` to include `rotation`; we now preserve it so the transform stays correct.
+
 ## v0.71.15
 
 - **Canvas logic tests** — Pure canvas helpers (resize/drag clamping, snap, colors, layout, box selection) moved to `canvasUtils.ts` and covered by 36 unit tests. Catches regressions like the resize-handle bug (negative width/height from Konva). Tests: `clampResizeBox`, `clampDragPosition`, `snap`, `toFillColor`, `fontSizeFromFontId`, `textLayoutFromWidget`, `safeWidgets`, `computeLayoutPositions`, `widgetsInSelectionRect`, `parentInfo`/`absPos`.
