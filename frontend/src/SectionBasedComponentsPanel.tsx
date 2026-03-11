@@ -52,11 +52,11 @@ export default function SectionBasedComponentsPanel({
     setLoading(true);
     setError(null);
     getSectionsDefaults(project, recipeId, deviceId ?? undefined, entryId ?? undefined)
-      .then(({ sections: effective, categories: cat, default_sections: defSections, overridden_keys: ovKeys }) => {
+      .then(({ sections: effective, categories: cat, default_sections: defSections, keys_with_additions: keysWithAdditions }) => {
         if (cancelled) return;
         setDefaults(defSections && typeof defSections === "object" ? defSections : {});
         setCategories(cat);
-        setKeysWithAddition(new Set(Array.isArray(ovKeys) ? ovKeys : []));
+        setKeysWithAddition(new Set(Array.isArray(keysWithAdditions) ? keysWithAdditions : []));
         setSections(effective);
         setHasLocalEdits(false);
       })
@@ -79,16 +79,6 @@ export default function SectionBasedComponentsPanel({
     });
     setHasLocalEdits(true);
     setSyntaxError(null);
-  }, []);
-
-  const resetSection = useCallback((key: string) => {
-    setSections((prev) => ({ ...prev, [key]: "" }));
-    setKeysWithAddition((prev) => {
-      const next = new Set(prev);
-      next.delete(key);
-      return next;
-    });
-    setHasLocalEdits(true);
   }, []);
 
   const saveAll = useCallback(async () => {
@@ -124,39 +114,6 @@ export default function SectionBasedComponentsPanel({
       try {
         await onSaveAndPersist(p2);
         setHasLocalEdits(false);
-      } finally {
-        setSaving(false);
-      }
-    }
-  }, [project, sections, defaults, setProject, setProjectDirty, onSaveAndPersist]);
-
-  const saveSection = useCallback(async (key: string) => {
-    setSyntaxError(null);
-    const content = (sections[key] ?? "").trim();
-    if (content) {
-      const result = await parseYamlSyntax(content);
-      if (!result.ok) {
-        setSyntaxError(`${key}: ${result.error || "Invalid YAML"}${result.line != null ? ` (line ${result.line})` : ""}`);
-        return;
-      }
-    }
-    const p2 = clone(project);
-    p2.sections = { ...(p2.sections || {}) };
-    if ((content || "").trim()) p2.sections[key] = content;
-    else delete p2.sections[key];
-    if (p2.section_overrides !== undefined) delete p2.section_overrides;
-    setProject(p2, true);
-    setProjectDirty(true);
-    setKeysWithAddition((prev) => {
-      const next = new Set(prev);
-      if ((content || "").trim()) next.add(key);
-      else next.delete(key);
-      return next;
-    });
-    if (onSaveAndPersist) {
-      setSaving(true);
-      try {
-        await onSaveAndPersist(p2);
       } finally {
         setSaving(false);
       }
@@ -208,12 +165,32 @@ export default function SectionBasedComponentsPanel({
       >
         <div className="modalHeader">
           <div className="title">ESPHome Components</div>
-          <button className="ghost" onClick={requestClose} type="button">
-            ✕
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              className="secondary"
+              style={{ fontSize: 12 }}
+              onClick={resetAll}
+              disabled={loading}
+            >
+              Clear All
+            </button>
+            <button
+              type="button"
+              className="primary"
+              style={{ fontSize: 12 }}
+              onClick={() => saveAll()}
+              disabled={loading || saving}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="ghost" onClick={requestClose} type="button">
+              ✕
+            </button>
+          </div>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          <strong title="Additional YAML per top-level ESPHome block (switch, sensor, etc.). Merged with app/recipe content at compile.">Sections</strong> — Add your own YAML here; it is merged into each section. Use <strong>Full YAML</strong> to see the complete result. Reset = clear; Save = store.
+          <strong title="Additional YAML per top-level ESPHome block (switch, sensor, etc.). Merged with app/recipe content at compile.">Sections</strong> — Add your own YAML here; it is merged into each section. Use <strong>Full YAML</strong> to see the complete result. Clear All = clear all additions; Save = store all.
         </div>
         <div style={{ padding: "0 16px 8px", fontSize: 11, background: "rgba(200,160,80,0.08)", borderBottom: "1px solid rgba(200,160,80,0.2)", color: "rgba(220,200,140,0.95)" }}>
           Advanced: editing raw YAML here can break the device if invalid. Validate with Deploy or Full YAML before flashing.
@@ -316,25 +293,6 @@ export default function SectionBasedComponentsPanel({
                                 maxHeight="35vh"
                                 variant={hasAddition ? "manual" : "default"}
                               />
-                              <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                <button
-                                  type="button"
-                                  className="secondary"
-                                  style={{ fontSize: 11 }}
-                                  onClick={() => resetSection(sectionKey)}
-                                >
-                                  Reset
-                                </button>
-                                <button
-                                  type="button"
-                                  className="primary"
-                                  style={{ fontSize: 11 }}
-                                  onClick={() => saveSection(sectionKey)}
-                                  disabled={saving}
-                                >
-                                  {saving ? "Saving…" : "Save"}
-                                </button>
-                              </div>
                             </div>
                           </details>
                         );
@@ -393,17 +351,6 @@ export default function SectionBasedComponentsPanel({
             disabled={loading || cleanupBusy}
           >
             {cleanupBusy ? "Cleanup…" : "Cleanup orphaned"}
-          </button>
-          <button type="button" className="secondary" onClick={resetAll} disabled={loading}>
-            Reset all
-          </button>
-          <button
-            type="button"
-            className="primary"
-            onClick={() => saveAll()}
-            disabled={loading || saving}
-          >
-            {saving ? "Saving…" : "Save all"}
           </button>
         </div>
       </div>

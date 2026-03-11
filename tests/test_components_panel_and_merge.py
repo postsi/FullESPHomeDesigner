@@ -1,5 +1,5 @@
 """
-Components panel and section merge: section_overrides ignored, list sections merged, overridden_keys.
+Components panel and section merge: section_overrides ignored, list sections merged, keys_with_additions.
 """
 from __future__ import annotations
 
@@ -90,14 +90,14 @@ def test_merge_switch_user_only(jc1060_recipe_text, default_project):
 
 
 def test_keys_with_user_addition(jc1060_recipe_text, default_project):
-    """Sections API returns overridden_keys for keys that have user content (project.sections)."""
+    """Sections API returns keys_with_additions for keys that have user-added content (project.sections)."""
     project = dict(default_project)
     project["device"] = project.get("device") or {}
     project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
     project["sections"] = {"logger": "  level: DEBUG\n"}
     from custom_components.esphome_touch_designer.esphome_sections import SECTION_ORDER
-    overridden_keys = [k for k in SECTION_ORDER if (project.get("sections") or {}).get(k, "").strip()]
-    assert "logger" in overridden_keys
+    keys_with_additions = [k for k in SECTION_ORDER if (project.get("sections") or {}).get(k, "").strip()]
+    assert "logger" in keys_with_additions
 
 
 def test_merged_output_valid_yaml(jc1060_recipe_text, default_project):

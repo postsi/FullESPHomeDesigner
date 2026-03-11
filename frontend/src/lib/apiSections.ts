@@ -8,7 +8,7 @@ export async function getSectionsDefaults(
 ): Promise<{
   sections: Record<string, string>;
   categories: Record<string, string[]>;
-  overridden_keys: string[];
+  keys_with_additions: string[];
   default_sections: Record<string, string>;
 }> {
   const body: Record<string, unknown> = {
@@ -29,7 +29,7 @@ export async function getSectionsDefaults(
   for (const [k, v] of Object.entries(cat)) {
     categories[k] = Array.isArray(v) ? v : [];
   }
-  const overridden_keys = Array.isArray(data.overridden_keys) ? data.overridden_keys : [];
+  const keys_with_additions = Array.isArray(data.keys_with_additions) ? data.keys_with_additions : [];
   const default_sections = (data.default_sections && typeof data.default_sections === "object") ? data.default_sections : {};
-  return { sections: data.sections ?? {}, categories, overridden_keys, default_sections };
+  return { sections: data.sections ?? {}, categories, keys_with_additions, default_sections };
 }

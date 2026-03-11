@@ -1535,7 +1535,7 @@ def _build_section_engine_pieces(
     recipe_text: str,
 ) -> tuple[dict[str, str], set[str]]:
     """Engine: produce the final content for each section (recipe + compiler + sections).
-    Returns (section_key -> content, set of keys that are user-overridden based on project.sections).
+    Returns (section_key -> content, set of keys that have user-added content in project.sections).
 
     Legacy: used by SectionsDefaultsView. New code should prefer project.sections +
     compiler merge in the main compile path.
@@ -4614,13 +4614,13 @@ class SectionsDefaultsView(HomeAssistantView):
             for key in SECTION_ORDER
         }
         default_sections = {key: "" for key in SECTION_ORDER}
-        overridden_keys = [k for k in SECTION_ORDER if (sections.get(k) or "").strip()]
+        keys_with_additions = [k for k in SECTION_ORDER if (sections.get(k) or "").strip()]
         return self.json({
             "ok": True,
             "sections": sections,
             "default_sections": default_sections,
             "categories": dict(SECTION_CATEGORIES),
-            "overridden_keys": overridden_keys,
+            "keys_with_additions": keys_with_additions,
         })
 
 
