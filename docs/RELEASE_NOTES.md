@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.13
+
+- **Delete widget → remove Component YAML** — When you delete a widget on the canvas, any Create-component block in the Components section that referenced that widget (e.g. `switch:` / `light:` with `widget: <id>`) is now removed from `project.esphome_components`. Applies to all widget types that can create a component (switch, light, sensor, number, select, text_sensor, binary_sensor). Backend save and “Cleanup orphaned” also remove such orphaned blocks from `esphome_components`. New test: `test_orphan_removal_esphome_components`.
+
 ## v0.71.12
 
 - **§4 Bindings and actions (UX plan)** — **4.1** Binding Builder uses human copy: “This widget will show…” for Display and “When the user does an action… call a Home Assistant service” for Action. **4.2** Entity search is word-based: type any word (e.g. shed) to match entity id or friendly name; multi-word requires all words. “Add recommended” in HA Bindings panel is labelled with “Recommended: adds common bindings for the selected domain”. **4.3** HA Bindings panel shows per-binding human summaries: display links as “Shows &lt;name&gt; (entity_id) → action” and action bindings as “On click → Toggle (light.shed)”. Pre-§4 revert point: v0.71.11 (tag `v0.71.11`). New tests: entitySearch (word matching), bindingConfig (formatDisplayBindingSummary, formatActionBindingSummary).

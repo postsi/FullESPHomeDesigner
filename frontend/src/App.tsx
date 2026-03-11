@@ -65,6 +65,16 @@ function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
 }
 
+/** Widget IDs referenced in a YAML block (e.g. "widget: my_switch"). Used to remove esphome_components when a widget is deleted. */
+const WIDGET_REF_RE = /widget:\s*["']?([a-zA-Z0-9_]+)["']?/g;
+function getWidgetRefsInYaml(yamlStr: string): string[] {
+  const refs: string[] = [];
+  let m: RegExpExecArray | null;
+  WIDGET_REF_RE.lastIndex = 0;
+  while ((m = WIDGET_REF_RE.exec(yamlStr)) !== null) refs.push(m[1]);
+  return refs;
+}
+
 /** Hex #RRGGBB to HSV: h 0–360, s 0–100, v 0–100. */
 function hexToHsv(hex: string): { h: number; s: number; v: number } {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
@@ -2009,14 +2019,22 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     if (Array.isArray(scripts)) {
       (p2 as any).scripts = scripts.filter((s: any) => !toDelete.has(String(s?._source_root_id ?? "")));
     }
-    // Remove esphome_components that belonged to deleted prebuilt roots (sensor, interval, etc.).
+    // Remove esphome_components: (1) prebuilt roots by _source_root_id, (2) Create-component blocks that reference deleted widget IDs.
     const comps = (p2 as any).esphome_components;
     if (Array.isArray(comps)) {
       (p2 as any).esphome_components = comps.filter((c: any) => {
         if (c == null) return false;
-        const rootId = typeof c === "object" ? c._source_root_id : undefined;
-        if (rootId == null) return true; // keep legacy string entries (no tag)
-        return !toDelete.has(String(rootId));
+        if (typeof c === "object") {
+          const rootId = c._source_root_id;
+          if (rootId != null) return !toDelete.has(String(rootId)); // prebuilt: keep only if root not deleted
+          const yamlStr = typeof c.yaml === "string" ? c.yaml : "";
+          const refs = getWidgetRefsInYaml(yamlStr);
+          if (refs.some((r: string) => toDelete.has(r))) return false;
+          return true;
+        }
+        const refs = getWidgetRefsInYaml(String(c));
+        if (refs.some((r: string) => toDelete.has(r))) return false;
+        return true;
       });
     }
     recomputeBindingsFromLinks(p2);
@@ -2843,14 +2861,14 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       p2 = result.project;
                       setSelectedWidgetIds([rawId]);
                     }
-                    const block = `  - platform: lvgl
+                    const blockBody = `  - platform: lvgl
     id: ${rawId}
     widget: ${rawId}
     name: ${JSON.stringify((createNativeComponentName.trim() || "Component"))}
 `;
-                    p2.sections = p2.sections || {};
-                    const existing = (p2.sections[meta.section] || "").trim();
-                    p2.sections[meta.section] = existing ? existing + "\n\n" + block.trim() : block.trim();
+                    const fullBlock = `${meta.section}:\n${blockBody.trim()}`;
+                    p2.esphome_components = Array.isArray(p2.esphome_components) ? p2.esphome_components : [];
+                    p2.esphome_components.push(fullBlock);
                     if (widgetType === "button" && createNativeComponentType === "switch") {
                       const pg = p2?.pages?.[safePageIndex];
                       const w = findWidgetById(pg?.widgets ?? [], rawId);

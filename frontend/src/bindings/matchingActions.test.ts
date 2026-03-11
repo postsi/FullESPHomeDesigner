@@ -92,5 +92,33 @@ describe("matchingActions", () => {
       expect(out[0].call.service).toBe("set_hvac_mode");
       expect(out[0].call.data?.hvac_mode).toBe(SELECT_OPTION_TEXT_SENTINEL);
     });
+
+    it("returns dropdown select.select_option for select entity", () => {
+      const out = getMatchingActionBindings(
+        "dropdown",
+        "select.mode",
+        "state",
+        ""
+      );
+      expect(out.length).toBe(1);
+      expect(out[0].event).toBe("on_change");
+      expect(out[0].call.domain).toBe("select");
+      expect(out[0].call.service).toBe("select_option");
+      expect(out[0].call.data?.option).toBe(SELECT_OPTION_TEXT_SENTINEL);
+    });
+
+    it("returns roller input_select.select_option for input_select entity", () => {
+      const out = getMatchingActionBindings(
+        "roller",
+        "input_select.scene",
+        "state",
+        ""
+      );
+      expect(out.length).toBe(1);
+      expect(out[0].event).toBe("on_change");
+      expect(out[0].call.domain).toBe("input_select");
+      expect(out[0].call.service).toBe("select_option");
+      expect(out[0].call.data?.option).toBe(SELECT_OPTION_TEXT_SENTINEL);
+    });
   });
 });

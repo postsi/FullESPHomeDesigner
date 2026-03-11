@@ -200,6 +200,32 @@ export function getMatchingActionBindings(
         },
       ];
     }
+    if (domain === "select" && (kind === "state" || !attribute)) {
+      return [
+        {
+          event: eventForOption,
+          call: {
+            domain: "select",
+            service: "select_option",
+            entity_id,
+            data: { option: SELECT_OPTION_TEXT_SENTINEL },
+          },
+        },
+      ];
+    }
+    if (domain === "input_select" && (kind === "state" || !attribute)) {
+      return [
+        {
+          event: eventForOption,
+          call: {
+            domain: "input_select",
+            service: "select_option",
+            entity_id,
+            data: { option: SELECT_OPTION_TEXT_SENTINEL },
+          },
+        },
+      ];
+    }
   }
 
   // Binary widgets: switch, checkbox — event passes checked state; we use toggle

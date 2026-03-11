@@ -190,6 +190,46 @@ def _remove_orphaned_widget_refs_from_sections(project: dict) -> list[tuple[str,
     return removed
 
 
+def _remove_orphaned_widget_refs_from_esphome_components(project: dict) -> list[tuple[str, str]]:
+    """Remove from project.esphome_components any block whose widget: id is not in the project's widgets (Create-component orphans). Mutates project. Returns list of ('esphome_components', removed_widget_id)."""
+    components = project.get("esphome_components")
+    if not components or not isinstance(components, list):
+        return []
+    valid_ids = _collect_widget_ids_from_project(project)
+    kept: list = []
+    removed: list[tuple[str, str]] = []
+    for comp in components:
+        if comp is None:
+            continue
+        if isinstance(comp, dict):
+            root_id = comp.get("_source_root_id")
+            if root_id is not None:
+                if str(root_id).strip() in valid_ids:
+                    kept.append(comp)
+                else:
+                    removed.append(("esphome_components", str(root_id).strip()))
+                continue
+            yaml_str = str(comp.get("yaml") or "").strip()
+        else:
+            yaml_str = str(comp).strip()
+        if not yaml_str:
+            kept.append(comp)
+            continue
+        refs = _widget_refs_in_block(yaml_str)
+        if not refs:
+            kept.append(comp)
+            continue
+        if all(wid in valid_ids for wid in refs):
+            kept.append(comp)
+        else:
+            for wid in refs:
+                if wid not in valid_ids:
+                    removed.append(("esphome_components", wid))
+    if len(kept) < len(components):
+        project["esphome_components"] = kept
+    return removed
+
+
 def _compile_warnings(project: dict) -> list[dict]:
     """Return list of warnings for compile (e.g. widget: refs in project.sections that point to non-existent widgets)."""
     warnings: list[dict] = []
@@ -3987,7 +4027,9 @@ class DeviceProjectView(HomeAssistantView):
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "invalid_project"}, status_code=400)
         # Remove LVGL component blocks that reference deleted widgets (orphan cleanup on save)
-        removed = _remove_orphaned_widget_refs_from_sections(project)
+        removed_sections = _remove_orphaned_widget_refs_from_sections(project)
+        removed_comps = _remove_orphaned_widget_refs_from_esphome_components(project)
+        removed = list(removed_sections) + list(removed_comps)
         device.project = project
         storage.upsert_device(device)
         await storage.async_save()
@@ -4009,7 +4051,9 @@ class CleanupOrphansView(HomeAssistantView):
         if not isinstance(project, dict):
             return self.json({"ok": False, "error": "invalid_project"}, status_code=400)
         project = dict(project)
-        removed = _remove_orphaned_widget_refs_from_sections(project)
+        removed_sections = _remove_orphaned_widget_refs_from_sections(project)
+        removed_comps = _remove_orphaned_widget_refs_from_esphome_components(project)
+        removed = list(removed_sections) + list(removed_comps)
         return self.json({
             "ok": True,
             "project": project,

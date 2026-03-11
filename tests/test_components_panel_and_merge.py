@@ -13,6 +13,7 @@ from custom_components.esphome_touch_designer.api.views import (
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
     _remove_orphaned_widget_refs_from_sections,
+    _remove_orphaned_widget_refs_from_esphome_components,
     _compile_warnings,
 )
 from custom_components.esphome_touch_designer.storage import DeviceProject, _default_project
@@ -146,3 +147,21 @@ def test_orphan_removal_and_warnings(default_project):
     assert ("switch", "deleted_widget") in removed
     switch_content = (project.get("sections") or {}).get("switch") or ""
     assert "deleted_widget" not in switch_content
+
+
+def test_orphan_removal_esphome_components(default_project):
+    """Orphan cleanup removes Create-component blocks from esphome_components when widget id is deleted."""
+    project = dict(default_project)
+    project["pages"] = [{"page_id": "main", "name": "Main", "widgets": [{"id": "sw1", "type": "switch"}]}]
+    orphan_block = "switch:\n  - platform: lvgl\n    id: my_sw\n    widget: deleted_widget\n    name: Orphan\n"
+    project["esphome_components"] = [
+        orphan_block,
+        "switch:\n  - platform: lvgl\n    id: sw_kept\n    widget: sw1\n    name: Kept\n",
+    ]
+    ids = _collect_widget_ids_from_project(project)
+    assert "sw1" in ids and "deleted_widget" not in ids
+    removed = _remove_orphaned_widget_refs_from_esphome_components(project)
+    assert ("esphome_components", "deleted_widget") in removed
+    comps = project.get("esphome_components") or []
+    assert len(comps) == 1
+    assert "deleted_widget" not in comps[0] and "widget: sw1" in comps[0]
