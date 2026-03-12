@@ -101,7 +101,8 @@
       "default": [
         "0,0",
         "100,100"
-      ]
+      ],
+      "compiler_emit_default": true
     },
     "line_width": {
       "type": "number",

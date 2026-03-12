@@ -22,9 +22,7 @@ def get_complete_widget_test_project() -> dict:
     p = _default_project()
     p["model_version"] = 1
     p["device"] = {"hardware_recipe_id": "jc1060p470_esp32p4_1024x600", "screen": {"width": 1024, "height": 600}}
-    # Widget set: comprehensive but only types that pass esphome config (ESPHome 2026).
-    # Omitted: switch (state: False rejected), led (incomplete emit), and complex widgets
-    # that may need extra keys in 2026. Still covers: bindings, action yaml_override, sections, esphome_components.
+    # Full widget set: every type so the test catches any compiler/ESPHome regression.
     p["pages"] = [
         {
             "page_id": "main",
@@ -32,16 +30,20 @@ def get_complete_widget_test_project() -> dict:
             "widgets": [
                 _w("l1", "label", 10, 10, 120, 28, {"text": "Label"}),
                 _w("b1", "button", 140, 10, 100, 40, {"text": "Button"}),
-                _w("sl1", "slider", 250, 10, 120, 24, {"value": 50, "min_value": 0, "max_value": 100}),
-                _w("bar1", "bar", 380, 10, 100, 24, {"value": 60, "min_value": 0, "max_value": 100}),
-                _w("a1", "arc", 490, 10, 80, 80, {"value": 50, "min_value": 0, "max_value": 100}),
-                _w("dd1", "dropdown", 580, 10, 100, 36, {"options": "A\nB\nC"}),
-                _w("ch1", "checkbox", 690, 10, 80, 40),
-                # meter/spinner omitted: ESPHome 2026 requires meter value/min/max and spinner spin_time; compiler may not emit them
-                _w("roller1", "roller", 10, 60, 80, 60, {"options": "One\nTwo\nThree"}),
-                _w("spin1", "spinbox", 100, 60, 80, 36, {"value": 0, "range_from": -10, "range_to": 10}),
-                _w("cp1", "color_picker", 190, 60, 180, 100, {"value": "#4080FF"}),
-                _w("wp1", "white_picker", 380, 60, 180, 80, {"value": 250}),
+                _w("sw1", "switch", 250, 10, 60, 28, {"state": False}),
+                _w("sl1", "slider", 320, 10, 120, 24, {"value": 50, "min_value": 0, "max_value": 100}),
+                _w("bar1", "bar", 450, 10, 100, 24, {"value": 60, "min_value": 0, "max_value": 100}),
+                _w("a1", "arc", 560, 10, 80, 80, {"value": 50, "min_value": 0, "max_value": 100}),
+                _w("dd1", "dropdown", 650, 10, 100, 36, {"options": "A\nB\nC"}),
+                _w("ch1", "checkbox", 760, 10, 80, 40),
+                _w("led1", "led", 850, 10, 24, 24),
+                _w("line1", "line", 10, 60, 100, 2, {"points": ["0,0", "80,2", "100,0"]}),
+                _w("meter1", "meter", 120, 60, 60, 60),
+                _w("spinner1", "spinner", 190, 60, 40, 40),
+                _w("roller1", "roller", 240, 60, 80, 60, {"options": "One\nTwo\nThree"}),
+                _w("spin1", "spinbox", 330, 60, 80, 36, {"value": 0, "range_from": -10, "range_to": 10}),
+                _w("cp1", "color_picker", 420, 60, 180, 100, {"value": "#4080FF"}),
+                _w("wp1", "white_picker", 610, 60, 180, 80, {"value": 250}),
                 _w("cont1", "container", 10, 130, 120, 80, widgets=[
                     _w("cont1_l", "label", 4, 4, 112, 24, {"text": "Inside"}),
                 ]),
@@ -63,6 +65,7 @@ def get_complete_widget_test_project() -> dict:
     p["action_bindings"] = [
         {"widget_id": "b1", "event": "on_click", "yaml_override": "then:\n  - logger.log: CompleteWidgetTest button\n  - delay: 50ms"},
         {"widget_id": "sl1", "event": "on_value", "yaml_override": "then:\n  - logger.log: slider value\n  - delay: 50ms"},
+        {"widget_id": "led1", "event": "on_click", "yaml_override": "then:\n  - logger.log: CompleteWidgetTest led\n  - delay: 50ms"},
     ]
     # Create Component: one block (sensor from label - exercises esphome_components path)
     p["esphome_components"] = [

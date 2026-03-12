@@ -98,12 +98,14 @@
     "spin_time": {
       "type": "number",
       "title": "Spin time (ms)",
-      "default": 1000
+      "default": 1000,
+      "compiler_emit_default": true
     },
     "arc_length": {
       "type": "number",
       "title": "Arc length",
-      "default": 60
+      "default": 60,
+      "compiler_emit_default": true
     }
   },
   "style": {

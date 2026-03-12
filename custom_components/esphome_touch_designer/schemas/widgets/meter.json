@@ -95,7 +95,8 @@
     "scales": {
       "type": "yaml_block",
       "title": "Scales (YAML)",
-      "default": "",
+      "default": "range_from: 0\nrange_to: 100\nangle_range: 240\nrotation: 150\nticks:\n  count: 11\n  length: 3\nindicators:\n  - line:\n      id: needle\n      width: 2\n      color: 0xFF0000\n      r_mod: -4",
+      "compiler_emit_default": true,
       "description": "Meter scale(s): range_from, range_to, angle_range, rotation, ticks, indicators"
     }
   },

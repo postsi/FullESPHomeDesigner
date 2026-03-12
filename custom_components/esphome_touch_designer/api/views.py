@@ -1996,6 +1996,18 @@ def _emit_kv(indent: str, key: str, value) -> str:
         if not value:
             value = ["Option 1"]
 
+    # LVGL line widget: points must be a list of "x, y" (two numbers per line); ESPHome does not accept quoted "0,0".
+    if key == "points" and isinstance(value, list):
+        out = [f"{indent}{key}:\n"]
+        for item in value:
+            if isinstance(item, str) and "," in item:
+                parts = [p.strip() for p in item.split(",", 1)]
+                if len(parts) == 2:
+                    out.append(f"{indent}  - {parts[0]}, {parts[1]}\n")
+                    continue
+            out.append(f"{indent}  - {_yaml_quote(item)}\n")
+        return "".join(out)
+
     if isinstance(value, list):
         out = [f"{indent}{key}:\n"]
         for item in value:
@@ -2025,6 +2037,14 @@ def _emit_kv(indent: str, key: str, value) -> str:
     # LVGL/ESPHome expect some style enums in lowercase (e.g. text_align: center not CENTER)
     if key == "text_align" and isinstance(value, str):
         value = value.strip().lower()
+    # LVGL led widget: brightness is a percentage; ESPHome expects e.g. "70%" (see esphome.io/components/lvgl/widgets).
+    if key == "brightness" and isinstance(value, (int, float)):
+        return f"{indent}{key}: {int(value)}%\n"
+    # LVGL spinner: spin_time and arc_length use ESPHome time/angle format (e.g. "2s", "60deg").
+    if key == "spin_time" and isinstance(value, (int, float)):
+        return f"{indent}{key}: {int(value)}ms\n"
+    if key == "arc_length" and isinstance(value, (int, float)):
+        return f"{indent}{key}: {int(value)}deg\n"
     return f"{indent}{key}: {_yaml_quote(value)}\n"
 
 
@@ -2232,12 +2252,24 @@ def _emit_widget_from_schema(
                         out.append(f"{body_indent}  {line}\n")
                 else:
                     emitted_val = _maybe_harden_event(yaml_key, v) if section == "events" else v
+                    # LVGL switch widget: state must be a dict { checked: bool }, not a bare bool (ESPHome expects a dictionary).
+                    if section == "props" and yaml_key == "state" and isinstance(emitted_val, bool) and wtype == "switch":
+                        emitted_val = {"checked": emitted_val}
                     out.append(_emit_kv(body_indent, yaml_key, emitted_val))
                     if section == "events" and event_snippets_out is not None:
                         event_snippets_out[k] = {"yaml": (emitted_val if isinstance(emitted_val, str) else str(emitted_val)), "source": event_source.get(k, "edited")}
             else:
                 if field_def.get("compiler_emit_default", False) and "default" in field_def:
-                    out.append(_emit_kv(body_indent, yaml_key, field_def.get("default")))
+                    default_val = field_def.get("default")
+                    if section == "props" and yaml_key == "state" and isinstance(default_val, bool) and wtype == "switch":
+                        default_val = {"checked": default_val}
+                    # yaml_block defaults (e.g. meter scales) must be embedded YAML (dict), not a literal block (|-).
+                    if section == "props" and field_def.get("type") == "yaml_block" and isinstance(default_val, str) and default_val.strip():
+                        out.append(f"{body_indent}{yaml_key}:\n")
+                        for line in default_val.strip().split("\n"):
+                            out.append(f"{body_indent}  {line}\n")
+                    else:
+                        out.append(_emit_kv(body_indent, yaml_key, default_val))
         # Emit action_binding events that are not in schema (e.g. arc on_release when schema has events: {}).
         if section == "events" and action_by_event:
             for event_key, ab in action_by_event.items():
