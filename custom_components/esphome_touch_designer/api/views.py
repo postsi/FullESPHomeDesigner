@@ -103,16 +103,22 @@ def _section_body_from_value(value: str | None, key: str) -> str:
 
 
 def _normalize_section_body_indent(body: str) -> str:
-    """Ensure section body has at least 2-space indent (for merging user addition into a section)."""
+    """Ensure section body has at least 2-space base indent (for merging user addition into a section).
+    Only add indent to lines that have fewer than 2 leading spaces, so nested lines (e.g. 4-space
+    'name:' under a list item) are not over-indented (which would produce invalid YAML)."""
     if not body or not body.strip():
         return body
     lines = body.splitlines()
     if not lines:
         return body
-    first = next((ln for ln in lines if ln.strip()), "")
-    if first.startswith("  ") or first.startswith("\t"):
-        return body
-    return "\n".join("  " + ln if ln.strip() else ln for ln in lines)
+    result = []
+    for ln in lines:
+        if not ln.strip():
+            result.append(ln)
+            continue
+        leading = len(ln) - len(ln.lstrip())
+        result.append(("  " + ln) if leading < 2 else ln)
+    return "\n".join(result)
 
 
 # Section keys that can contain `widget:` references (LVGL platform components). Used for orphan cleanup and compile warnings.

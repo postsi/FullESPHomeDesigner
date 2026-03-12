@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.24
+
+- **Switch section YAML indent fix** — Fixed invalid YAML when merging Create Component switch with recipe switch: `mapping values are not allowed here` at the recipe switch block. Cause: `_normalize_section_body_indent` added 2 spaces to every line when the first line had no leading spaces (body-only from `project.sections`), over-indenting nested lines (`name:`/`output:` became 6 spaces). Now only lines with fewer than 2 leading spaces get the base indent. Regression test: `test_normalize_section_body_indent_does_not_over_indent_nested_lines`.
+
 ## v0.71.23
 
 - **Compiler indent fix** — Fixed YAML parsing error (`expected <block end>, but found '<block mapping start>'`) when section bodies had mixed indent: first line with no leading spaces and subsequent lines with 2 spaces. The emit logic now adds base indent only to lines with fewer than 2 leading spaces, avoiding over-indent that produced invalid YAML. Regression test: `test_compile_esphome_section_mixed_indent_produces_valid_yaml`.

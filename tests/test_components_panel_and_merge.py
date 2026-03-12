@@ -15,6 +15,7 @@ from custom_components.esphome_touch_designer.api.views import (
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
     _ensure_project_sections,
+    _normalize_section_body_indent,
     _parse_recipe_into_sections,
     _remove_orphaned_widget_refs_from_sections,
     _remove_orphaned_widget_refs_from_esphome_components,
@@ -68,6 +69,16 @@ def test_merge_sensor_user_and_compiler(jc1060_recipe_text, default_project):
     assert "sensor:" in out and "platform: lvgl" in out and "platform: homeassistant" in out
     assert "my_custom_sensor" in out or "widget: w1" in out
     assert "entity_id" in out
+
+
+def test_normalize_section_body_indent_does_not_over_indent_nested_lines():
+    """_normalize_section_body_indent adds base indent only to lines with <2 spaces, not to all lines.
+    Regression: body-only switch (first line '- platform: output') must not turn '    name:' into '      name:'."""
+    body = "- platform: output\n    name: \"Relay 1\"\n    output: internal_relay_1"
+    out = _normalize_section_body_indent(body)
+    assert out.startswith("  - platform: output"), "first line gets base indent"
+    assert "    name:" in out and "      name:" not in out, "nested lines keep 4-space indent"
+    assert "    output:" in out and "      output:" not in out, "nested lines keep 4-space indent"
 
 
 def test_merge_switch_user_only(jc1060_recipe_text, default_project):
