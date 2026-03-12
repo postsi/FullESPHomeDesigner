@@ -1,10 +1,10 @@
 /**
- * Section-based ESPHome Components panel. Shows only user-added YAML per section.
- * Auto/recipe content is merged at compile time; use Full YAML to see the complete result.
- * Reset = clear addition; Save = store additions to project.
+ * Section-based ESPHome Components panel (Design v2).
+ * Single stored YAML per device; sections from recipe. States: Empty, Auto, Edited.
+ * Reset = restore to current recipe; Save = write to project.esphome_yaml.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { getSectionsDefaults } from "./lib/apiSections";
+import { getSectionsDefaults, saveSections } from "./lib/apiSections";
 import { parseYamlSyntax, cleanupOrphanedComponents } from "./lib/api";
 import YamlEditor from "./YamlEditor";
 
@@ -12,14 +12,19 @@ function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x));
 }
 
+function sectionState(sectionContent: string, defaultContent: string): "empty" | "auto" | "edited" {
+  const s = (sectionContent ?? "").trim();
+  const d = (defaultContent ?? "").trim();
+  if (!s) return "empty";
+  return s === d ? "auto" : "edited";
+}
+
 export type SectionBasedComponentsPanelProps = {
   project: any;
   setProject: (p: any, commit?: boolean) => void;
   setProjectDirty: (dirty: boolean) => void;
   onClose: () => void;
-  /** When provided, called with the updated project after saving so the app can persist to the server. Returns a Promise that resolves when done (so panel can clear local dirty). */
   onSaveAndPersist?: (updatedProject: any) => void | Promise<void>;
-  /** When provided with entryId, backend substitutes __ETD_DEVICE_NAME__ with the device slug in section content. */
   deviceId?: string | null;
   entryId?: string | null;
 };
@@ -36,7 +41,7 @@ export default function SectionBasedComponentsPanel({
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [sections, setSections] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Record<string, string[]>>({});
-  const [keysWithAddition, setKeysWithAddition] = useState<Set<string>>(new Set());
+  const [compilerOwned, setCompilerOwned] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLocalEdits, setHasLocalEdits] = useState(false);
@@ -52,11 +57,11 @@ export default function SectionBasedComponentsPanel({
     setLoading(true);
     setError(null);
     getSectionsDefaults(project, recipeId, deviceId ?? undefined, entryId ?? undefined)
-      .then(({ sections: effective, categories: cat, default_sections: defSections, keys_with_additions: keysWithAdditions }) => {
+      .then(({ sections: effective, categories: cat, default_sections: defSections, compiler_owned: co }) => {
         if (cancelled) return;
         setDefaults(defSections && typeof defSections === "object" ? defSections : {});
         setCategories(cat);
-        setKeysWithAddition(new Set(Array.isArray(keysWithAdditions) ? keysWithAdditions : []));
+        setCompilerOwned(new Set(Array.isArray(co) ? co : []));
         setSections(effective);
         setHasLocalEdits(false);
       })
@@ -71,12 +76,6 @@ export default function SectionBasedComponentsPanel({
 
   const setSectionContent = useCallback((key: string, value: string) => {
     setSections((prev) => ({ ...prev, [key]: value }));
-    setKeysWithAddition((prev) => {
-      const next = new Set(prev);
-      if ((value || "").trim()) next.add(key);
-      else next.delete(key);
-      return next;
-    });
     setHasLocalEdits(true);
     setSyntaxError(null);
   }, []);
@@ -92,43 +91,31 @@ export default function SectionBasedComponentsPanel({
         return;
       }
     }
-    const p2 = clone(project);
-    p2.sections = {};
-    for (const k of Object.keys(sections)) {
-      const c = (sections[k] ?? "").trim();
-      if (c) p2.sections[k] = c;
+    setSaving(true);
+    try {
+      const { project: updatedProject } = await saveSections(project, sections);
+      setProject(updatedProject, true);
+      setProjectDirty(true);
+      setHasLocalEdits(false);
+      if (onSaveAndPersist) await onSaveAndPersist(updatedProject);
+    } catch (e: any) {
+      setSyntaxError(e?.message ?? "Save failed");
+    } finally {
+      setSaving(false);
     }
-    if (p2.section_overrides !== undefined) delete p2.section_overrides;
-    setProject(p2, true);
-    setProjectDirty(true);
-    setKeysWithAddition((prev) => {
-      const next = new Set(prev);
-      for (const k of Object.keys(sections)) {
-        if ((sections[k] ?? "").trim()) next.add(k);
-        else next.delete(k);
-      }
-      return next;
-    });
-    if (onSaveAndPersist) {
-      setSaving(true);
-      try {
-        await onSaveAndPersist(p2);
-        setHasLocalEdits(false);
-      } finally {
-        setSaving(false);
-      }
-    }
-  }, [project, sections, defaults, setProject, setProjectDirty, onSaveAndPersist]);
+  }, [project, sections, setProject, setProjectDirty, onSaveAndPersist]);
+
+  const resetSection = useCallback((key: string) => {
+    setSections((prev) => ({ ...prev, [key]: (defaults[key] ?? "").trim() }));
+    setHasLocalEdits(true);
+    setSyntaxError(null);
+  }, [defaults]);
 
   const resetAll = useCallback(() => {
-    setSections((prev) => {
-      const next = { ...prev };
-      for (const k of Object.keys(next)) next[k] = "";
-      return next;
-    });
-    setKeysWithAddition(new Set());
+    setSections({ ...defaults });
     setHasLocalEdits(true);
-  }, []);
+    setSyntaxError(null);
+  }, [defaults]);
 
   const requestClose = useCallback(() => {
     if (hasLocalEdits && !window.confirm("You have unsaved changes. Close anyway?")) return;
@@ -173,7 +160,7 @@ export default function SectionBasedComponentsPanel({
               onClick={resetAll}
               disabled={loading}
             >
-              Clear All
+              Reset All
             </button>
             <button
               type="button"
@@ -182,7 +169,7 @@ export default function SectionBasedComponentsPanel({
               onClick={() => saveAll()}
               disabled={loading || saving}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving…" : "Save All"}
             </button>
             <button className="ghost" onClick={requestClose} type="button">
               ✕
@@ -190,7 +177,7 @@ export default function SectionBasedComponentsPanel({
           </div>
         </div>
         <div className="muted" style={{ padding: "0 16px 12px", fontSize: 12 }}>
-          <strong title="Additional YAML per top-level ESPHome block (switch, sensor, etc.). Merged with app/recipe content at compile.">Sections</strong> — Add your own YAML here; it is merged into each section. Use <strong>Full YAML</strong> to see the complete result. Clear All = clear all additions; Save = store all.
+          <strong>Sections</strong> — One stored YAML per device. Empty / Auto (from recipe) / Edited. Reset = restore to current recipe; Save = store. <strong>Full YAML</strong> shows the compiled result.
         </div>
         <div style={{ padding: "0 16px 8px", fontSize: 11, background: "rgba(200,160,80,0.08)", borderBottom: "1px solid rgba(200,160,80,0.2)", color: "rgba(220,200,140,0.95)" }}>
           Advanced: editing raw YAML here can break the device if invalid. Validate with Deploy or Full YAML before flashing.
@@ -232,12 +219,12 @@ export default function SectionBasedComponentsPanel({
                     <div style={{ padding: "8px 0" }}>
                       {keys.map((sectionKey) => {
                         const effective = (sections[sectionKey] ?? "").trim();
-                        const hasAddition = keysWithAddition.has(sectionKey) || !!effective;
-                        const isEmpty = !effective;
-
-                        const stateLabel = isEmpty ? "Empty" : "Additional";
-                        const bgSection = hasAddition ? "rgba(100,160,255,0.06)" : "rgba(255,255,255,0.03)";
-                        const borderSection = hasAddition ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.08)";
+                        const defaultContent = (defaults[sectionKey] ?? "").trim();
+                        const state = sectionState(sections[sectionKey] ?? "", defaults[sectionKey] ?? "");
+                        const stateLabel = state === "empty" ? "Empty" : state === "auto" ? "Auto" : "Edited";
+                        const isCompilerOwned = compilerOwned.has(sectionKey);
+                        const bgSection = state === "edited" ? "rgba(100,160,255,0.06)" : "rgba(255,255,255,0.03)";
+                        const borderSection = state === "edited" ? "1px solid rgba(100,160,255,0.2)" : "1px solid rgba(255,255,255,0.08)";
                         return (
                           <details
                             key={sectionKey}
@@ -256,43 +243,66 @@ export default function SectionBasedComponentsPanel({
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 8,
+                                flexWrap: "wrap",
                               }}
                             >
                               <code style={{ fontWeight: 600 }}>{sectionKey}</code>
                               <span
-                                className={isEmpty ? "muted" : undefined}
+                                className={state === "empty" ? "muted" : undefined}
                                 style={{ fontSize: 10 }}
-                                title={isEmpty ? "No additional YAML" : "You have added YAML to this section"}
+                                title={state === "empty" ? "No content" : state === "auto" ? "From recipe (unchanged)" : "You have edited this section"}
                               >
                                 {stateLabel}
                               </span>
-                              {hasAddition && (
+                              {isCompilerOwned && (
                                 <span
                                   style={{
                                     fontSize: 10,
                                     padding: "1px 6px",
                                     borderRadius: 4,
-                                    background: "rgba(100,160,255,0.2)",
-                                    color: "rgba(200,220,255,0.95)",
+                                    background: "rgba(180,120,80,0.25)",
+                                    color: "rgba(255,220,180,0.95)",
                                   }}
-                                  title="Additional YAML will be merged at compile"
+                                  title="Generated by app; replaced at compile"
                                 >
-                                  Additional
+                                  Generated
                                 </span>
                               )}
                             </summary>
                             <div style={{ padding: "0 10px 10px" }}>
-                              {isEmpty && (
-                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No additional YAML. Add content below to merge into this section at compile.</div>
+                              {state === "empty" && !isCompilerOwned && (
+                                <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>No content. Add YAML below or use Reset to restore from recipe.</div>
                               )}
                               <YamlEditor
                                 value={sections[sectionKey] ?? ""}
-                                onChange={(v) => setSectionContent(sectionKey, v)}
-                                placeholder={`# Additional ${sectionKey} (e.g. list items)\n  - platform: ...\n    id: ...`}
+                                onChange={(v) => !isCompilerOwned && setSectionContent(sectionKey, v)}
+                                placeholder={`# ${sectionKey}\n  ...`}
                                 minHeight={100}
                                 maxHeight="35vh"
-                                variant={hasAddition ? "manual" : "default"}
+                                variant={state === "edited" ? "manual" : "default"}
+                                readOnly={isCompilerOwned}
                               />
+                              {!isCompilerOwned && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    style={{ fontSize: 11 }}
+                                    onClick={() => resetSection(sectionKey)}
+                                  >
+                                    Reset
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="primary"
+                                    style={{ fontSize: 11 }}
+                                    onClick={() => saveAll()}
+                                    disabled={saving}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </details>
                         );
@@ -325,19 +335,23 @@ export default function SectionBasedComponentsPanel({
                 const projectWithSections = { ...project, sections: { ...(project.sections || {}), ...sections } };
                 const res = await cleanupOrphanedComponents(projectWithSections);
                 if (res.removed.length > 0) {
-                  setProject(res.project, true);
-                  setProjectDirty(true);
-                  setSections(res.project.sections || {});
+                  const cleanedSections = res.project.sections || {};
+                  setSections(cleanedSections);
                   if (onSaveAndPersist) {
                     setSaving(true);
                     try {
-                      await onSaveAndPersist(res.project);
+                      const { project: updated } = await saveSections(res.project, cleanedSections);
+                      setProject(updated, true);
+                      setProjectDirty(true);
+                      await onSaveAndPersist(updated);
                       setCleanupMessage(`Removed ${res.removed.length} orphaned reference(s) and saved.`);
                     } finally {
                       setSaving(false);
                     }
                   } else {
-                    setCleanupMessage(`Removed ${res.removed.length} orphaned reference(s). Save to persist.`);
+                    setProject(res.project, true);
+                    setProjectDirty(true);
+                    setCleanupMessage(`Removed ${res.removed.length} orphaned reference(s). Save All to persist.`);
                   }
                 } else {
                   setCleanupMessage("No orphaned component references found.");

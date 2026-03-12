@@ -1,5 +1,4 @@
-/** Sections defaults for Components panel — loaded on demand to avoid bundle init order issues.
- * When deviceId and entryId are provided, backend substitutes __ETD_DEVICE_NAME__ with the device slug. */
+/** Sections defaults for Components panel (Design v2). When deviceId and entryId are provided, backend substitutes __ETD_DEVICE_NAME__. */
 export async function getSectionsDefaults(
   project: any,
   recipeId?: string,
@@ -7,9 +6,11 @@ export async function getSectionsDefaults(
   entryId?: string | null
 ): Promise<{
   sections: Record<string, string>;
+  default_sections: Record<string, string>;
+  section_states: Record<string, string>;
+  compiler_owned: string[];
   categories: Record<string, string[]>;
   keys_with_additions: string[];
-  default_sections: Record<string, string>;
 }> {
   const body: Record<string, unknown> = {
     project,
@@ -31,5 +32,19 @@ export async function getSectionsDefaults(
   }
   const keys_with_additions = Array.isArray(data.keys_with_additions) ? data.keys_with_additions : [];
   const default_sections = (data.default_sections && typeof data.default_sections === "object") ? data.default_sections : {};
-  return { sections: data.sections ?? {}, categories, keys_with_additions, default_sections };
+  const section_states = (data.section_states && typeof data.section_states === "object") ? data.section_states : {};
+  const compiler_owned = Array.isArray(data.compiler_owned) ? data.compiler_owned : [];
+  return { sections: data.sections ?? {}, default_sections, section_states, compiler_owned, categories, keys_with_additions };
+}
+
+/** Design v2: save section contents to project.esphome_yaml. Returns updated project. */
+export async function saveSections(project: any, sections: Record<string, string>): Promise<{ project: any }> {
+  const r = await fetch("/api/esphome_touch_designer/sections/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, sections }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data?.ok === false) throw new Error(data?.error ?? `sections/save failed: ${r.status}`);
+  return { project: data.project ?? project };
 }

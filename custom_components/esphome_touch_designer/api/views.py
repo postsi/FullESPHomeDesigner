@@ -346,6 +346,43 @@ def _yaml_str_to_section_map(yaml_str: str, merge_duplicate_keys: bool = False) 
     return sections
 
 
+def _sections_to_yaml(sections: dict[str, str]) -> str:
+    """Build a single YAML document from section key -> body (body = content under 'key:', no header).
+    Emits sections in SECTION_ORDER; only sections with non-empty content are included."""
+    parts: list[str] = []
+    for key in SECTION_ORDER:
+        raw = (sections.get(key) or "").strip()
+        if not raw:
+            continue
+        body = _section_body_from_value(
+            raw if (raw.startswith(key + ":") or raw.startswith(key + " :")) else _section_full_block(key, raw),
+            key,
+        ).rstrip()
+        if body or key in ("wifi", "ota", "logger"):
+            parts.append(f"{key}:\n{(body or '').rstrip()}\n")
+    return "\n".join(parts).rstrip() + "\n" if parts else ""
+
+
+def _stored_sections_from_project(project: dict) -> dict[str, str]:
+    """Return section key -> body from the stored device YAML (Design v2).
+    If project has esphome_yaml, parse it. Else fall back to legacy project.sections (body-only or full block)."""
+    yaml_str = (project.get("esphome_yaml") or "").strip()
+    if yaml_str:
+        return _yaml_str_to_section_map(yaml_str)
+    # Legacy: project.sections
+    stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
+    out: dict[str, str] = {}
+    for key in SECTION_ORDER:
+        raw = (stored.get(key) or "").strip()
+        if not raw:
+            out[key] = ""
+            continue
+        if not (raw.startswith(key + ":") or raw.startswith(key + " :")):
+            raw = _section_full_block(key, raw)
+        out[key] = (_section_body_from_value(raw, key) or "").rstrip()
+    return out
+
+
 def _strip_section_key(block: str, key: str) -> str:
     """If block starts with 'key:\\n', return the rest (content only). Otherwise return block."""
     prefix = key + ":"
@@ -355,6 +392,42 @@ def _strip_section_key(block: str, key: str) -> str:
             return rest[1].rstrip()
         return ""
     return block.strip()
+
+
+def _merge_list_section_bodies(auto_body: str, user_body: str) -> str:
+    """Merge two list-section bodies (e.g. sensor, light, switch) and deduplicate list items.
+
+    When project.sections contains the same content as recipe/compiler (e.g. after Create Component
+    sync or panel default), concatenating would emit duplicate blocks and break esphome config.
+    We split each body into YAML list items (lines starting with '  - ') and emit each unique
+    block once (order: auto items first, then user items not already present).
+    """
+    def _split_items(body: str) -> list[str]:
+        if not (body or "").strip():
+            return []
+        b = body.strip()
+        parts = b.split("\n  - ")
+        if not parts:
+            return []
+        items = [parts[0].strip()]
+        for p in parts[1:]:
+            if p.strip():
+                items.append("  - " + p.strip())
+        return items
+
+    def _normalize(item: str) -> str:
+        return re.sub(r"\s+", " ", item.strip()) if item else ""
+
+    auto_items = _split_items(auto_body)
+    user_items = _split_items(user_body)
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in auto_items + user_items:
+        norm = _normalize(item)
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(item)
+    return "\n\n".join(out).rstrip() if out else ""
 
 
 def _compile_lvgl_pages(project: dict) -> str:
@@ -1450,6 +1523,38 @@ def _compile_ui_lock_globals(project: dict) -> str:
     return "".join(out)
 
 
+# Design v2: section state for Components panel (empty | auto | edited)
+SECTION_STATE_EMPTY = "empty"
+SECTION_STATE_AUTO = "auto"
+SECTION_STATE_EDITED = "edited"
+COMPILER_OWNED_SECTIONS = frozenset({"lvgl"})
+
+
+def _build_recipe_default_sections(recipe_text: str, device: object | None) -> dict[str, str]:
+    """Build section key -> body from current recipe only (with substitutions). Used for Reset and for default_sections in panel v2."""
+    recipe_sections = _parse_recipe_into_sections(recipe_text)
+    pieces: dict[str, str] = {}
+    for key in SECTION_ORDER:
+        content = recipe_sections.get(key)
+        if key == "esphome" and content and ETD_DEVICE_NAME_PLACEHOLDER not in content:
+            if re.search(r"^\s*name\s*:", content, re.MULTILINE):
+                content = re.sub(r"^(\s*name\s*:\s*).*$", r"\1" + ETD_DEVICE_NAME_PLACEHOLDER, content, count=1, flags=re.MULTILINE)
+            else:
+                content = "  name: " + ETD_DEVICE_NAME_PLACEHOLDER + "\n" + (content or "").lstrip()
+        if not (content and str(content).strip()):
+            if key == "wifi":
+                content = _strip_section_key(_default_wifi_yaml(), "wifi")
+            elif key == "ota":
+                content = _strip_section_key(_default_ota_yaml(), "ota")
+            elif key == "logger":
+                content = _strip_section_key(_default_logger_yaml(), "logger")
+        if content is not None and (key in ("wifi", "ota", "logger") or (content and str(content).strip())):
+            pieces[key] = _section_full_block(key, (content or "").rstrip())
+    if device is not None and getattr(device, "slug", None):
+        _substitute_device_name_in_sections(pieces, device.slug)
+    return {k: (_section_body_from_value(v, k) or "").rstrip() for k, v in pieces.items()}
+
+
 def _build_default_section_pieces(
     project: dict,
     device: object | None,
@@ -1576,16 +1681,20 @@ def _build_section_engine_pieces(
 
 
 def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: str) -> str:
-    """Compiler: for each section, emit (recipe + app-generated content) + user-added YAML from project.sections.
-    Components panel stores only additional YAML per section; auto/recipe content is merged here."""
+    """Compiler: Design v2 when project.esphome_yaml is set (stored YAML + compiler lvgl/list merge).
+    Legacy: recipe + compiler + project.sections."""
     project = dict(device.project or {})
+    use_stored_yaml = bool((project.get("esphome_yaml") or "").strip())
+    stored_sections: dict[str, str] | None = _stored_sections_from_project(project) if use_stored_yaml else None
     stored_additions = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     auto_pieces = _build_default_section_pieces(project, device, recipe_text)
     # Script stub if recipe or user esphome references manage_run_and_sleep but script doesn't define it
     script_block = auto_pieces.get("script") or ""
     script_body = _section_body_from_value(script_block, "script") if script_block else ""
     esphome_body = _section_body_from_value(auto_pieces.get("esphome"), "esphome") or ""
-    user_esphome_raw = (stored_additions.get("esphome") or "").strip()
+    user_esphome_raw = (stored_sections.get("esphome") if stored_sections else stored_additions.get("esphome") or "").strip()
+    if not user_esphome_raw and stored_additions:
+        user_esphome_raw = (stored_additions.get("esphome") or "").strip()
     needs_stub = (
         "manage_run_and_sleep" in (esphome_body + user_esphome_raw + recipe_text)
         and "id: manage_run_and_sleep" not in (script_body or "")
@@ -1595,7 +1704,6 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
         script_body = (script_body.rstrip() + "\n" + stub.rstrip()) if script_body else stub.rstrip()
         auto_pieces["script"] = _section_full_block("script", script_body)
 
-    # List sections: merge auto + user addition. Mapping sections (esphome, logger, wifi, etc.): user replaces auto when present.
     LIST_SECTIONS: set[str] = {
         "sensor", "text_sensor", "binary_sensor", "switch", "number", "select", "light",
     }
@@ -1603,17 +1711,31 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
     for key in SECTION_ORDER:
         auto_block = auto_pieces.get(key) or ""
         auto_body = (_section_body_from_value(auto_block, key) or "").rstrip() if auto_block else ""
-        user_raw = stored_additions.get(key) or ""
-        user_body = (_section_body_from_value(user_raw, key) or "").rstrip() if user_raw else ""
-        if user_body and key in LIST_SECTIONS:
-            user_body = _normalize_section_body_indent(user_body).rstrip()
-        if key in LIST_SECTIONS:
-            if auto_body and user_body:
-                merged_body = auto_body + "\n\n" + user_body
+        if stored_sections is not None:
+            user_body = (stored_sections.get(key) or "").rstrip()
+            if key == "lvgl":
+                merged_body = auto_body
+            elif key in LIST_SECTIONS:
+                if user_body:
+                    user_body = _normalize_section_body_indent(user_body).rstrip()
+                if auto_body and user_body:
+                    merged_body = _merge_list_section_bodies(auto_body, user_body)
+                else:
+                    merged_body = user_body or auto_body
             else:
-                merged_body = user_body or auto_body
+                merged_body = user_body if user_body else auto_body
         else:
-            merged_body = user_body if user_body else auto_body
+            user_raw = stored_additions.get(key) or ""
+            user_body = (_section_body_from_value(user_raw, key) or "").rstrip() if user_raw else ""
+            if user_body and key in LIST_SECTIONS:
+                user_body = _normalize_section_body_indent(user_body).rstrip()
+            if key in LIST_SECTIONS:
+                if auto_body and user_body:
+                    merged_body = _merge_list_section_bodies(auto_body, user_body)
+                else:
+                    merged_body = user_body or auto_body
+            else:
+                merged_body = user_body if user_body else auto_body
         if merged_body or key in ("wifi", "ota", "logger"):
             merged_body = (merged_body or "").lstrip("\n\r").rstrip()
             pieces[key] = _section_full_block(key, merged_body)
@@ -3986,6 +4108,16 @@ class DevicesView(HomeAssistantView):
             device_settings=device_settings if device_settings is not None else {},
             project=project if project is not None else DeviceProject.__dataclass_fields__["project"].default_factory(),  # type: ignore
         )
+        # Design v2: when creating a new device, populate esphome_yaml from current recipe
+        if existing is None and device.hardware_recipe_id:
+            proj = dict(device.project or {})
+            if not (proj.get("esphome_yaml") or "").strip():
+                recipe_path = _find_recipe_path_by_id(hass, device.hardware_recipe_id)
+                if recipe_path and recipe_path.exists():
+                    recipe_text = recipe_path.read_text("utf-8")
+                    default_bodies = _build_recipe_default_sections(recipe_text, device)
+                    proj["esphome_yaml"] = _sections_to_yaml(default_bodies)
+                    device.project = proj
         storage.upsert_device(device)
         await storage.async_save()
         return self.json({"ok": True})
@@ -4591,10 +4723,7 @@ class PreviewWidgetYamlView(HomeAssistantView):
 
 
 def _build_sections_panel_data(project: dict, device=None) -> dict:
-    """Build sections-panel response data from project only (user-added YAML in project.sections).
-    Components panel shows only user additions; no recipe or compiler content. Used by SectionsDefaultsView.
-    Returns dict with sections, default_sections, keys_with_additions (categories added by view).
-    """
+    """Legacy: user-added only. Prefer _build_sections_panel_data_v2 for Design v2."""
     stored = (project.get("sections") or {}) if isinstance(project.get("sections"), dict) else {}
     sections_full = {}
     for key in SECTION_ORDER:
@@ -4617,10 +4746,39 @@ def _build_sections_panel_data(project: dict, device=None) -> dict:
     }
 
 
+def _build_sections_panel_data_v2(project: dict, device: object | None, recipe_text: str) -> dict:
+    """Design v2: single stored YAML. Returns sections (stored), default_sections (current recipe), section_states (empty|auto|edited), compiler_owned."""
+    stored_sections = _stored_sections_from_project(project)
+    default_sections = _build_recipe_default_sections(recipe_text, device)
+    # Normalize to SECTION_ORDER keys with body strings
+    sections = {k: (stored_sections.get(k) or "").strip() for k in SECTION_ORDER}
+    defaults = {k: (default_sections.get(k) or "").strip() for k in SECTION_ORDER}
+    if device is not None and getattr(device, "slug", None):
+        repl = json.dumps(device.slug)
+        for k in SECTION_ORDER:
+            if sections.get(k) and ETD_DEVICE_NAME_PLACEHOLDER in sections[k]:
+                sections[k] = sections[k].replace(ETD_DEVICE_NAME_PLACEHOLDER, repl)
+    section_states: dict[str, str] = {}
+    for k in SECTION_ORDER:
+        s, d = (sections.get(k) or "").strip(), (defaults.get(k) or "").strip()
+        if not s:
+            section_states[k] = SECTION_STATE_EMPTY
+        elif s == d:
+            section_states[k] = SECTION_STATE_AUTO
+        else:
+            section_states[k] = SECTION_STATE_EDITED
+    return {
+        "sections": sections,
+        "default_sections": defaults,
+        "section_states": section_states,
+        "compiler_owned": list(COMPILER_OWNED_SECTIONS),
+        "keys_with_additions": [k for k in SECTION_ORDER if (sections.get(k) or "").strip()],
+    }
+
+
 class SectionsDefaultsView(HomeAssistantView):
-    """Return only user-added section content (project.sections) for the Components panel.
-    No recipe or compiler content. POST body: { project, recipe_id?, device_id? }.
-    """
+    """Components panel (Design v2): sections from stored YAML, default_sections from current recipe, section_states (empty|auto|edited).
+    POST body: { project, recipe_id?, device_id?, entry_id? }. Uses v2 when recipe_id is provided and recipe is found."""
 
     url = f"/api/{DOMAIN}/sections/defaults"
     name = f"api:{DOMAIN}:sections_defaults"
@@ -4644,14 +4802,72 @@ class SectionsDefaultsView(HomeAssistantView):
             if entry_id:
                 storage = _get_storage(hass, entry_id)
                 device = storage.get_device(device_id)
+        recipe_id = (body.get("recipe_id") or "").strip() or (project.get("device") or {}).get("hardware_recipe_id") or (project.get("hardware") or {}).get("recipe_id") or ""
+        if not recipe_id:
+            recipe_id = "sunton_2432s028r_320x240"
+        recipe_path = _find_recipe_path_by_id(hass, recipe_id) if hass else None
+        recipe_text = recipe_path.read_text("utf-8") if recipe_path and recipe_path.exists() else ""
+        if recipe_text:
+            data = _build_sections_panel_data_v2(project, device, recipe_text)
+            return self.json({
+                "ok": True,
+                "sections": data["sections"],
+                "default_sections": data["default_sections"],
+                "section_states": data["section_states"],
+                "compiler_owned": data["compiler_owned"],
+                "categories": dict(SECTION_CATEGORIES),
+                "keys_with_additions": data["keys_with_additions"],
+            })
         data = _build_sections_panel_data(project, device)
         return self.json({
             "ok": True,
             "sections": data["sections"],
             "default_sections": data["default_sections"],
+            "section_states": {},
+            "compiler_owned": [],
             "categories": dict(SECTION_CATEGORIES),
             "keys_with_additions": data["keys_with_additions"],
         })
+
+
+class SectionsSaveView(HomeAssistantView):
+    """Design v2: merge sections into single YAML and set project.esphome_yaml. POST body: { project, sections }."""
+
+    url = f"/api/{DOMAIN}/sections/save"
+    name = f"api:{DOMAIN}:sections_save"
+    requires_auth = False
+
+    async def post(self, request):
+        try:
+            body = await request.json() if request.can_read_body else {}
+        except Exception:
+            return self.json({"ok": False, "error": "invalid_json"}, status_code=400)
+        if not isinstance(body, dict):
+            return self.json({"ok": False, "error": "body must be JSON object"}, status_code=400)
+        project = body.get("project")
+        if not isinstance(project, dict):
+            return self.json({"ok": False, "error": "project required"}, status_code=400)
+        sections = body.get("sections")
+        if not isinstance(sections, dict):
+            return self.json({"ok": False, "error": "sections required (object)"}, status_code=400)
+        project = dict(project)
+        # Build section key -> body (accept body-only or full block)
+        to_merge: dict[str, str] = {}
+        for key in SECTION_ORDER:
+            raw = (sections.get(key) or "").strip()
+            if not raw:
+                continue
+            if raw.startswith(key + ":") or raw.startswith(key + " :"):
+                body_str = _section_body_from_value(raw, key) or ""
+            else:
+                body_str = raw
+            to_merge[key] = body_str.rstrip()
+        project["esphome_yaml"] = _sections_to_yaml(to_merge)
+        if "sections" in project:
+            del project["sections"]
+        if "section_overrides" in project:
+            del project["section_overrides"]
+        return self.json({"ok": True, "project": project})
 
 
 class CompileView(HomeAssistantView):
@@ -4929,6 +5145,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     # Build / deploy / export
     hass.http.register_view(PreviewWidgetYamlView)
     hass.http.register_view(SectionsDefaultsView)
+    hass.http.register_view(SectionsSaveView)
     hass.http.register_view(CompileView)
     hass.http.register_view(ValidateYamlView)
     hass.http.register_view(ParseYamlView)

@@ -9,11 +9,13 @@ from pathlib import Path
 
 from custom_components.esphome_touch_designer.api.views import (
     _section_body_from_value,
+    _section_full_block,
     _build_default_section_pieces,
     _build_sections_panel_data,
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
     _ensure_project_sections,
+    _parse_recipe_into_sections,
     _remove_orphaned_widget_refs_from_sections,
     _remove_orphaned_widget_refs_from_esphome_components,
     _compile_warnings,
@@ -238,3 +240,42 @@ def test_orphan_removal_esphome_components(default_project):
     comps = project.get("esphome_components") or []
     assert len(comps) == 1
     assert "deleted_widget" not in comps[0] and "widget: sw1" in comps[0]
+
+
+def test_list_section_deduplication_no_duplicate_blocks(default_project):
+    """When project.sections contains the same content as recipe/compiler, compiled YAML must not duplicate list items.
+
+    Simulates Create Component sync or panel default: stored section equals auto (recipe) content.
+    Without deduplication we would emit auto_body + user_body and get the same light/switch/sensor block twice,
+    which breaks esphome config (duplicate key / duplicate id).
+    """
+    recipe_path = REPO_ROOT / "custom_components/esphome_touch_designer/recipes/builtin/guition_s3_4848s040_480x480.yaml"
+    recipe_text = recipe_path.read_text("utf-8")
+    recipe_sections = _parse_recipe_into_sections(recipe_text)
+    light_body = _section_body_from_value(recipe_sections.get("light"), "light") or ""
+    switch_body = _section_body_from_value(recipe_sections.get("switch"), "switch") or ""
+    assert light_body.strip(), "guition_s3_4848s040 recipe must have light section"
+    assert switch_body.strip(), "guition_s3_4848s040 recipe must have switch section"
+
+    project = dict(default_project)
+    project["device"] = project.get("device") or {}
+    project["device"]["hardware_recipe_id"] = "guition_s3_4848s040_480x480"
+    project["sections"] = {
+        "light": _section_full_block("light", light_body.strip()),
+        "switch": _section_full_block("switch", switch_body.strip()),
+    }
+    device = DeviceProject(
+        device_id="hallway",
+        slug="hallway",
+        name="Hallway",
+        hardware_recipe_id="guition_s3_4848s040_480x480",
+        api_key=None,
+        project=project,
+    )
+    out = _compile_to_esphome_yaml_section_based(device, recipe_text)
+
+    # Each list item must appear exactly once (no duplicate light backlight, no duplicate switch Relay 1)
+    assert out.count("id: display_backlight") == 1, "light section must not duplicate display_backlight block"
+    assert out.count("platform: monochromatic") == 1, "light section must not duplicate monochromatic block"
+    assert out.count('name: "Relay 1"') == 1, "switch section must not duplicate Relay 1 block"
+    assert out.count("output: internal_relay_1") == 1, "switch section must not duplicate internal_relay_1 block"

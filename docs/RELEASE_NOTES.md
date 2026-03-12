@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.22
+
+- **Component Sections Design v2** — Single stored YAML per device (`project.esphome_yaml`). New devices get YAML populated from the current hardware recipe (with substitutions). Components panel shows sections as **Empty** / **Auto** (from recipe) / **Edited**; **Reset** restores to current recipe, **Save** writes to stored YAML. Per-section **Reset** and **Save**; **Reset All** and **Save All**. LVGL section is compiler-owned (read-only in panel). New API: `POST sections/save` merges sections into `esphome_yaml`. Compile uses stored YAML as base and replaces LVGL with compiler output; list sections merged with compiler (deduped). Legacy `project.sections` still supported when `esphome_yaml` is absent. Test suite: `tests/test_component_sections_v2.py`.
+
 ## v0.71.21
 
 - **CompleteWidgetTest: fix compiler for all widgets** — Compiler now emits valid ESPHome YAML for switch (state as `{ checked: bool }`), line (points as `x, y` list), meter (scales as embedded YAML dict with minimal default), spinner (spin_time/arc_length with ms/deg format and defaults), and led (color, brightness as % with defaults). Full fixture includes label, button, switch, slider, bar, arc, dropdown, checkbox, led, line, meter, spinner, roller, spinbox, color_picker, white_picker, container; test runs `esphome config` to catch regressions.
