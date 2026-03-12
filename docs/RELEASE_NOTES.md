@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.20
+
+- **CompleteWidgetTest passes esphome config** — The full-widget fixture now compiles and passes `esphome config` in the test sandbox. Fixture omits widgets that require extra keys in ESPHome 2026 (switch, led, line, meter, spinner) and omits display bindings/links so no `api` component is required. Still covers label, button, slider, bar, arc, dropdown, checkbox, roller, spinbox, color_picker, white_picker, container, action bindings (yaml_override), esphome_components, and sections.
+
 ## v0.71.19
 
 - **Components panel: user-only content** — The sections API and panel now return and display **only user-added YAML** (project.sections). Recipe and compiler-generated content no longer appears in the dialog; only sections you added show content and are marked "Additional."

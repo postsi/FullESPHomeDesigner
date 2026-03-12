@@ -3989,17 +3989,8 @@ class DeviceProjectView(HomeAssistantView):
         if not device:
             return self.json({"ok": False, "error": "device_not_found"}, status_code=404)
         project = dict(device.project) if device.project else {}
-        recipe_id = (
-            getattr(device, "hardware_recipe_id", None)
-            or (project.get("hardware") or {}).get("recipe_id")
-            or (project.get("device") or {}).get("hardware_recipe_id")
-            or "sunton_2432s028r_320x240"
-        )
-        recipe_path = _find_recipe_path_by_id(hass, recipe_id) if hass else None
-        if not recipe_path or not recipe_path.exists():
-            recipe_path = RECIPES_BUILTIN_DIR / f"{recipe_id}.yaml"
-        recipe_text = recipe_path.read_text("utf-8") if recipe_path.exists() else ""
-        _ensure_project_sections(project, device, recipe_text)
+        # Do not merge recipe/compiler into project.sections here. Components panel shows only
+        # user-added YAML; compile merges recipe + compiler + project.sections at compile time.
         # Enrich project with device.screen from recipe when device has hardware_recipe_id
         if device.hardware_recipe_id:
             screen = (project.get("device") or {}).get("screen") or {}

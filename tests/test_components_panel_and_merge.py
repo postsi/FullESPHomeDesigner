@@ -3,6 +3,7 @@ Components panel and section merge: section_overrides ignored, list sections mer
 """
 from __future__ import annotations
 
+import re
 import yaml
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from custom_components.esphome_touch_designer.api.views import (
     _build_sections_panel_data,
     _compile_to_esphome_yaml_section_based,
     _collect_widget_ids_from_project,
+    _ensure_project_sections,
     _remove_orphaned_widget_refs_from_sections,
     _remove_orphaned_widget_refs_from_esphome_components,
     _compile_warnings,
@@ -131,6 +133,49 @@ def test_sections_panel_returns_only_user_additions(default_project):
                 f"Section {key} must be empty when not in project.sections"
             )
     assert data_logger["keys_with_additions"] == ["logger"]
+
+
+def test_ensure_project_sections_pollutes_sections_with_recipe(jc1060_recipe_text, default_project):
+    """_ensure_project_sections overwrites project.sections with recipe+compiler content.
+    GET device project must NOT call this, so the Components panel sees only user additions."""
+    project = dict(default_project)
+    project["sections"] = {}
+    project["device"] = project.get("device") or {}
+    project["device"]["hardware_recipe_id"] = "jc1060p470_esp32p4_1024x600"
+    device = DeviceProject(
+        device_id="test", slug="test_device", name="Test",
+        hardware_recipe_id="jc1060p470_esp32p4_1024x600", api_key=None, project=project,
+    )
+    _ensure_project_sections(project, device, jc1060_recipe_text)
+    # Recipe has wifi; so sections are now polluted with recipe content
+    sections = project.get("sections") or {}
+    assert (sections.get("wifi") or "").strip(), "recipe wifi should appear after _ensure_project_sections"
+    # So GET must never call _ensure_project_sections.
+
+
+def test_get_device_project_does_not_call_ensure_project_sections(repo_root):
+    """GET device project must not call _ensure_project_sections, so returned project.sections
+    stays user-only (no recipe/compiler). Otherwise the Components panel shows recipe as 'Additional'.
+    We assert the handler source (read from file) does not call _ensure_project_sections."""
+    views_path = repo_root / "custom_components/esphome_touch_designer/api/views.py"
+    text = views_path.read_text("utf-8")
+    # Find DeviceProjectView.get method: from "async def get(self" of DeviceProjectView to next "async def " or "    def "
+    start = text.find("class DeviceProjectView(")
+    assert start >= 0
+    get_start = text.find("async def get(self, request, device_id:", start)
+    assert get_start >= 0
+    # End at next method of same class (4-space indent def/async def)
+    rest = text[get_start:]
+    end = len(rest)
+    for match in re.finditer(r"\n    (async )?def \w+", rest):
+        if match.start() > 0:
+            end = match.start()
+            break
+    get_body = rest[:end]
+    assert "_ensure_project_sections" not in get_body, (
+        "GET device project must not call _ensure_project_sections; "
+        "it would overwrite project.sections with recipe/compiler and break the Components panel."
+    )
 
 
 def test_merged_output_valid_yaml(jc1060_recipe_text, default_project):
