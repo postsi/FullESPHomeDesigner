@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.23
+
+- **Compiler indent fix** — Fixed YAML parsing error (`expected <block end>, but found '<block mapping start>'`) when section bodies had mixed indent: first line with no leading spaces and subsequent lines with 2 spaces. The emit logic now adds base indent only to lines with fewer than 2 leading spaces, avoiding over-indent that produced invalid YAML. Regression test: `test_compile_esphome_section_mixed_indent_produces_valid_yaml`.
+
 ## v0.71.22
 
 - **Component Sections Design v2** — Single stored YAML per device (`project.esphome_yaml`). New devices get YAML populated from the current hardware recipe (with substitutions). Components panel shows sections as **Empty** / **Auto** (from recipe) / **Edited**; **Reset** restores to current recipe, **Save** writes to stored YAML. Per-section **Reset** and **Save**; **Reset All** and **Save All**. LVGL section is compiler-owned (read-only in panel). New API: `POST sections/save` merges sections into `esphome_yaml`. Compile uses stored YAML as base and replaces LVGL with compiler output; list sections merged with compiler (deduped). Legacy `project.sections` still supported when `esphome_yaml` is absent. Test suite: `tests/test_component_sections_v2.py`.

@@ -42,4 +42,9 @@ When you have made any changes to this project, complete the full release workfl
    ```
    If `gh` (GitHub CLI) is not available, create the release manually on GitHub: Releases → Create a new release → choose the tag.
 
-No exceptions. If you edit this project, you must do all of the above.
+7. **Direct deployment to Home Assistant** (so the integration is updated on your HA host without going through HACS). Use the **HA Vibecode Agent MCP** (user-home-assistant): for each file under `custom_components/esphome_touch_designer/` (including `web/dist/` after step 4), call **ha_write_file** with:
+   - **path**: the file path relative to `/config` (e.g. `custom_components/esphome_touch_designer/__init__.py`, `custom_components/esphome_touch_designer/web/dist/index.html`).
+   - **content**: the full file contents (UTF-8 text). Skip binary files if any; the frontend build outputs (JS, CSS, HTML, map) are text.
+   Walk the directory recursively and write every file so that the HA host has an exact copy of the integration. Then call **ha_restart** (no arguments) via the same MCP to restart Home Assistant so the new integration code is loaded. If the Vibecode Agent MCP is not connected or the user says to skip deploy, skip step 7. Alternative: the user can deploy via SSH with `SKIP_BUILD=1 HA_HOST=... ./scripts/deploy_to_ha.sh` and then restart HA manually.
+
+No exceptions. If you edit this project, you must do all of the above (steps 1–6; step 7 when the HA MCP is available and deploy is not skipped).

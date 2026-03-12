@@ -40,6 +40,7 @@ pip install -r scripts/requirements.txt
 - **test_safe_merge_markers.py** — Export safe-merge marker behaviour (insert, replace, duplicate/order errors).
 - **test_compiler_helpers.py** — Pure helpers: `_safe_id`, `_slugify_entity_id`, `_esphome_safe_page_id`, `_hex_color_for_yaml`, `_yaml_quote`, `_split_esphome_block`, `_section_full_block`/`_section_body_from_value`, `_validate_recipe_text`, `_extract_recipe_metadata` / `_extract_recipe_metadata_from_text`, `_read_recipe_file`, `_default_wifi_yaml`, `_default_logger_yaml`.
 - **test_compile_widgets_and_bindings.py** — Compile with one widget per type (label, button, switch, slider, bar, arc, dropdown, led, checkbox) and with display bindings (label_text, arc_value, bar_value, widget_checked) so `_compile_ha_bindings` and `_emit_widget_from_schema` paths are exercised.
+- **test_entity_data_integration.py** — Optional: when `tests/fixtures/ha_entities_snapshot.json` exists, checks real HA entity shape, slugify/safe_id on all entity_ids, and compile with bindings to snapshot entities. Skip if fixture missing (see “Optional: HA entity fixture” below).
 
 To add a backend test: add a `test_*.py` module under `tests/` and use fixtures from `tests/conftest.py` (`make_device`, `default_project`, `jc1060_recipe_text`) as needed.
 
@@ -59,6 +60,7 @@ Tests include:
 - **bindings/matchingActions.test.ts** — `getMatchingActionBindings` (light brightness, climate temperature, switch toggle, dropdown HVAC mode), and constants (`INPUT_WIDGET_TYPES`, `OPTION_SELECT_WIDGET_TYPES`, `CLICK_TOGGLE_WIDGET_TYPES`, `SELECT_OPTION_TEXT_SENTINEL`).
 - **WorkflowStepper.test.tsx** — Renders stepper with all six steps; **does not throw when `completedSteps` is undefined** (guards against the runtime error in HA/Safari); shows completed checkmarks and step guidance when provided.
 - **WelcomePanel.test.tsx** — Renders intro and three actions (Select device, Create new project, Open example); optional `recentProjects` and `hasDevices` behaviour.
+- **uiSimulation.test.ts** — Simulates placing canvas items without the UI: drop simple widget (label, button, switch, color_picker, etc.) at (x, y), drop prebuilts (e.g. battery, spinbox with buttons), and apply position/size patches (drag/resize). Uses `src/uiSimulation.ts`, which mirrors App.tsx `onDropCreate` / `onChangeMany` logic so the same project shape is produced.
 
 Before changing arc or binding behaviour, run `npm run test` and fix any failures.
 
@@ -79,6 +81,38 @@ When the integration is loaded in HA, use the UI self-check/diagnostics to valid
 - Recipe discovery
 - Deterministic compile (compile twice, diff = 0)
 - Safe-merge marker validation
+
+## Optional: HA entity fixture and live API verification
+
+When you have Home Assistant running with the integration loaded (and optionally Cursor connected via the [HA Vibecode Agent](https://github.com/Coolver/home-assistant-vibecode-agent) MCP), you can:
+
+### 1. Generate a snapshot for optional tests
+
+The tests in **test_entity_data_integration.py** run only when `tests/fixtures/ha_entities_snapshot.json` exists. They check that the compiler and helpers handle real entity_ids and that a minimal project with bindings to those entities compiles.
+
+**Option A – Fetch from the integration API (recommended):**
+
+```bash
+export HA_BASE_URL="http://YOUR_HA_HOST:8123"
+export HA_TOKEN="your_long_lived_access_token"   # if your HA requires auth
+python3 scripts/fetch_ha_entities_fixture.py
+```
+
+**Option B – Export via Cursor + HA MCP:** Use the HA MCP tool `ha_list_entities` (with `ids_only=false`, and optionally `summary_only=true`), then save the response as a JSON array of objects with at least `entity_id`, `state`, and `attributes` to `tests/fixtures/ha_entities_snapshot.json`. The test expects the same shape as the integration’s `/api/esphome_touch_designer/entities` response.
+
+After the fixture exists, `pytest tests/test_entity_data_integration.py` will run the optional tests; without the file, those tests are skipped.
+
+### 2. Smoke-check the integration’s entity API
+
+To verify the application is functioning correctly against your running HA (entities and entity capabilities endpoints):
+
+```bash
+export HA_BASE_URL="http://YOUR_HA_HOST:8123"
+export HA_TOKEN="your_long_lived_access_token"   # if required
+python3 scripts/verify_ha_entities_api.py
+```
+
+This GETs `/api/esphome_touch_designer/entities` and (for one entity) `/api/esphome_touch_designer/ha/entities/<id>/capabilities`, and asserts basic response structure. Use it after deployment or when debugging the panel.
 
 ## Recommended golden projects
 

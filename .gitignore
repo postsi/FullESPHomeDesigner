@@ -16,6 +16,7 @@ env/
 .DS_Store
 .idea/
 .vscode/
+.cursor/mcp.json
 *.swp
 *.swo
 

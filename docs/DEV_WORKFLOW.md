@@ -30,6 +30,8 @@ Copy the integration folder into HA config:
 
 Then restart Home Assistant.
 
+**Deploy script (no HACS):** From repo root, `HA_HOST=homeassistant.local ./scripts/deploy_to_ha.sh` builds the frontend and rsyncs the integration to your HA host. See README “Deploy straight into HA”.
+
 ## Open the Designer
 
 HA sidebar should show the panel entry for the designer (created by the integration).

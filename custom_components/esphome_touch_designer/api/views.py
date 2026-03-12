@@ -1766,8 +1766,16 @@ def _compile_to_esphome_yaml_section_based(device: DeviceProject, recipe_text: s
             first_line = content.splitlines()[0] if content.splitlines() else ""
             if first_line.startswith("    ") and not first_line.startswith("      "):
                 content = "\n".join(ln[2:] if len(ln) >= 2 and ln.startswith("  ") else ln for ln in content.splitlines())
+        # Ensure section body has at least 2-space base indent. Only add indent to lines with < 2
+        # leading spaces (avoids over-indenting lines that already have correct indent, which would
+        # produce invalid YAML like "  name: x\n    min_version: y" instead of "  name: x\n  min_version: y").
         if content and not content.startswith("  ") and "\n" in content:
-            content = "\n".join("  " + ln if ln.strip() else ln for ln in content.splitlines())
+            def _ensure_base_indent(ln: str) -> str:
+                if not ln.strip():
+                    return ln
+                leading = len(ln) - len(ln.lstrip())
+                return ("  " + ln) if leading < 2 else ln
+            content = "\n".join(_ensure_base_indent(ln) for ln in content.splitlines())
         elif content and not content.startswith("  "):
             content = "  " + content
         out_parts.append(f"{key}:\n{content.rstrip()}\n\n")

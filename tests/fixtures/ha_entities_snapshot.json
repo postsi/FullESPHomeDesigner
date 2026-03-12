@@ -1,0 +1,1678 @@
+[
+  {
+    "entity_id": "conversation.home_assistant",
+    "state": "unknown",
+    "attributes": {
+      "friendly_name": "Home Assistant",
+      "supported_features": 1
+    },
+    "friendly_name": "Home Assistant",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.home_assistant_supervisor_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "2026.02.3",
+      "in_progress": false,
+      "latest_version": "2026.02.3",
+      "release_summary": null,
+      "release_url": "https://github.com/home-assistant/supervisor/releases/tag/2026.02.3",
+      "skipped_version": null,
+      "title": "Home Assistant Supervisor",
+      "update_percentage": null,
+      "entity_picture": "https://brands.home-assistant.io/hassio/icon.png",
+      "friendly_name": "Home Assistant Supervisor Update",
+      "supported_features": 1
+    },
+    "friendly_name": "Home Assistant Supervisor Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.home_assistant_core_update",
+    "state": "on",
+    "attributes": {
+      "auto_update": false,
+      "display_precision": 0,
+      "installed_version": "2026.2.3",
+      "in_progress": false,
+      "latest_version": "2026.3.1",
+      "release_summary": null,
+      "release_url": "https://www.home-assistant.io/latest-release-notes/",
+      "skipped_version": null,
+      "title": "Home Assistant Core",
+      "update_percentage": null,
+      "entity_picture": "https://brands.home-assistant.io/homeassistant/icon.png",
+      "friendly_name": "Home Assistant Core Update",
+      "supported_features": 15
+    },
+    "friendly_name": "Home Assistant Core Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.home_assistant_google_drive_backup_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "0.112.1",
+      "in_progress": false,
+      "latest_version": "0.112.1",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Home Assistant Google Drive Backup",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/cebe7a76_hassio_google_drive_backup/icon",
+      "friendly_name": "Home Assistant Google Drive Backup Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Home Assistant Google Drive Backup Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.terminal_ssh_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "10.0.2",
+      "in_progress": false,
+      "latest_version": "10.0.2",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Terminal & SSH",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/core_ssh/icon",
+      "friendly_name": "Terminal & SSH Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Terminal & SSH Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.samba_share_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "12.6.0",
+      "in_progress": false,
+      "latest_version": "12.6.0",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Samba share",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/core_samba/icon",
+      "friendly_name": "Samba share Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Samba share Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.filebrowser_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "2.61.2",
+      "in_progress": false,
+      "latest_version": "2.61.2",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Filebrowser",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/86689438_filebrowser/icon",
+      "friendly_name": "Filebrowser Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Filebrowser Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.studio_code_server_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "6.0.1",
+      "in_progress": false,
+      "latest_version": "6.0.1",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Studio Code Server",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/a0d7b954_vscode/icon",
+      "friendly_name": "Studio Code Server Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Studio Code Server Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.tailscale_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "0.27.1",
+      "in_progress": false,
+      "latest_version": "0.27.1",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Tailscale",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/a0d7b954_tailscale/icon",
+      "friendly_name": "Tailscale Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Tailscale Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.mosquitto_broker_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "6.5.2",
+      "in_progress": false,
+      "latest_version": "6.5.2",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Mosquitto broker",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/core_mosquitto/icon",
+      "friendly_name": "Mosquitto broker Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Mosquitto broker Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.ring_mqtt_with_video_streaming_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "5.9.3",
+      "in_progress": false,
+      "latest_version": "5.9.3",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Ring-MQTT with Video Streaming",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/03cabcc9_ring_mqtt/icon",
+      "friendly_name": "Ring-MQTT with Video Streaming Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Ring-MQTT with Video Streaming Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.matter_server_update",
+    "state": "on",
+    "attributes": {
+      "auto_update": false,
+      "display_precision": 0,
+      "installed_version": "8.2.2",
+      "in_progress": false,
+      "latest_version": "8.3.0",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Matter Server",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/core_matter_server/icon",
+      "friendly_name": "Matter Server Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Matter Server Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.uptime_kuma_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "0.16.1",
+      "in_progress": false,
+      "latest_version": "0.16.1",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Uptime Kuma",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/a0d7b954_uptime-kuma/icon",
+      "friendly_name": "Uptime Kuma Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Uptime Kuma Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.firefox_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "1.10.0",
+      "in_progress": false,
+      "latest_version": "1.10.0",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "Firefox",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/49e24ccc_firefox/icon",
+      "friendly_name": "Firefox Update",
+      "supported_features": 29
+    },
+    "friendly_name": "Firefox Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.esphome_device_builder_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": true,
+      "display_precision": 0,
+      "installed_version": "2026.2.4",
+      "in_progress": false,
+      "latest_version": "2026.2.4",
+      "release_summary": null,
+      "release_url": null,
+      "skipped_version": null,
+      "title": "ESPHome Device Builder",
+      "update_percentage": null,
+      "entity_picture": "/api/hassio/addons/5c53de3b_esphome/icon",
+      "friendly_name": "ESPHome Device Builder Update",
+      "supported_features": 29
+    },
+    "friendly_name": "ESPHome Device Builder Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "update.home_assistant_operating_system_update",
+    "state": "off",
+    "attributes": {
+      "auto_update": false,
+      "display_precision": 0,
+      "installed_version": "17.1",
+      "in_progress": false,
+      "latest_version": "17.1",
+      "release_summary": null,
+      "release_url": "https://github.com/home-assistant/operating-system/releases/tag/17.1",
+      "skipped_version": null,
+      "title": "Home Assistant Operating System",
+      "update_percentage": null,
+      "entity_picture": "https://brands.home-assistant.io/homeassistant/icon.png",
+      "friendly_name": "Home Assistant Operating System Update",
+      "supported_features": 11
+    },
+    "friendly_name": "Home Assistant Operating System Update",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "lock.main_gate_open_2",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Main Gate Open",
+      "supported_features": 0
+    },
+    "friendly_name": "Main Gate Open",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.neopool_mqtt_light_switch",
+    "state": "unavailable",
+    "attributes": {
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "friendly_name": "NeoPool MQTT Light Switch",
+      "supported_features": 0
+    },
+    "friendly_name": "NeoPool MQTT Light Switch",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "lock.main_gate_open_3",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Main Gate Open",
+      "supported_features": 0
+    },
+    "friendly_name": "Main Gate Open",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "event.backup_automatic_backup",
+    "state": "2026-03-12T05:44:08.471+00:00",
+    "attributes": {
+      "event_types": [
+        "completed",
+        "failed",
+        "in_progress"
+      ],
+      "event_type": "completed",
+      "backup_stage": null,
+      "failed_reason": null,
+      "friendly_name": "Backup Automatic backup"
+    },
+    "friendly_name": "Backup Automatic backup",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.backup_backup_manager_state",
+    "state": "idle",
+    "attributes": {
+      "options": [
+        "idle",
+        "create_backup",
+        "blocked",
+        "receive_backup",
+        "restore_backup"
+      ],
+      "device_class": "enum",
+      "friendly_name": "Backup Backup Manager state"
+    },
+    "friendly_name": "Backup Backup Manager state",
+    "icon": null,
+    "device_class": "enum",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.backup_next_scheduled_automatic_backup",
+    "state": "2026-03-13T05:07:54+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Backup Next scheduled automatic backup"
+    },
+    "friendly_name": "Backup Next scheduled automatic backup",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.backup_last_successful_automatic_backup",
+    "state": "2026-03-12T05:44:08+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Backup Last successful automatic backup"
+    },
+    "friendly_name": "Backup Last successful automatic backup",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.backup_last_attempted_automatic_backup",
+    "state": "2026-03-12T05:43:47+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Backup Last attempted automatic backup"
+    },
+    "friendly_name": "Backup Last attempted automatic backup",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "group.allpoollights",
+    "state": "unknown",
+    "attributes": {
+      "entity_id": [
+        "switch.neopool_mqtt_light_switch",
+        "light.pool_patio_and_deck"
+      ],
+      "order": 0,
+      "friendly_name": "AllPoolLights"
+    },
+    "friendly_name": "AllPoolLights",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "group.poolunderwaterlight",
+    "state": "unknown",
+    "attributes": {
+      "entity_id": [
+        "switch.neopool_mqtt_light_switch"
+      ],
+      "order": 1,
+      "friendly_name": "PoolUnderWaterLight"
+    },
+    "friendly_name": "PoolUnderWaterLight",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "input_select.vacuum_cycle",
+    "state": "Floor Only",
+    "attributes": {
+      "options": [
+        "Floor Only",
+        "Floor and walls"
+      ],
+      "editable": true,
+      "icon": "mdi:vacuum",
+      "friendly_name": "Vacuum cycle"
+    },
+    "friendly_name": "Vacuum cycle",
+    "icon": "mdi:vacuum",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "input_boolean.retreat_running",
+    "state": "off",
+    "attributes": {
+      "editable": true,
+      "icon": "mdi:toggle-switch-variant-off",
+      "friendly_name": "Retreat running"
+    },
+    "friendly_name": "Retreat running",
+    "icon": "mdi:toggle-switch-variant-off",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "input_boolean.away",
+    "state": "off",
+    "attributes": {
+      "editable": true,
+      "icon": "mdi:home-alert-outline",
+      "friendly_name": "Away"
+    },
+    "friendly_name": "Away",
+    "icon": "mdi:home-alert-outline",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "input_boolean.home_alone",
+    "state": "off",
+    "attributes": {
+      "editable": true,
+      "icon": "mdi:home",
+      "friendly_name": "Home Alone"
+    },
+    "friendly_name": "Home Alone",
+    "icon": "mdi:home",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.yoga_studio",
+    "state": "unavailable",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "Yoga Studio",
+      "supported_features": 0
+    },
+    "friendly_name": "Yoga Studio",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "zone.home",
+    "state": "2",
+    "attributes": {
+      "latitude": 51.45232879476197,
+      "longitude": -0.33306598663330084,
+      "radius": 39,
+      "passive": false,
+      "persons": [
+        "person.simon_post",
+        "person.zachary_post"
+      ],
+      "editable": true,
+      "icon": "mdi:home",
+      "friendly_name": "GrimwoodHA"
+    },
+    "friendly_name": "GrimwoodHA",
+    "icon": "mdi:home",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.table_led_lights",
+    "state": "off",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "color_mode": null,
+      "brightness": null,
+      "color_temp_kelvin": null,
+      "color_temp": null,
+      "hs_color": null,
+      "rgb_color": null,
+      "xy_color": null,
+      "entity_id": [
+        "light.table_wall_led",
+        "light.under_table_led"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "Table Led Lights",
+      "supported_features": 0
+    },
+    "friendly_name": "Table Led Lights",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.pool_patio_and_deck",
+    "state": "unavailable",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "Pool Patio and Deck",
+      "supported_features": 0
+    },
+    "friendly_name": "Pool Patio and Deck",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.all_lights",
+    "state": "unknown",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "color_mode": null,
+      "brightness": null,
+      "color_temp_kelvin": null,
+      "color_temp": null,
+      "hs_color": null,
+      "rgb_color": null,
+      "xy_color": null,
+      "entity_id": [
+        "light.neopool_mqtt_light_switch",
+        "light.over_table_lights_socket_1",
+        "light.table_led_lights",
+        "light.pool_patio_and_deck"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "All Lights",
+      "supported_features": 0
+    },
+    "friendly_name": "All Lights",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "person.simon_post",
+    "state": "home",
+    "attributes": {
+      "editable": true,
+      "id": "simon_post",
+      "device_trackers": [
+        "device_tracker.simon_iphone_x",
+        "device_tracker.ipadpro11",
+        "device_tracker.t30_se",
+        "device_tracker.iphone",
+        "device_tracker.simon_iphone_16",
+        "device_tracker.sarah_iphone7",
+        "device_tracker.simon_iphone",
+        "device_tracker.grimwood_tablet",
+        "device_tracker.ipadpro13m5"
+      ],
+      "latitude": 51.452366428063954,
+      "longitude": -0.33332419605930624,
+      "gps_accuracy": 2,
+      "source": "device_tracker.ipadpro13m5",
+      "user_id": "d8100386f94141d8b0debca2fc5d6f16",
+      "friendly_name": "Simon Post"
+    },
+    "friendly_name": "Simon Post",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "person.zachary_post",
+    "state": "home",
+    "attributes": {
+      "editable": true,
+      "id": "zachary_post",
+      "device_trackers": [
+        "device_tracker.zacharys_iphone_15_pro"
+      ],
+      "latitude": 51.45232699287042,
+      "longitude": -0.33331382747769656,
+      "gps_accuracy": 6,
+      "source": "device_tracker.zacharys_iphone_15_pro",
+      "user_id": "08dc409f51e34d9586c01c7fda09a7b4",
+      "friendly_name": "Zachary Post"
+    },
+    "friendly_name": "Zachary Post",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "person.sarah_post",
+    "state": "unknown",
+    "attributes": {
+      "editable": true,
+      "id": "sarah_post",
+      "device_trackers": [],
+      "user_id": "b998e538888546bca51ca14f80da32c5",
+      "friendly_name": "Sarah Post"
+    },
+    "friendly_name": "Sarah Post",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.eating_lights",
+    "state": "off",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "color_mode": null,
+      "brightness": null,
+      "color_temp_kelvin": null,
+      "color_temp": null,
+      "hs_color": null,
+      "rgb_color": null,
+      "xy_color": null,
+      "entity_id": [
+        "light.table_led_lights",
+        "light.over_table_lights_socket_1"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "Eating Lights",
+      "supported_features": 0
+    },
+    "friendly_name": "Eating Lights",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.flood_lights",
+    "state": "off",
+    "attributes": {
+      "supported_color_modes": [
+        "hs",
+        "white"
+      ],
+      "color_mode": null,
+      "brightness": null,
+      "hs_color": null,
+      "rgb_color": null,
+      "xy_color": null,
+      "entity_id": [
+        "light.left_floodlight",
+        "light.right_floodlight"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "Flood Lights",
+      "supported_features": 0
+    },
+    "friendly_name": "Flood Lights",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.hot_water_heaters",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Hot Water Heaters"
+    },
+    "friendly_name": "Hot Water Heaters",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.first_floor_outside",
+    "state": "unavailable",
+    "attributes": {
+      "supported_color_modes": [
+        "onoff"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "First Floor Outside",
+      "supported_features": 0
+    },
+    "friendly_name": "First Floor Outside",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.source_hose_pumped",
+    "state": "unknown",
+    "attributes": {
+      "entity_id": [
+        "switch.source_hose_plug_socket_1",
+        "switch.source_pump_socket_1"
+      ],
+      "friendly_name": "Source Hose Pumped"
+    },
+    "friendly_name": "Source Hose Pumped",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.water_fruit_trees",
+    "state": "off",
+    "attributes": {
+      "entity_id": [
+        "switch.source_pump_socket_1",
+        "switch.water_trees_plug_socket_1"
+      ],
+      "friendly_name": "Water Fruit Trees"
+    },
+    "friendly_name": "Water Fruit Trees",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "cover.all_grimwood_windows",
+    "state": "closed",
+    "attributes": {
+      "current_position": 0,
+      "entity_id": [
+        "cover.velux_left",
+        "cover.velux_middle",
+        "cover.velux_right"
+      ],
+      "friendly_name": "All Grimwood windows",
+      "supported_features": 7
+    },
+    "friendly_name": "All Grimwood windows",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "light.all_garden",
+    "state": "off",
+    "attributes": {
+      "min_color_temp_kelvin": 2000,
+      "max_color_temp_kelvin": 6500,
+      "min_mireds": 153,
+      "max_mireds": 500,
+      "supported_color_modes": [
+        "color_temp",
+        "hs"
+      ],
+      "color_mode": null,
+      "brightness": null,
+      "color_temp_kelvin": null,
+      "color_temp": null,
+      "hs_color": null,
+      "rgb_color": null,
+      "xy_color": null,
+      "entity_id": [
+        "light.right_spots",
+        "light.left_spots",
+        "light.right_strip",
+        "light.left_strip",
+        "light.shed_leds"
+      ],
+      "icon": "mdi:lightbulb-group",
+      "friendly_name": "All garden",
+      "supported_features": 0
+    },
+    "friendly_name": "All garden",
+    "icon": "mdi:lightbulb-group",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "climate.grimwood_all_thermostats",
+    "state": "heat",
+    "attributes": {
+      "hvac_modes": [
+        "heat",
+        "off"
+      ],
+      "min_temp": 5,
+      "max_temp": 35,
+      "preset_modes": [
+        "none",
+        "temporary",
+        "permanent"
+      ],
+      "current_temperature": 15.1,
+      "temperature": 16,
+      "preset_mode": "permanent",
+      "entity_id": [
+        "climate.bathroom",
+        "climate.dwnstair_hall",
+        "climate.living_rm",
+        "climate.master_rm",
+        "climate.office",
+        "climate.spare_rm",
+        "climate.upstairs_hall",
+        "climate.yoga_rm"
+      ],
+      "friendly_name": "Grimwood All Thermostats",
+      "supported_features": 401
+    },
+    "friendly_name": "Grimwood All Thermostats",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "automation.mqtt_test_climate_full_init_defaults_on_ha_start",
+    "state": "on",
+    "attributes": {
+      "id": "mqtt_test_climate_full_init_on_start",
+      "last_triggered": "2026-03-12T08:54:55.071514+00:00",
+      "mode": "single",
+      "current": 0,
+      "friendly_name": "MQTT Test Climate Full - Init defaults on HA start"
+    },
+    "friendly_name": "MQTT Test Climate Full - Init defaults on HA start",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sun.sun",
+    "state": "below_horizon",
+    "attributes": {
+      "next_dawn": "2026-03-13T05:46:34.828722+00:00",
+      "next_dusk": "2026-03-13T18:36:00.571477+00:00",
+      "next_midnight": "2026-03-13T00:10:46+00:00",
+      "next_noon": "2026-03-13T12:10:54+00:00",
+      "next_rising": "2026-03-13T06:20:20.271190+00:00",
+      "next_setting": "2026-03-13T18:02:08.588964+00:00",
+      "elevation": -31.42,
+      "azimuth": 311.83,
+      "rising": false,
+      "friendly_name": "Sun"
+    },
+    "friendly_name": "Sun",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_dawn",
+    "state": "2026-03-13T05:46:34+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next dawn"
+    },
+    "friendly_name": "Sun Next dawn",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_dusk",
+    "state": "2026-03-13T18:36:00+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next dusk"
+    },
+    "friendly_name": "Sun Next dusk",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_midnight",
+    "state": "2026-03-13T00:10:46+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next midnight"
+    },
+    "friendly_name": "Sun Next midnight",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_noon",
+    "state": "2026-03-13T12:10:54+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next noon"
+    },
+    "friendly_name": "Sun Next noon",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_rising",
+    "state": "2026-03-13T06:20:20+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next rising"
+    },
+    "friendly_name": "Sun Next rising",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sun_next_setting",
+    "state": "2026-03-13T18:02:08+00:00",
+    "attributes": {
+      "device_class": "timestamp",
+      "friendly_name": "Sun Next setting"
+    },
+    "friendly_name": "Sun Next setting",
+    "icon": null,
+    "device_class": "timestamp",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.shutter_camera",
+    "state": "idle",
+    "attributes": {
+      "access_token": "7c5a951af8cc490355d337d0178d770b336140f5b62e2a103d22feb1c5324db7",
+      "entity_picture": "/api/camera_proxy/camera.shutter_camera?token=7c5a951af8cc490355d337d0178d770b336140f5b62e2a103d22feb1c5324db7",
+      "friendly_name": "Amyand Shutter Camera",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Shutter Camera",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.workshop_door_camera",
+    "state": "idle",
+    "attributes": {
+      "access_token": "8e9cf48cf6ead591465c394cacf90bd7b8397da9e0222e98de9b89e891a11ad0",
+      "entity_picture": "/api/camera_proxy/camera.workshop_door_camera?token=8e9cf48cf6ead591465c394cacf90bd7b8397da9e0222e98de9b89e891a11ad0",
+      "friendly_name": "Amyand Workshop Door",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Workshop Door",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bcb36_current",
+    "state": "0.0",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "A",
+      "device_class": "current",
+      "friendly_name": "Amyand small water heater Current"
+    },
+    "friendly_name": "Amyand small water heater Current",
+    "icon": null,
+    "device_class": "current",
+    "unit_of_measurement": "A"
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bcb36_power",
+    "state": "0.0",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "friendly_name": "Amyand small water heater Power"
+    },
+    "friendly_name": "Amyand small water heater Power",
+    "icon": null,
+    "device_class": "power",
+    "unit_of_measurement": "W"
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bcb36_voltage",
+    "state": "245.2",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "V",
+      "device_class": "voltage",
+      "friendly_name": "Amyand small water heater Voltage"
+    },
+    "friendly_name": "Amyand small water heater Voltage",
+    "icon": null,
+    "device_class": "voltage",
+    "unit_of_measurement": "V"
+  },
+  {
+    "entity_id": "sensor.sonoff_1000bee804_temperature",
+    "state": "unavailable",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "\u00b0C",
+      "device_class": "temperature",
+      "friendly_name": "Observatory 12v Transformer Temperature"
+    },
+    "friendly_name": "Observatory 12v Transformer Temperature",
+    "icon": null,
+    "device_class": "temperature",
+    "unit_of_measurement": "\u00b0C"
+  },
+  {
+    "entity_id": "sensor.sonoff_1000bee804_humidity",
+    "state": "unavailable",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "%",
+      "device_class": "humidity",
+      "friendly_name": "Observatory 12v Transformer Humidity"
+    },
+    "friendly_name": "Observatory 12v Transformer Humidity",
+    "icon": null,
+    "device_class": "humidity",
+    "unit_of_measurement": "%"
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bb1e9_current",
+    "state": "1.78",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "A",
+      "device_class": "current",
+      "friendly_name": "LeftHandRCD Current"
+    },
+    "friendly_name": "LeftHandRCD Current",
+    "icon": null,
+    "device_class": "current",
+    "unit_of_measurement": "A"
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bb1e9_power",
+    "state": "375.41",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "friendly_name": "LeftHandRCD Power"
+    },
+    "friendly_name": "LeftHandRCD Power",
+    "icon": null,
+    "device_class": "power",
+    "unit_of_measurement": "W"
+  },
+  {
+    "entity_id": "sensor.sonoff_10013bb1e9_voltage",
+    "state": "242.14",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "V",
+      "device_class": "voltage",
+      "friendly_name": "LeftHandRCD Voltage"
+    },
+    "friendly_name": "LeftHandRCD Voltage",
+    "icon": null,
+    "device_class": "voltage",
+    "unit_of_measurement": "V"
+  },
+  {
+    "entity_id": "switch.sonoff_10013bcb36",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Amyand small water heater"
+    },
+    "friendly_name": "Amyand small water heater",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1000bee804",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Observatory 12v Transformer"
+    },
+    "friendly_name": "Observatory 12v Transformer",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1001544c49",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Observatory Roof MCB"
+    },
+    "friendly_name": "Observatory Roof MCB",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_10014cdba7",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Observatory Socket MCB"
+    },
+    "friendly_name": "Observatory Socket MCB",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1001058ee3",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Pool shower "
+    },
+    "friendly_name": "Pool shower ",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1001059fbc",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "PoolAutomation"
+    },
+    "friendly_name": "PoolAutomation",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_10013bb1e9",
+    "state": "on",
+    "attributes": {
+      "friendly_name": "LeftHandRCD"
+    },
+    "friendly_name": "LeftHandRCD",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_100108e238",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Workshop shutter opener"
+    },
+    "friendly_name": "Workshop shutter opener",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_10005e80ed_1",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Shepherds Hut"
+    },
+    "friendly_name": "Shepherds Hut",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_10005e80ed_2",
+    "state": "unavailable",
+    "attributes": {
+      "friendly_name": "Shepherds Hut"
+    },
+    "friendly_name": "Shepherds Hut",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1000bdc1a3",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Amyand Garage Lights"
+    },
+    "friendly_name": "Amyand Garage Lights",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_100025551c",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Big Shed"
+    },
+    "friendly_name": "Big Shed",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "switch.sonoff_1000520367",
+    "state": "off",
+    "attributes": {
+      "friendly_name": "Little Shed"
+    },
+    "friendly_name": "Little Shed",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_1001544c49_pulsewidth",
+    "state": "unavailable",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Observatory Roof MCB INCHING Duration"
+    },
+    "friendly_name": "Observatory Roof MCB INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_10014cdba7_pulsewidth",
+    "state": "unavailable",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Observatory Socket MCB INCHING Duration"
+    },
+    "friendly_name": "Observatory Socket MCB INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_1001058ee3_pulsewidth",
+    "state": "0.5",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Pool shower  INCHING Duration"
+    },
+    "friendly_name": "Pool shower  INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_1001059fbc_pulsewidth",
+    "state": "0.5",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "PoolAutomation INCHING Duration"
+    },
+    "friendly_name": "PoolAutomation INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_100108e238_pulsewidth",
+    "state": "unavailable",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Workshop shutter opener INCHING Duration"
+    },
+    "friendly_name": "Workshop shutter opener INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_1000bdc1a3_pulsewidth",
+    "state": "0.5",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Amyand Garage Lights INCHING Duration"
+    },
+    "friendly_name": "Amyand Garage Lights INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_100025551c_pulsewidth",
+    "state": "0.5",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Big Shed INCHING Duration"
+    },
+    "friendly_name": "Big Shed INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "number.sonoff_1000520367_pulsewidth",
+    "state": "0.5",
+    "attributes": {
+      "min": 0.5,
+      "max": 36000,
+      "step": 0.5,
+      "mode": "auto",
+      "friendly_name": "Little Shed INCHING Duration"
+    },
+    "friendly_name": "Little Shed INCHING Duration",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.maison10ha",
+    "state": "idle",
+    "attributes": {
+      "access_token": "2c418a16951dddacbcd87f38ea15c4acf1c0cf4efede01516b6120f64be46390",
+      "entity_picture": "/api/camera_proxy/camera.maison10ha?token=2c418a16951dddacbcd87f38ea15c4acf1c0cf4efede01516b6120f64be46390",
+      "friendly_name": "Amyand Back Wall",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Back Wall",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.maison10ha_3",
+    "state": "idle",
+    "attributes": {
+      "access_token": "4e8d32a9276bdfd68c7567fa86ff8273bb2bb6248ce9022bfc530bf0665341a5",
+      "entity_picture": "/api/camera_proxy/camera.maison10ha_3?token=4e8d32a9276bdfd68c7567fa86ff8273bb2bb6248ce9022bfc530bf0665341a5",
+      "friendly_name": "Amyand Left Pilar",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Left Pilar",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.maison10ha_4",
+    "state": "idle",
+    "attributes": {
+      "access_token": "8fbd25b939be55676433b92ff351b250f9c4db2b3c17b27676cc018db099bb98",
+      "entity_picture": "/api/camera_proxy/camera.maison10ha_4?token=8fbd25b939be55676433b92ff351b250f9c4db2b3c17b27676cc018db099bb98",
+      "friendly_name": "Amyand Right Pilar",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Right Pilar",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.maison10ha_5",
+    "state": "idle",
+    "attributes": {
+      "access_token": "1e7281055c6008a4472736bee27631d1ead0ea3b4d1c7f77cbcf2a99ee097a8b",
+      "entity_picture": "/api/camera_proxy/camera.maison10ha_5?token=1e7281055c6008a4472736bee27631d1ead0ea3b4d1c7f77cbcf2a99ee097a8b",
+      "friendly_name": "Amyand Roof",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Roof",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.03cabcc9_ring_mqtt",
+    "state": "idle",
+    "attributes": {
+      "access_token": "1bc7f531c0aa32edbc4928f8c20b3fb3407d8ea1d9771b5c7e065b44134a0bf",
+      "entity_picture": "/api/camera_proxy/camera.03cabcc9_ring_mqtt?token=1bc7f531c0aa32edbc4928f8c20b3fb3407d8ea1d9771b5c7e065b44134a0bf",
+      "friendly_name": "Amyand Shutter Internal",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Shutter Internal",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "camera.maison10ha_2",
+    "state": "idle",
+    "attributes": {
+      "access_token": "4c04a00fd89acaac235dc7ce324ab22d2f217f08599ba2f02f00099bb2250cfa",
+      "entity_picture": "/api/camera_proxy/camera.maison10ha_2?token=4c04a00fd89acaac235dc7ce324ab22d2f217f08599ba2f02f00099bb2250cfa",
+      "friendly_name": "Amyand Workshop Internal",
+      "supported_features": 2
+    },
+    "friendly_name": "Amyand Workshop Internal",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "device_tracker.c10",
+    "state": "unknown",
+    "attributes": {
+      "source_type": "gps",
+      "friendly_name": "Maison10"
+    },
+    "friendly_name": "Maison10",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.c10_battery_level",
+    "state": "100",
+    "attributes": {
+      "state_class": "measurement",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "icon": "mdi:battery-charging",
+      "friendly_name": "Maison10 Battery level"
+    },
+    "friendly_name": "Maison10 Battery level",
+    "icon": "mdi:battery-charging",
+    "device_class": "battery",
+    "unit_of_measurement": "%"
+  },
+  {
+    "entity_id": "sensor.c10_battery_state",
+    "state": "full",
+    "attributes": {
+      "options": [
+        "charging",
+        "discharging",
+        "full",
+        "not_charging"
+      ],
+      "device_class": "enum",
+      "icon": "mdi:battery-charging",
+      "friendly_name": "Maison10 Battery state"
+    },
+    "friendly_name": "Maison10 Battery state",
+    "icon": "mdi:battery-charging",
+    "device_class": "enum",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.c10_charger_type",
+    "state": "usb",
+    "attributes": {
+      "options": [
+        "ac",
+        "usb",
+        "wireless",
+        "dock",
+        "none"
+      ],
+      "device_class": "enum",
+      "icon": "mdi:usb-port",
+      "friendly_name": "Maison10 Charger type"
+    },
+    "friendly_name": "Maison10 Charger type",
+    "icon": "mdi:usb-port",
+    "device_class": "enum",
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "binary_sensor.simon_iphone_x_focus",
+    "state": "on",
+    "attributes": {
+      "icon": "mdi:moon-waning-crescent",
+      "friendly_name": "Simon iphone X Focus"
+    },
+    "friendly_name": "Simon iphone X Focus",
+    "icon": "mdi:moon-waning-crescent",
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "device_tracker.simon_iphone_x",
+    "state": "not_home",
+    "attributes": {
+      "source_type": "gps",
+      "battery_level": 60,
+      "latitude": 51.451904296875,
+      "longitude": -0.3336904195349203,
+      "gps_accuracy": 5,
+      "altitude": 23,
+      "course": 322,
+      "speed": 5,
+      "vertical_accuracy": 9,
+      "friendly_name": "Simon iphone X"
+    },
+    "friendly_name": "Simon iphone X",
+    "icon": null,
+    "device_class": null,
+    "unit_of_measurement": null
+  },
+  {
+    "entity_id": "sensor.simon_iphone_x_distance",
+    "state": "2684",
+    "attributes": {
+      "unit_of_measurement": "m",
+      "icon": "mdi:hiking",
+      "friendly_name": "Simon iphone X Distance"
+    },
+    "friendly_name": "Simon iphone X Distance",
+    "icon": "mdi:hiking",
+    "device_class": null,
+    "unit_of_measurement": "m"
+  },
+  {
+    "entity_id": "sensor.simon_iphone_x_activity",
+    "state": "Stationary",
+    "attributes": {
+      "Confidence": "High",
+      "Types": [
+        "Stationary"
+      ],
+      "icon": "mdi:human-male",
+      "friendly_name": "Simon iphone X Activity"
+    },
+    "friendly_name": "Simon iphone X Activity",
+    "icon": "mdi:human-male",
+    "device_class": null,
+    "unit_of_measurement": null
+  }
+]

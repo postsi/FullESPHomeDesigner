@@ -186,3 +186,26 @@ def test_compile_stored_esphome_manage_run_and_sleep(make_device):
     assert not validate(out, dev.slug)
     if shutil.which("esphome"):
         assert not run_esphome_config(out, "stored esphome manage_run_and_sleep")
+
+
+def test_compile_esphome_section_mixed_indent_produces_valid_yaml(make_device):
+    """Regression: when stored esphome section has first line with no indent and rest with 2 spaces,
+    the emit logic must not over-indent subsequent lines (would produce invalid YAML:
+    '  name: x\\n    min_version: y' instead of '  name: x\\n  min_version: y')."""
+    proj = _default_project()
+    proj["sections"] = {
+        "esphome": (
+            "esphome:\n"
+            "name: __ETD_DEVICE_NAME__\n"  # no leading spaces - triggers old bug
+            "  min_version: 2024.11.0\n"
+            "  project:\n    name: test\n    version: 1\n"
+        ),
+    }
+    dev = make_device(project=proj, slug="hallway", recipe_id="sunton_2432s028r_320x240")
+    out = compile_to_esphome_yaml(dev, recipe_text=_MINIMAL_RECIPE_NO_MANAGE_RUN)
+    assert not validate(out, dev.slug), validate(out, dev.slug)
+    parsed = yaml.safe_load(out)
+    assert "esphome" in parsed
+    esp = parsed["esphome"]
+    assert esp.get("name") == "hallway"
+    assert esp.get("min_version") == "2024.11.0"
