@@ -447,7 +447,7 @@ const stageRef = useRef<any>(null);
     if (type === "color_picker" || type === "white_picker") {
       return <Group key={w.id}>{base}</Group>;
     }
-    if (type.includes("label")) {
+    if (type.includes("label") && type !== "arc_labeled") {
       const layout = textLayoutFromWidget(ax, ay, w.w, w.h, p, s);
       const longMode = String(p.long_mode ?? s.long_mode ?? "CLIP").toUpperCase();
       const wrap = longMode === "WRAP";

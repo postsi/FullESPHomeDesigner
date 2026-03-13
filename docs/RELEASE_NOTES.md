@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.29
+
+- **Arc with scale labels: canvas fix** — Arc with scale labels prebuilt was rendered as a plain box because the canvas treated `arc_labeled` as a label (type.includes("label")). The label branch now excludes `arc_labeled` so the arc and tick labels render correctly on canvas and in the simulator.
+
 ## v0.71.28
 
 - **Prebuilt: Arc with scale labels** — New prebuilt widget in the Widgets (Prebuilt) panel: **Arc with scale labels**. Drops an arc with integer tick labels on the outside (min to max). Labels update when min/max change and scale with widget size. Editable in inspector: Tick label size, colour, and font (label_font_size, label_text_color, label_text_font). Compiles to a single LVGL arc on device; labels are designer-only. Supports simulation (drag to set value) and display/action bindings (arc_value, on_release, on_value).
