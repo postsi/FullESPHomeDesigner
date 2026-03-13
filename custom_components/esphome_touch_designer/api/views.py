@@ -4787,12 +4787,30 @@ def _build_sections_panel_data_v2(project: dict, device: object | None, recipe_t
         for k in SECTION_ORDER:
             if sections.get(k) and ETD_DEVICE_NAME_PLACEHOLDER in sections[k]:
                 sections[k] = sections[k].replace(ETD_DEVICE_NAME_PLACEHOLDER, repl)
+    # For list sections, "expected" when user has not edited = compiler + recipe (same as display when stored matches recipe). So only show Edited when user actually changed stored.
+    expected_for_state: dict[str, str] = {}
+    for k in SECTION_ORDER:
+        if k in list_sections:
+            comp = (compiler_sections.get(k) or "").strip()
+            recipe_def = (default_sections.get(k) or "").strip()
+            if comp and recipe_def:
+                expected_for_state[k] = _merge_list_section_bodies(comp, recipe_def).strip()
+            else:
+                expected_for_state[k] = comp or recipe_def
+        else:
+            expected_for_state[k] = (default_sections.get(k) or "").strip()
+    if device is not None and getattr(device, "slug", None):
+        repl = json.dumps(device.slug)
+        for k in SECTION_ORDER:
+            if expected_for_state.get(k) and ETD_DEVICE_NAME_PLACEHOLDER in expected_for_state[k]:
+                expected_for_state[k] = expected_for_state[k].replace(ETD_DEVICE_NAME_PLACEHOLDER, repl)
     section_states: dict[str, str] = {}
     for k in SECTION_ORDER:
-        s, d = (sections.get(k) or "").strip(), (defaults.get(k) or "").strip()
+        s = (sections.get(k) or "").strip()
+        expected = (expected_for_state.get(k) or "").strip()
         if not s:
             section_states[k] = SECTION_STATE_EMPTY
-        elif s == d:
+        elif s == expected:
             section_states[k] = SECTION_STATE_AUTO
         else:
             section_states[k] = SECTION_STATE_EDITED

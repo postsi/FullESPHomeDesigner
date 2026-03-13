@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.26
+
+- **Components panel: Edited only when user edits** — List sections (switch, sensor, etc.) now show **Auto** when the displayed content matches compiler + recipe (e.g. Create Component only). **Edited** is shown only when the user has actually changed the stored YAML for that section.
+
 ## v0.71.25
 
 - **Create Component: fix ID redefined** — LVGL switch (and other platform) blocks no longer emit `id:` in the component block; only `widget:` and `name:` are emitted. The widget already defines the ID in LVGL; duplicating it in the switch platform caused ESPHome "ID redefined" errors.
