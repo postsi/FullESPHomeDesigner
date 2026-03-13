@@ -14,6 +14,7 @@ import {
   EVENT_LABELS,
   formatDisplayBindingSummary,
   formatActionBindingSummary,
+  displayActionRequiresNumericSource,
 } from "./bindings/bindingConfig";
 import { entityMatchesBindingSearch } from "./bindings/entitySearch";
 import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYPES, CLICK_TOGGLE_WIDGET_TYPES } from "./bindings/matchingActions";
@@ -74,6 +75,17 @@ function getWidgetRefsInYaml(yamlStr: string): string[] {
   WIDGET_REF_RE.lastIndex = 0;
   while ((m = WIDGET_REF_RE.exec(yamlStr)) !== null) refs.push(m[1]);
   return refs;
+}
+
+/** True if project has a Create Component block (esphome_components) that references this widget (widget: id). */
+function widgetHasCreateComponent(project: any, widgetId: string): boolean {
+  const comps = project?.esphome_components;
+  if (!Array.isArray(comps) || !widgetId) return false;
+  for (const c of comps) {
+    const yaml = typeof c === "string" ? c : (c?.yaml ?? "");
+    if (getWidgetRefsInYaml(yaml).includes(widgetId)) return true;
+  }
+  return false;
 }
 
 /** Hex #RRGGBB to HSV: h 0–360, s 0–100, v 0–100. */
@@ -4569,20 +4581,32 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                 })()}
               </div>
             )}
-            {inspectorTab === "builder" && (
+            {inspectorTab === "builder" && (() => {
+              const hasCreateComponent = selectedWidgetIds.length === 1 && project && widgetHasCreateComponent(project, selectedWidgetIds[0]);
+              return (
               <div className="section">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                   <div className="sectionTitle" style={{ marginBottom: 0 }}>Binding Builder</div>
+                  {hasCreateComponent ? (
+                    <span className="muted" style={{ fontSize: 12 }} title="This widget already has an ESPHome component (switch/light/sensor etc.); no display/action bindings needed — linkage is automatic in ESPHome.">
+                      Component created
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     className="secondary"
                     style={{ fontSize: 12, padding: "6px 10px" }}
-                    disabled={selectedWidgetIds.length !== 1 || !canCreateNativeComponentForWidget((() => {
-                      const wid = selectedWidgetIds[0];
-                      const w = widgetsFlat.find((x: any) => x?.id === wid) ?? widgets.find((x: any) => x?.id === wid);
-                      return w?.type || "";
-                    })())}
-                    title="Create ESPHome component (switch, light, sensor, etc.) bound to this widget — bidirectional with HA"
+                    disabled={
+                      selectedWidgetIds.length !== 1
+                      || !project
+                      || hasCreateComponent
+                      || !canCreateNativeComponentForWidget((() => {
+                        const wid = selectedWidgetIds[0];
+                        const w = widgetsFlat.find((x: any) => x?.id === wid) ?? widgets.find((x: any) => x?.id === wid);
+                        return w?.type || "";
+                      })())
+                    }
+                    title={hasCreateComponent ? "This widget already has a component." : "Create ESPHome component (switch, light, sensor, etc.) bound to this widget — bidirectional with HA"}
                     onClick={() => {
                       if (selectedWidgetIds.length !== 1 || !project) return;
                       const wid = selectedWidgetIds[0];
@@ -4627,12 +4651,17 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   const filteredEntities = entities.filter(
                     (e) => e?.entity_id && entityMatchesBindingSearch(e, entityQuery)
                   ).slice(0, 200);
+                  const effectiveDisplayAction = displayActions.includes(bindAction as any) ? bindAction : (displayActions[0] || "label_text");
+                  const requiresNumeric = displayActionRequiresNumericSource(effectiveDisplayAction);
                   const selectedEntityAttrs = (() => {
                       if (!bindEntity) return [];
                       const attrs = bindingEntityDetails?.entity_id === bindEntity
                         ? bindingEntityDetails?.attributes
                         : entities.find((x) => x && x.entity_id === bindEntity)?.attributes;
-                      return attrs ? Object.keys(attrs).sort() : [];
+                      if (!attrs) return [];
+                      const keys = Object.keys(attrs).sort();
+                      if (!requiresNumeric) return keys;
+                      return keys.filter((k) => typeof attrs[k] === "number");
                     })();
                   return (
                     <>
@@ -4806,9 +4835,9 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                           </div>
                           <div>
                             <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Attribute</div>
-                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>HA state or entity attribute to show.</div>
+                            <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>{requiresNumeric ? "Numeric attribute only (arc/bar/slider need a number)." : "HA state or entity attribute to show."}</div>
                             <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)} style={{ width: "100%" }}>
-                              <option value="">(state)</option>
+                              {!requiresNumeric && <option value="">(state)</option>}
                               {selectedEntityAttrs.map((k)=> <option key={k} value={k}>{k}</option>)}
                             </select>
                           </div>
@@ -4835,7 +4864,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                               </div>
                             </>
                           )}
-                          <button disabled={!project || !selectedWidgetIds.length || !bindEntity} onClick={() => {
+                          <button disabled={!project || !selectedWidgetIds.length || !bindEntity || (requiresNumeric && !bindAttr)} onClick={() => {
                             if (!project) return;
                             const wid = selectedWidgetIds[0];
                             const ent = bindEntity; const attr = bindAttr;
@@ -5008,7 +5037,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                   );
                 })()}
               </div>
-            )}
+            ); })()}
             {inspectorTab === "yaml" && (
               <div className="section">
                 <div className="sectionTitle">Widget YAML</div>

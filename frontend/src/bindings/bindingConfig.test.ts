@@ -9,6 +9,8 @@ import {
   domainFromEntityId,
   formatDisplayBindingSummary,
   formatActionBindingSummary,
+  displayActionRequiresNumericSource,
+  NUMERIC_ONLY_DISPLAY_ACTIONS,
   DISPLAY_ACTIONS_BY_WIDGET_TYPE,
   EVENTS_BY_WIDGET_TYPE,
 } from "./bindingConfig";
@@ -23,6 +25,23 @@ describe("bindingConfig", () => {
     it("returns empty string when no dot", () => {
       expect(domainFromEntityId("")).toBe("");
       expect(domainFromEntityId("nodot")).toBe("");
+    });
+  });
+
+  describe("displayActionRequiresNumericSource", () => {
+    it("returns true for arc_value, bar_value, slider_value", () => {
+      expect(displayActionRequiresNumericSource("arc_value")).toBe(true);
+      expect(displayActionRequiresNumericSource("bar_value")).toBe(true);
+      expect(displayActionRequiresNumericSource("slider_value")).toBe(true);
+    });
+    it("returns false for label_text, widget_checked", () => {
+      expect(displayActionRequiresNumericSource("label_text")).toBe(false);
+      expect(displayActionRequiresNumericSource("widget_checked")).toBe(false);
+    });
+    it("NUMERIC_ONLY_DISPLAY_ACTIONS matches", () => {
+      expect(NUMERIC_ONLY_DISPLAY_ACTIONS).toContain("arc_value");
+      expect(NUMERIC_ONLY_DISPLAY_ACTIONS).toContain("bar_value");
+      expect(NUMERIC_ONLY_DISPLAY_ACTIONS).toContain("slider_value");
     });
   });
 

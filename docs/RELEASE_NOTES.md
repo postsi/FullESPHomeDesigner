@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.27
+
+- **Binding Builder: Component created indicator** — When a widget already has a component created via Create Component, the Binding Builder shows "Component created" next to the button and disables the Create component button so it cannot be used again for that widget. No display/action bindings are added; linkage is automatic in ESPHome.
+
 ## v0.71.26
 
 - **Components panel: Edited only when user edits** — List sections (switch, sensor, etc.) now show **Auto** when the displayed content matches compiler + recipe (e.g. Create Component only). **Edited** is shown only when the user has actually changed the stored YAML for that section.

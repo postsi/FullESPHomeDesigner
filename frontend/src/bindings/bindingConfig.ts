@@ -134,6 +134,13 @@ export const SERVICES_BY_DOMAIN: Record<string, { service: string; label: string
   ],
 };
 
+/** Display actions that accept only numeric values (arc, bar, slider). Do not offer state (text) for these. */
+export const NUMERIC_ONLY_DISPLAY_ACTIONS: DisplayAction[] = ["arc_value", "bar_value", "slider_value"];
+
+export function displayActionRequiresNumericSource(action: string): boolean {
+  return NUMERIC_ONLY_DISPLAY_ACTIONS.includes(action as DisplayAction);
+}
+
 export function getDisplayActionsForType(widgetType: string): DisplayAction[] {
   const t = String(widgetType ?? "").toLowerCase();
   return DISPLAY_ACTIONS_BY_WIDGET_TYPE[t] ?? ["label_text"];
