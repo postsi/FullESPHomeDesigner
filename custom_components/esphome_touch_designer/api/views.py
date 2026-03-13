@@ -477,7 +477,7 @@ def _compile_lvgl_pages(project: dict) -> str:
             out.append("        - button:\n")
             out.append(common(w))
             out.append(f"        text: {json.dumps(txt)}\n")
-        elif wtype == "arc":
+        elif wtype == "arc" or wtype == "arc_labeled":
             out.append("        - arc:\n")
             out.append(common(w))
             out.append(f"        min_value: {int(props.get('min_value', 0))}\n")
@@ -1989,7 +1989,7 @@ PALETTE_WIDGET_TYPES = frozenset({
     "tileview",
 })
 # Widget types we compile and edit but do not show in Std LVGL palette (e.g. designer-only widgets).
-EXTRA_WIDGET_TYPES = frozenset({"color_picker", "white_picker"})
+EXTRA_WIDGET_TYPES = frozenset({"arc_labeled", "color_picker", "white_picker"})
 COMPILABLE_WIDGET_TYPES = PALETTE_WIDGET_TYPES | EXTRA_WIDGET_TYPES
 
 
@@ -3642,7 +3642,7 @@ def _compile_lvgl_pages_schema_driven(
                     if bc is not None:
                         lines.append(f"{indent}    bg_color: 0x{int(bc):06X}\n")
                 out = "".join(lines)
-            elif wtype == "arc":
+            elif wtype == "arc" or wtype == "arc_labeled":
                 lines = [
                     f"{indent}- arc:\n",
                     f"{indent}    id: {wid}\n",

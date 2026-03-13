@@ -503,6 +503,42 @@ interval:
     },
   },
   {
+    id: "prebuilt_arc_scale_labels",
+    title: "Arc with scale labels",
+    description: "Arc with integer tick labels on the outside. Min/max and label style editable in inspector.",
+    build: ({ x, y }) => {
+      const id = uid("arc_labeled");
+      const size = 120;
+      return {
+        widgets: [{
+          id,
+          type: "arc_labeled",
+          x,
+          y,
+          w: size,
+          h: size,
+          props: {
+            min_value: 0,
+            max_value: 100,
+            value: 50,
+            start_angle: 135,
+            end_angle: 45,
+            rotation: 0,
+            mode: "NORMAL",
+            adjustable: true,
+          },
+          style: {
+            bg_color: bgTrack,
+            radius: 4,
+            label_text_color: textNormal,
+            label_text_font: "",
+            label_font_size: 0,
+          },
+        }],
+      };
+    },
+  },
+  {
     id: "prebuilt_led_dot",
     title: "LED indicator",
     description: "On/off or status dot.",

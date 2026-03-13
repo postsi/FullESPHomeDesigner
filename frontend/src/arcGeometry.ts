@@ -133,3 +133,31 @@ export function pointerAngleToValue(
   }
   return minVal + norm * (maxVal - minVal);
 }
+
+/**
+ * Map a value to world angle (degrees [0, 360)) for label placement.
+ * Inverse of pointerAngleToValue: value → angle so that labels sit at the correct arc position.
+ */
+export function valueToAngle(
+  rotation: number,
+  startAngle: number,
+  endAngle: number,
+  mode: "NORMAL" | "REVERSE" | "SYMMETRICAL",
+  minVal: number,
+  maxVal: number,
+  value: number
+): number {
+  const sweepCw = (endAngle - startAngle + 360) % 360 || 360;
+  const t = maxVal > minVal ? (value - minVal) / (maxVal - minVal) : 0.5;
+  const clampedT = Math.max(0, Math.min(1, t));
+  let arcDeg: number;
+  if (mode === "REVERSE") {
+    arcDeg = startAngle + (1 - clampedT) * sweepCw;
+  } else if (mode === "SYMMETRICAL") {
+    const mid = startAngle + sweepCw / 2;
+    arcDeg = mid + clampedT * (sweepCw / 2);
+  } else {
+    arcDeg = startAngle + clampedT * sweepCw;
+  }
+  return (rotation + arcDeg + 720) % 360;
+}

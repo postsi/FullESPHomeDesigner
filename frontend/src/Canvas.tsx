@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Text, Transformer, Line, Group, Circle, Arc, Shape } from "react-konva";
-import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
+import { computeArcBackground, pointerAngleToValue, valueToAngle } from "./arcGeometry";
 import {
   snap,
   toFillColor,
@@ -209,7 +209,7 @@ const stageRef = useRef<any>(null);
     const outlineOpa = Number(s.outline_opa ?? 0) / 100;
     const transformAngle = Number(s.transform_angle ?? 0);
     const transformZoom = Number(s.transform_zoom ?? 100) / 100;
-    const isSliderOrArcOrBar = w.type === "slider" || w.type === "arc" || w.type === "bar";
+    const isSliderOrArcOrBar = w.type === "slider" || w.type === "arc" || w.type === "arc_labeled" || w.type === "bar";
     const simDraggable = simulationMode && isSliderOrArcOrBar;
     const handleSimClick = () => {
       console.log("[Simulator] Canvas handleSimClick", w.id, w.type, { simulationMode, hasOnSimulateAction: !!onSimulateAction });
@@ -276,7 +276,7 @@ const stageRef = useRef<any>(null);
         const rounded = Math.round(val);
         lastSimValueRef.current[w.id] = rounded;
         onSimulateUpdate(w.id, { value: rounded });
-      } else if (w.type === "arc") {
+      } else if (w.type === "arc" || w.type === "arc_labeled") {
         const cx = ax + w.w / 2;
         const cy = ay + w.h / 2;
         const angle = Math.atan2(pos.y - cy, pos.x - cx) * (180 / Math.PI);
@@ -356,7 +356,7 @@ const stageRef = useRef<any>(null);
         } : undefined}
         onDragEnd={(e) => {
           if (simulationMode) {
-            if (onSimulateAction && (w.type === "slider" || w.type === "arc" || w.type === "bar")) {
+            if (onSimulateAction && (w.type === "slider" || w.type === "arc" || w.type === "arc_labeled" || w.type === "bar")) {
               const value = lastSimValueRef.current[w.id];
               onSimulateAction(w.id, "on_release", value != null ? { value } : undefined);
             }
@@ -915,6 +915,46 @@ const stageRef = useRef<any>(null);
             <Circle x={knobX} y={knobY} radius={knobSize} fill={knobFill} stroke={border} strokeWidth={1} listening={false} />
           )}
           {simHandleArc}
+          {w.type === "arc_labeled" && (() => {
+            const labelOffset = Math.max(4, Math.min(20, Math.min(w.w, w.h) / 10));
+            const labelR = outerR + labelOffset;
+            const labelFontSizeProp = Number(s.label_font_size ?? 0);
+            const labelFontId = s.label_text_font ?? p.label_text_font ?? s.text_font ?? p.text_font;
+            const baseFontSize = labelFontSizeProp > 0 ? labelFontSizeProp : (fontSizeFromFontId(labelFontId) ?? 12);
+            const scaleRef = 100;
+            const scaleFactor = Math.min(w.w, w.h) / scaleRef;
+            const labelFontSize = Math.max(8, Math.min(24, Math.round(baseFontSize * scaleFactor)));
+            const labelColor = toFillColor(s.label_text_color ?? p.label_text_color ?? s.text_color, "#e5e7eb");
+            const minInt = Math.ceil(min);
+            const maxInt = Math.floor(max);
+            const tickValues: number[] = [];
+            for (let v = minInt; v <= maxInt; v++) tickValues.push(v);
+            return tickValues.map((value) => {
+              const angleDeg = valueToAngle(rot, bgStart, bgEnd, mode as "NORMAL" | "REVERSE" | "SYMMETRICAL", min, max, value);
+              const angleRad = (angleDeg * Math.PI) / 180;
+              const lx = cx + labelR * Math.cos(angleRad);
+              const ly = cy + labelR * Math.sin(angleRad);
+              const text = String(value);
+              const pad = 6;
+              const box = Math.max(20, text.length * labelFontSize * 0.6 + pad);
+              const half = box / 2;
+              return (
+                <Text
+                  key={value}
+                  x={lx - half}
+                  y={ly - labelFontSize / 2}
+                  width={box}
+                  height={labelFontSize + 2}
+                  text={text}
+                  fontSize={labelFontSize}
+                  fill={labelColor}
+                  align="center"
+                  verticalAlign="middle"
+                  listening={false}
+                />
+              );
+            });
+          })()}
           {/* ESPHome/LVGL arc has no built-in value label; device shows only arc + knob. A separate label widget is used if value text is needed. */}
         </Group>
       );

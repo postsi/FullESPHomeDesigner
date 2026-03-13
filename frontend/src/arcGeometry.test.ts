@@ -3,7 +3,7 @@
  * 0°=right, 90°=bottom, 180°=left, 270°=top; angles increase clockwise.
  */
 import { describe, it, expect } from "vitest";
-import { computeArcBackground, pointerAngleToValue } from "./arcGeometry";
+import { computeArcBackground, pointerAngleToValue, valueToAngle } from "./arcGeometry";
 
 describe("arcGeometry", () => {
   describe("computeArcBackground", () => {
@@ -101,6 +101,29 @@ describe("arcGeometry", () => {
       // rotation=90, start=270 → effective start 0°; end 0 → effective end 90°
       expect(pointerAngleToValue(90, 270, 0, "NORMAL", min, max, 0)).toBe(0);
       expect(pointerAngleToValue(90, 270, 0, "NORMAL", min, max, 90)).toBe(100);
+    });
+  });
+
+  describe("valueToAngle (tick labels)", () => {
+    const min = 0;
+    const max = 100;
+
+    it("NORMAL: value min → start angle, value max → end angle", () => {
+      expect(valueToAngle(0, 270, 0, "NORMAL", min, max, 0)).toBe(270);
+      expect(valueToAngle(0, 270, 0, "NORMAL", min, max, 100)).toBe(0);
+    });
+
+    it("NORMAL: value 50 → mid angle", () => {
+      const a = valueToAngle(0, 270, 0, "NORMAL", min, max, 50);
+      expect(Math.round(a)).toBe(315);
+    });
+
+    it("round-trip: valueToAngle then pointerAngleToValue recovers value", () => {
+      for (const v of [0, 25, 50, 75, 100]) {
+        const angle = valueToAngle(0, 135, 45, "NORMAL", min, max, v);
+        const back = pointerAngleToValue(0, 135, 45, "NORMAL", min, max, angle);
+        expect(Math.round(back)).toBe(v);
+      }
     });
   });
 });
