@@ -918,6 +918,7 @@ const stageRef = useRef<any>(null);
           {w.type === "arc_labeled" && (() => {
             const labelOffset = Math.max(4, Math.min(20, Math.min(w.w, w.h) / 10));
             const labelR = outerR + labelOffset;
+            const tickLen = Math.max(2, Math.min(6, Math.min(w.w, w.h) / 40));
             const labelFontSizeProp = Number(s.label_font_size ?? 0);
             const labelFontId = s.label_text_font ?? p.label_text_font ?? s.text_font ?? p.text_font;
             const baseFontSize = labelFontSizeProp > 0 ? labelFontSizeProp : (fontSizeFromFontId(labelFontId) ?? 12);
@@ -927,33 +928,56 @@ const stageRef = useRef<any>(null);
             const labelColor = toFillColor(s.label_text_color ?? p.label_text_color ?? s.text_color, "#e5e7eb");
             const minInt = Math.ceil(min);
             const maxInt = Math.floor(max);
-            const tickValues: number[] = [];
-            for (let v = minInt; v <= maxInt; v++) tickValues.push(v);
-            return tickValues.map((value) => {
-              const angleDeg = valueToAngle(rot, bgStart, bgEnd, mode as "NORMAL" | "REVERSE" | "SYMMETRICAL", min, max, value);
-              const angleRad = (angleDeg * Math.PI) / 180;
-              const lx = cx + labelR * Math.cos(angleRad);
-              const ly = cy + labelR * Math.sin(angleRad);
-              const text = String(value);
-              const pad = 6;
-              const box = Math.max(20, text.length * labelFontSize * 0.6 + pad);
-              const half = box / 2;
-              return (
-                <Text
-                  key={value}
-                  x={lx - half}
-                  y={ly - labelFontSize / 2}
-                  width={box}
-                  height={labelFontSize + 2}
-                  text={text}
-                  fontSize={labelFontSize}
-                  fill={labelColor}
-                  align="center"
-                  verticalAlign="middle"
-                  listening={false}
-                />
-              );
-            });
+            const labelStep = 2;
+            const ticks: number[] = [];
+            for (let v = minInt; v <= maxInt; v++) ticks.push(v);
+            const labelValues = ticks.filter((v) => (v - minInt) % labelStep === 0);
+            return (
+              <>
+                {ticks.map((value) => {
+                  const angleDeg = valueToAngle(rot, bgStart, bgEnd, mode as "NORMAL" | "REVERSE" | "SYMMETRICAL", min, max, value);
+                  const angleRad = (angleDeg * Math.PI) / 180;
+                  const c = Math.cos(angleRad);
+                  const s_ = Math.sin(angleRad);
+                  return (
+                    <Line
+                      key={`tick-${value}`}
+                      x={cx}
+                      y={cy}
+                      points={[(outerR - tickLen) * c, (outerR - tickLen) * s_, (outerR + tickLen) * c, (outerR + tickLen) * s_]}
+                      stroke={labelColor}
+                      strokeWidth={1}
+                      listening={false}
+                    />
+                  );
+                })}
+                {labelValues.map((value) => {
+                  const angleDeg = valueToAngle(rot, bgStart, bgEnd, mode as "NORMAL" | "REVERSE" | "SYMMETRICAL", min, max, value);
+                  const angleRad = (angleDeg * Math.PI) / 180;
+                  const lx = cx + labelR * Math.cos(angleRad);
+                  const ly = cy + labelR * Math.sin(angleRad);
+                  const text = String(value);
+                  const pad = 6;
+                  const box = Math.max(20, text.length * labelFontSize * 0.6 + pad);
+                  const half = box / 2;
+                  return (
+                    <Text
+                      key={`label-${value}`}
+                      x={lx - half}
+                      y={ly - labelFontSize / 2}
+                      width={box}
+                      height={labelFontSize + 2}
+                      text={text}
+                      fontSize={labelFontSize}
+                      fill={labelColor}
+                      align="center"
+                      verticalAlign="middle"
+                      listening={false}
+                    />
+                  );
+                })}
+              </>
+            );
           })()}
           {/* ESPHome/LVGL arc has no built-in value label; device shows only arc + knob. A separate label widget is used if value text is needed. */}
         </Group>

@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.30
+
+- **Arc with scale labels: labels every 2, tick at every 1** — Tick marks are drawn at every integer around the arc; numeric labels show every two (e.g. 0, 2, 4, …) so the scale is easier to read.
+
 ## v0.71.29
 
 - **Arc with scale labels: canvas fix** — Arc with scale labels prebuilt was rendered as a plain box because the canvas treated `arc_labeled` as a label (type.includes("label")). The label branch now excludes `arc_labeled` so the arc and tick labels render correctly on canvas and in the simulator.
