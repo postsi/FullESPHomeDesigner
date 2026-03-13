@@ -2891,8 +2891,8 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       p2 = result.project;
                       setSelectedWidgetIds([rawId]);
                     }
+                    // ESPHome LVGL platform: use widget: to reference the widget; do not emit id (widget already defines it; duplicate causes "ID redefined").
                     const blockBody = `  - platform: lvgl
-    id: ${rawId}
     widget: ${rawId}
     name: ${JSON.stringify((createNativeComponentName.trim() || "Component"))}
 `;

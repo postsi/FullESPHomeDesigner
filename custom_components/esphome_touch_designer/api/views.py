@@ -4761,11 +4761,26 @@ def _build_sections_panel_data(project: dict, device=None) -> dict:
 
 
 def _build_sections_panel_data_v2(project: dict, device: object | None, recipe_text: str) -> dict:
-    """Design v2: single stored YAML. Returns sections (stored), default_sections (current recipe), section_states (empty|auto|edited), compiler_owned."""
+    """Design v2: single stored YAML. Returns sections (stored + compiler-merged for list sections), default_sections (current recipe), section_states (empty|auto|edited), compiler_owned.
+    List sections (switch, sensor, etc.) merge compiler output (e.g. Create Component) with stored so the panel shows both."""
     stored_sections = _stored_sections_from_project(project)
     default_sections = _build_recipe_default_sections(recipe_text, device)
-    # Normalize to SECTION_ORDER keys with body strings
-    sections = {k: (stored_sections.get(k) or "").strip() for k in SECTION_ORDER}
+    compiler_sections = _build_compiler_sections(project, device)
+    list_sections: set[str] = {
+        "sensor", "text_sensor", "binary_sensor", "switch", "number", "select", "light",
+    }
+    # Build sections: for list sections, merge compiler (Create Component, etc.) with stored so panel shows both
+    sections = {}
+    for k in SECTION_ORDER:
+        stored_body = (stored_sections.get(k) or "").strip()
+        if k in list_sections:
+            compiler_body = (compiler_sections.get(k) or "").strip()
+            if compiler_body and stored_body:
+                sections[k] = _merge_list_section_bodies(compiler_body, stored_body).strip()
+            else:
+                sections[k] = compiler_body or stored_body
+        else:
+            sections[k] = stored_body
     defaults = {k: (default_sections.get(k) or "").strip() for k in SECTION_ORDER}
     if device is not None and getattr(device, "slug", None):
         repl = json.dumps(device.slug)

@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.25
+
+- **Create Component: fix ID redefined** — LVGL switch (and other platform) blocks no longer emit `id:` in the component block; only `widget:` and `name:` are emitted. The widget already defines the ID in LVGL; duplicating it in the switch platform caused ESPHome "ID redefined" errors.
+- **Components panel: show Create Component in list sections** — The switch (and sensor, light, number, select, text_sensor, binary_sensor) sections in the Components dialog now merge compiler output (e.g. Create Component) with stored YAML, so Create Component switches appear in the panel immediately.
+
 ## v0.71.24
 
 - **Switch section YAML indent fix** — Fixed invalid YAML when merging Create Component switch with recipe switch: `mapping values are not allowed here` at the recipe switch block. Cause: `_normalize_section_body_indent` added 2 spaces to every line when the first line had no leading spaces (body-only from `project.sections`), over-indenting nested lines (`name:`/`output:` became 6 spaces). Now only lines with fewer than 2 leading spaces get the base indent. Regression test: `test_normalize_section_body_indent_does_not_over_indent_nested_lines`.
