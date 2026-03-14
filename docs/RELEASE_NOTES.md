@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.43
+
+- **Deploy/Validate: correct add-on HTTP API paths and auth** — Calls now use `/api/run` and `/api/config-check` (fixes 404). Integration options (Configure) restored: **ESPHome add-on URL** and **API token**; requests send `Authorization: Bearer <token>` so Validate YAML and Deploy work with the ESPHome API add-on.
+
 ## v0.71.42
 
 - **Deploy/Validate: fix 404 "detail" not found** — Add-on 4xx responses are parsed for `detail`/`message`/`error` so the UI shows a clear message. Deploy build returns a consistent error shape with `detail`; frontend no longer assumes `detail` exists and uses safe fallbacks for all error messages.

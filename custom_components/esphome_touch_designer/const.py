@@ -15,7 +15,10 @@ STORAGE_VERSION = 1
 PANEL_URL_PATH = "esphome-touch-designer"
 PANEL_TITLE = "ESPHome Touch Designer"
 
-# Hard-coded base URL for ESPHome API add-on (validate / build+upload). Add-on listens on port 8098.
+# ESPHome API add-on (validate / build+upload). Default URL; overridable via integration options.
 ESPHOME_ADDON_API_URL = "http://localhost:8098"
+# Option keys for Configure (Settings → Integrations → ESPHome Touch Designer → Configure)
+CONF_ESPHOME_ADDON_URL = "esphome_addon_url"
+CONF_ESPHOME_ADDON_TOKEN = "esphome_addon_token"
 
 STATIC_URL_PATH = f"/api/{DOMAIN}/static"       # served from custom_components/.../web/dist
