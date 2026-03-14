@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.36
+
+- **Arc with scale labels: container YAML indent** — Fixed “Each widget must be a dictionary with a single key” when an arc_labeled widget was on a non-first page. The arc_labeled block is no longer run through the schema re-indent loop, so nested widgets (arc, line, label) keep correct indentation and each list item under `widgets:` is a single-key dict.
+
 ## v0.71.35
 
 - **Binding Builder: Add display binding button** — The Add display binding button no longer stays grey when adding a display binding for arc/slider/bar. Numeric attributes now include values that are numeric strings from Home Assistant (e.g. temperature `"23.5"`); the button enables when the selected entity has at least one numeric attribute, and the first attribute is used when none is explicitly selected.

@@ -3735,19 +3735,20 @@ def _compile_lvgl_pages_schema_driven(
                     out_parts.append(f"{cb}text_color: 0x{label_color:06X}\n")
                     if label_font:
                         out_parts.append(f"{cb}text_font: {json.dumps(label_font)}\n")
-                raw = "".join(out_parts)
+                out = "".join(out_parts)
             else:
                 raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
-            lines = raw.splitlines(True)
-            out_lines = []
-            for ln in lines:
-                if ln.startswith("            "):  # body: value of single-key dict (12 spaces)
-                    out_lines.append(indent + "    " + ln[12:])
-                elif ln.startswith("        "):
-                    out_lines.append(indent + ln[8:])  # first line "- type:"
-                else:
-                    out_lines.append(indent + ln)
-            out = "".join(out_lines)
+            if wtype != "arc_labeled":
+                lines = raw.splitlines(True)
+                out_lines = []
+                for ln in lines:
+                    if ln.startswith("            "):  # body: value of single-key dict (12 spaces)
+                        out_lines.append(indent + "    " + ln[12:])
+                    elif ln.startswith("        "):
+                        out_lines.append(indent + ln[8:])  # first line "- type:"
+                    else:
+                        out_lines.append(indent + ln)
+                out = "".join(out_lines)
         else:
             # No schema: emit bar/arc from props (e.g. prebuilt WiFi bar/fan) or fallback to container
             wid = str(w.get("id") or "w")
