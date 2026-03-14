@@ -1987,21 +1987,22 @@ async def _esphome_addon_request(
     import aiohttp
     url = base_url.rstrip("/") + "/" + path.lstrip("/")
     try:
-        session = hass.helpers.aiohttp_client.async_get_clientsession(hass)
-        async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=300)) as resp:
-            text = await resp.text()
-            if resp.status >= 400:
-                return False, f"HTTP {resp.status}: {text[:500]}"
-            if "application/json" in (resp.content_type or ""):
-                try:
-                    import json as _json
-                    data = _json.loads(text)
-                    result = data.get("result") if isinstance(data, dict) else text
-                except Exception:
+        timeout = aiohttp.ClientTimeout(total=300)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=timeout) as resp:
+                text = await resp.text()
+                if resp.status >= 400:
+                    return False, f"HTTP {resp.status}: {text[:500]}"
+                if "application/json" in (resp.content_type or ""):
+                    try:
+                        import json as _json
+                        data = _json.loads(text)
+                        result = data.get("result") if isinstance(data, dict) else text
+                    except Exception:
+                        result = text
+                else:
                     result = text
-            else:
-                result = text
-            return True, str(result) if result is not None else text
+                return True, str(result) if result is not None else text
     except asyncio.TimeoutError:
         return False, "Request timed out"
     except Exception as e:

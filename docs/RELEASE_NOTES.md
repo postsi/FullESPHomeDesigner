@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.41
+
+- **Deploy build: fix "has no attribute 'helpers'"** — Add-on HTTP requests no longer use `hass.helpers.aiohttp_client`; they use a plain aiohttp `ClientSession` so Deploy and Validate YAML work when `hass.helpers` is not available in the request context.
+
 ## v0.71.40
 
 - **ESPHome add-on URL hard-coded** — Removed integration options flow (Configure). Validate YAML and Deploy now always use the ESPHome API add-on at `http://localhost:8098`. Fixes 500 errors when opening Configure; add-on must be running on port 8098.
