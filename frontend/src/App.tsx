@@ -4862,7 +4862,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                                 {filteredEntities.map((e) => (
                                   <div
                                     key={e.entity_id}
-                                    onClick={() => { setBindEntity(e.entity_id); setEntityQuery(""); setBindAttr(""); setBuilderEntityDropdownOpen(false); }}
+                                    onMouseDown={(ev) => { ev.preventDefault(); setBindEntity(e.entity_id); setEntityQuery(""); setBindAttr(""); setBuilderEntityDropdownOpen(false); }}
                                     style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12, borderBottom: "1px solid rgba(255,255,255,.06)" }}
                                   >
                                     {e.entity_id}{e.friendly_name ? ` — ${e.friendly_name}` : ""}

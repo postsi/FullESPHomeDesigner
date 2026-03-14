@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.47
+
+- **Binding Builder: entity selection fix** — Entity selection dropdown now uses `onMouseDown` instead of `onClick` so the selected entity is applied before the input blur closes the list. "Selected: {entity}" should appear reliably below the field.
+
 ## v0.71.46
 
 - **Binding Builder: climate attributes for arc** — When binding an arc (or slider/bar) to a climate entity, the Attribute dropdown now includes `current_temperature` and `temperature` even when their current value is null. Uses known numeric attributes from domain presets.
