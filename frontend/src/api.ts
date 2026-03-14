@@ -231,3 +231,10 @@ export async function exportDeviceYamlWithExpectedHash(device_id: string, expect
   u.searchParams.set("entry_id", entry_id);
   return apiPost(u.toString(), { expected_hash });
 }
+
+/** Run ESPHome build and upload via the configured add-on (reads YAML from exported file). */
+export async function deployBuild(device_id: string, entry_id: string) {
+  const u = new URL(`${API_BASE}/deploy_build`, window.location.origin);
+  u.searchParams.set("entry_id", entry_id);
+  return apiPost(u.toString(), { device_id });
+}

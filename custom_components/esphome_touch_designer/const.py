@@ -15,4 +15,7 @@ STORAGE_VERSION = 1
 PANEL_URL_PATH = "esphome-touch-designer"
 PANEL_TITLE = "ESPHome Touch Designer"
 
+# Optional: base URL of ESPHome add-on API (validate / build+upload). If set, Validate YAML and Deploy use the add-on.
+OPTION_ESPHOME_ADDON_URL = "esphome_addon_url"
+
 STATIC_URL_PATH = f"/api/{DOMAIN}/static"       # served from custom_components/.../web/dist

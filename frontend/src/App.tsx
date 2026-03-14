@@ -22,6 +22,7 @@ import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYP
 import {
   deleteDevice,
   deploy,
+  deployBuild,
   exportDeviceYamlPreview,
   exportDeviceYamlWithExpectedHash,
   callService,
@@ -2395,7 +2396,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     } finally { setBusy(false); }
   }
 
-  /** Compile and write to /config/esphome/ (same as Export in Compile dialog). Shows toast on success/fail. */
+  /** Save YAML to /config/esphome/ then run build and upload via ESPHome add-on (if configured). */
   async function deployToConfig() {
     if (!selectedDevice || !entryId || !project) return;
     setBusy(true);
@@ -2419,11 +2420,44 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         setToast({ type: "error", msg: `Deployment failed: ${res?.error ?? res?.detail ?? "export failed"}` });
         return;
       }
-      setToast({ type: "ok", msg: "Deployment successful" });
+      const buildRes: any = await deployBuild(selectedDevice, entryId);
+      if (!buildRes?.ok) {
+        const detail = buildRes?.detail || buildRes?.result || buildRes?.error || "build/upload failed";
+        setToast({ type: "error", msg: `Export OK; build failed: ${detail}` });
+        return;
+      }
+      setToast({ type: "ok", msg: "Deployment successful (YAML saved, build and upload completed)" });
     } catch (e: any) {
       setToast({ type: "error", msg: `Deployment failed: ${e?.message ?? "unknown error"}` });
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Validate the exported YAML (same as would be deployed) via add-on or local ESPHome CLI. */
+  async function validateExportYaml() {
+    if (!selectedDevice || !entryId) return;
+    setValidateYamlBusy(true);
+    setValidateYamlResult(null);
+    try {
+      const preview: any = await exportDeviceYamlPreview(selectedDevice, entryId);
+      if (!preview?.ok || !preview?.new_text) {
+        setToast({ type: "error", msg: preview?.error ? `Preview failed: ${preview.error}` : "Could not get export preview." });
+        return;
+      }
+      const result = await validateYaml(preview.new_text, entryId);
+      setValidateYamlResult(result);
+      if (result.ok) {
+        setToast({ type: "ok", msg: "Config valid" });
+      } else {
+        const msg = (result.stderr || result.stdout || result.error || "Validation failed").slice(0, 200);
+        setToast({ type: "error", msg: `Validation failed: ${msg}` });
+      }
+    } catch (e: any) {
+      setValidateYamlResult({ ok: false, stderr: String(e?.message || e) });
+      setToast({ type: "error", msg: `Validation error: ${e?.message ?? "unknown"}` });
+    } finally {
+      setValidateYamlBusy(false);
     }
   }
 
@@ -3923,7 +3957,8 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         )}
         {/* Group: Device & deploy */}
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
-        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Compile and save YAML to /config/esphome/">Deploy</button>
+        <button className="secondary" disabled={validateYamlBusy || !selectedDevice || !project} onClick={validateExportYaml} title="Validate exported YAML (add-on or local ESPHome CLI)">{validateYamlBusy ? "Validating…" : "Validate YAML"}</button>
+        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Save YAML to /config/esphome/ then build and upload via add-on">Deploy</button>
         <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={() => setFullYamlOpen(true)} title="View full compiled ESPHome YAML">Full YAML</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card (reusable UI snippet you can drop on other projects)">Save as card</button>
         <span className="muted" style={{ marginRight: 4 }}>|</span>

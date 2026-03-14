@@ -1957,7 +1957,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.http import HomeAssistantView
 
-from ..const import DOMAIN
+from ..const import DOMAIN, OPTION_ESPHOME_ADDON_URL
 from ..storage import DeviceProject
 
 
@@ -1975,6 +1975,54 @@ def _active_entry_id(hass: HomeAssistant) -> str | None:
 
 def _get_storage(hass: HomeAssistant, entry_id: str):
     return hass.data[DOMAIN][entry_id]["storage"]
+
+
+def _get_entry(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
+    """Return the config entry for entry_id, or None."""
+    data = hass.data.get(DOMAIN, {})
+    if entry_id not in data or not isinstance(data[entry_id], dict):
+        return None
+    return data[entry_id].get("entry")
+
+
+def _get_esphome_addon_url(hass: HomeAssistant, entry_id: str) -> str | None:
+    """Return configured ESPHome add-on API base URL, or None."""
+    entry = _get_entry(hass, entry_id)
+    if not entry or not entry.options:
+        return None
+    url = (entry.options.get(OPTION_ESPHOME_ADDON_URL) or "").strip()
+    return url if url else None
+
+
+async def _esphome_addon_request(
+    hass: HomeAssistant,
+    base_url: str,
+    path: str,
+    payload: dict,
+) -> tuple[bool, str]:
+    """Call ESPHome add-on API. Returns (ok, result_text)."""
+    import aiohttp
+    url = base_url.rstrip("/") + "/" + path.lstrip("/")
+    try:
+        session = hass.helpers.aiohttp_client.async_get_clientsession(hass)
+        async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+            text = await resp.text()
+            if resp.status >= 400:
+                return False, f"HTTP {resp.status}: {text[:500]}"
+            if "application/json" in (resp.content_type or ""):
+                try:
+                    import json as _json
+                    data = _json.loads(text)
+                    result = data.get("result") if isinstance(data, dict) else text
+                except Exception:
+                    result = text
+            else:
+                result = text
+            return True, str(result) if result is not None else text
+    except asyncio.TimeoutError:
+        return False, "Request timed out"
+    except Exception as e:
+        return False, str(e)
 
 
 def _schemas_dir() -> Path:
@@ -5122,14 +5170,14 @@ class CompileView(HomeAssistantView):
 
 
 class ValidateYamlView(HomeAssistantView):
-    """Validate compiled YAML with ESPHome CLI (esphome compile) without flashing."""
+    """Validate compiled YAML via ESPHome add-on API or local CLI (esphome compile)."""
 
     url = f"/api/{DOMAIN}/validate_yaml"
     name = f"api:{DOMAIN}:validate_yaml"
     requires_auth = False
 
     async def post(self, request):
-        """POST { \"yaml\": \"...\" } — run esphome compile on the config and return ok/stdout/stderr."""
+        """POST { \"yaml\": \"...\" } — validate config via add-on or esphome compile; return ok/stdout/stderr."""
         try:
             body = await request.json()
         except Exception:
@@ -5137,6 +5185,23 @@ class ValidateYamlView(HomeAssistantView):
         yaml_text = (body.get("yaml") or "").strip()
         if not yaml_text:
             return self.json({"ok": False, "error": "empty_yaml", "stderr": "", "stdout": ""}, status_code=400)
+
+        hass = request.app["hass"]
+        entry_id = request.query.get("entry_id") or body.get("entry_id") or _active_entry_id(hass)
+        addon_url = _get_esphome_addon_url(hass, entry_id) if entry_id else None
+
+        if addon_url:
+            ok, result = await _esphome_addon_request(
+                hass,
+                addon_url,
+                "config_check",
+                {"config_source": "yaml", "yaml": yaml_text},
+            )
+            return self.json({
+                "ok": ok,
+                "stdout": result if ok else "",
+                "stderr": "" if ok else result,
+            })
 
         fd = None
         path = None
@@ -5289,6 +5354,66 @@ class DeployView(HomeAssistantView):
         return self.json({"ok": True, "path": str(target)})
 
 
+class DeployBuildView(HomeAssistantView):
+    """Run ESPHome build and upload via the configured add-on (reads YAML from exported file)."""
+
+    url = f"/api/{DOMAIN}/deploy_build"
+    name = f"api:{DOMAIN}:deploy_build"
+    requires_auth = False
+
+    async def post(self, request):
+        """POST { device_id } with query entry_id — read /config/esphome/<slug>.yaml and call add-on run."""
+        hass = request.app["hass"]
+        entry_id = request.query.get("entry_id") or _active_entry_id(hass)
+        if not entry_id:
+            return self.json({"ok": False, "error": "missing_entry_id"}, status_code=400)
+
+        body = None
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        device_id = (body or {}).get("device_id")
+        if not device_id:
+            return self.json({"ok": False, "error": "missing_device_id"}, status_code=400)
+
+        storage = _get_storage(hass, entry_id)
+        device = storage.get_device(device_id)
+        if not device:
+            return self.json({"ok": False, "error": "device_not_found"}, status_code=404)
+
+        addon_url = _get_esphome_addon_url(hass, entry_id)
+        if not addon_url:
+            return self.json({
+                "ok": False,
+                "error": "addon_not_configured",
+                "detail": "Configure the ESPHome add-on API URL in the integration options (Settings → Integrations → ESPHome Touch Designer → Configure).",
+            }, status_code=503)
+
+        esphome_dir = Path(hass.config.path("esphome"))
+        fname = f"{device.slug or device.device_id}.yaml"
+        yaml_path = esphome_dir / fname
+        if not yaml_path.exists():
+            return self.json({
+                "ok": False,
+                "error": "file_not_found",
+                "detail": f"Export the device first so {fname} exists in /config/esphome/.",
+            }, status_code=404)
+
+        try:
+            yaml_content = yaml_path.read_text("utf-8")
+        except Exception as e:
+            return self.json({"ok": False, "error": "read_failed", "detail": str(e)}, status_code=500)
+
+        ok, result = await _esphome_addon_request(
+            hass,
+            addon_url,
+            "run",
+            {"config_source": "yaml", "yaml": yaml_content},
+        )
+        return self.json({"ok": ok, "result": result})
+
+
 def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Register all HTTP API views for the integration."""
     hass.http.register_view(ContextView)
@@ -5326,6 +5451,7 @@ def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:
     hass.http.register_view(ValidateYamlView)
     hass.http.register_view(ParseYamlView)
     hass.http.register_view(DeployView)
+    hass.http.register_view(DeployBuildView)
     hass.http.register_view(DeviceExportPreviewView)
     hass.http.register_view(DeviceExportView)
 

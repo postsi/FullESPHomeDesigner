@@ -71,8 +71,10 @@ export async function parseYamlSyntax(yamlContent: string): Promise<{ ok: boolea
 
 export type ValidateYamlResult = { ok: boolean; stdout?: string; stderr?: string; error?: string; returncode?: number };
 
-export async function validateYaml(yamlText: string): Promise<ValidateYamlResult> {
-  const r = await fetch("/api/esphome_touch_designer/validate_yaml", {
+export async function validateYaml(yamlText: string, entryId?: string): Promise<ValidateYamlResult> {
+  const url = new URL("/api/esphome_touch_designer/validate_yaml", window.location.origin);
+  if (entryId) url.searchParams.set("entry_id", entryId);
+  const r = await fetch(url.toString(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ yaml: yamlText }),
