@@ -1,7 +1,7 @@
 {
   "type": "arc_labeled",
   "title": "Arc with scale labels",
-  "description": "Arc with integer tick labels on the outside. Labels are designer-only; device shows the arc.",
+  "description": "Arc with integer tick labels on the outside. On device: arc + line widgets (ticks) + label widgets (numbers) are emitted in a container.",
   "esphome": {
     "root_key": "arc",
     "props": {
@@ -45,8 +45,8 @@
     "label_text_color": { "type": "color", "title": "Tick label color", "default": "color.text" },
     "label_text_font": { "type": "string", "title": "Tick label font", "default": "", "description": "ESPHome font id" },
     "label_font_size": { "type": "number", "title": "Tick label size (px)", "min": 0, "max": 48, "default": 0, "description": "0 = auto from font / widget size" },
-    "tick_interval": { "type": "number", "title": "Tick interval", "min": 1, "max": 100, "default": 1, "description": "Tick mark every N values (designer-only)" },
-    "label_interval": { "type": "number", "title": "Numbering interval", "min": 1, "max": 100, "default": 2, "description": "Numeric label every N values (designer-only)" }
+    "tick_interval": { "type": "number", "title": "Tick interval", "min": 1, "max": 100, "default": 1, "description": "Tick mark every N values (on device: line widgets)" },
+    "label_interval": { "type": "number", "title": "Numbering interval", "min": 1, "max": 100, "default": 2, "description": "Numeric label every N values (on device: label widgets)" }
   },
   "knob": {
     "bg_color": { "type": "color", "title": "Background", "default": "" },

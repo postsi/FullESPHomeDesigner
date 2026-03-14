@@ -9,6 +9,7 @@ from pathlib import Path
 
 # --- v0.5: hardware recipes + LVGL YAML compiler ---
 import base64
+import math
 import os
 import re
 import secrets
@@ -2516,6 +2517,29 @@ def _hex_color_for_yaml(v) -> str | int | None:
     return v
 
 
+def _value_to_angle_deg(
+    rotation: float,
+    start_angle: float,
+    end_angle: float,
+    mode: str,
+    min_val: float,
+    max_val: float,
+    value: float,
+) -> float:
+    """Map value to world angle (degrees [0, 360)) for tick/label placement. Matches frontend valueToAngle."""
+    sweep_cw = (end_angle - start_angle + 360) % 360 or 360
+    t = (value - min_val) / (max_val - min_val) if max_val > min_val else 0.5
+    clamped_t = max(0.0, min(1.0, t))
+    if mode == "REVERSE":
+        arc_deg = start_angle + (1 - clamped_t) * sweep_cw
+    elif mode == "SYMMETRICAL":
+        mid = start_angle + sweep_cw / 2
+        arc_deg = mid + clamped_t * (sweep_cw / 2)
+    else:
+        arc_deg = start_angle + clamped_t * sweep_cw
+    return (rotation + arc_deg + 720) % 360
+
+
 def _emit_style_dict(indent: str, d: dict, key_filter: set | None = None) -> str:
     """Emit a flat or nested style dict as YAML. Color-like keys get 0xRRGGBB."""
     out: list[str] = []
@@ -3614,6 +3638,104 @@ def _compile_lvgl_pages_schema_driven(
                 w_emit["style"]["bg_color"] = _mireds_to_rgb_hex(initial_m)
                 w_emit["props"] = {k: v for k, v in props.items() if k != "value"}
                 raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
+            elif wtype == "arc_labeled":
+                # Emit container with arc + line widgets (ticks) + label widgets (scale numbers) so they appear on device.
+                x_val = int(w.get("x", 0))
+                y_val = int(w.get("y", 0))
+                w_val = int(w.get("w", 100))
+                h_val = int(w.get("h", 50))
+                props = w.get("props") or {}
+                style = w.get("style") or {}
+                rot = float(props.get("rotation", 0))
+                start_angle = float(props.get("start_angle", 135))
+                end_angle = float(props.get("end_angle", 45))
+                mode = str(props.get("mode", "NORMAL")).strip().upper()
+                min_val = float(props.get("min_value", 0))
+                max_val = float(props.get("max_value", 100))
+                tick_interval = max(1, int(style.get("tick_interval") or props.get("tick_interval") or 1))
+                label_interval = max(1, int(style.get("label_interval") or props.get("label_interval") or 2))
+                label_color = style.get("label_text_color") or style.get("text_color") or 0xFFFFFF
+                if isinstance(label_color, str):
+                    label_color = _hex_color_for_yaml(label_color) or 0xFFFFFF
+                label_color = int(label_color) & 0xFFFFFF
+                label_font = (style.get("label_text_font") or "").strip() or None
+                # Arc at (0,0) inside container
+                w_arc = dict(w)
+                w_arc["x"] = 0
+                w_arc["y"] = 0
+                raw_arc = _emit_widget_from_schema(w_arc, schema, ab_list, parent_w, parent_h, option_maps)
+                cx = w_val / 2.0
+                cy = h_val / 2.0
+                r = min(w_val, h_val) / 2.0
+                tick_len = max(2, min(6, min(w_val, h_val) / 40.0))
+                label_offset = max(4, min(20, min(w_val, h_val) / 10.0))
+                label_r = r + label_offset
+                min_int = int(math.ceil(min_val))
+                max_int = int(math.floor(max_val))
+                tick_values = [v for v in range(min_int, max_int + 1) if (v - min_int) % tick_interval == 0]
+                label_values = [v for v in range(min_int, max_int + 1) if (v - min_int) % label_interval == 0]
+                ci = indent + "    "
+                ce = indent + "      "
+                cb = indent + "        "
+                out_parts = [
+                    f"{indent}- container:\n",
+                    f"{ci}id: {wid}_ct\n",
+                    f"{ci}x: {x_val}\n",
+                    f"{ci}y: {y_val}\n",
+                    f"{ci}width: {w_val}\n",
+                    f"{ci}height: {h_val}\n",
+                    f"{ci}widgets:\n",
+                ]
+                for ln in raw_arc.splitlines(True):
+                    if ln.startswith("            "):
+                        out_parts.append(cb + ln[12:])
+                    elif ln.startswith("        "):
+                        out_parts.append(ce + ln[8:])
+                for i, value in enumerate(tick_values):
+                    angle_deg = _value_to_angle_deg(rot, start_angle, end_angle, mode, min_val, max_val, float(value))
+                    angle_rad = math.radians(angle_deg)
+                    c = math.cos(angle_rad)
+                    s = math.sin(angle_rad)
+                    x1 = cx + (r - tick_len) * c
+                    y1 = cy + (r - tick_len) * s
+                    x2 = cx + r * c
+                    y2 = cy + r * s
+                    pts = [f"{int(round(x1))},{int(round(y1))}", f"{int(round(x2))},{int(round(y2))}"]
+                    line_id = f"{wid}_tick_{i}"
+                    out_parts.append(f"{ce}- line:\n")
+                    out_parts.append(f"{cb}id: {line_id}\n")
+                    out_parts.append(f"{cb}x: 0\n")
+                    out_parts.append(f"{cb}y: 0\n")
+                    out_parts.append(f"{cb}width: {w_val}\n")
+                    out_parts.append(f"{cb}height: {h_val}\n")
+                    out_parts.append(f"{cb}points:\n")
+                    out_parts.append(f"{cb}  - {pts[0]}\n")
+                    out_parts.append(f"{cb}  - {pts[1]}\n")
+                    out_parts.append(f"{cb}line_width: 1\n")
+                    out_parts.append(f"{cb}line_color: 0x{label_color:06X}\n")
+                label_font_size = max(8, min(24, int(style.get("label_font_size") or 0) or 14))
+                for i, value in enumerate(label_values):
+                    angle_deg = _value_to_angle_deg(rot, start_angle, end_angle, mode, min_val, max_val, float(value))
+                    angle_rad = math.radians(angle_deg)
+                    lx = cx + label_r * math.cos(angle_rad)
+                    ly = cy + label_r * math.sin(angle_rad)
+                    text = str(value)
+                    box = max(20, int(len(text) * label_font_size * 0.6) + 6)
+                    half = box / 2
+                    lx_int = int(round(lx - half))
+                    ly_int = int(round(ly - label_font_size / 2))
+                    lbl_id = f"{wid}_lbl_{value}"
+                    out_parts.append(f"{ce}- label:\n")
+                    out_parts.append(f"{cb}id: {lbl_id}\n")
+                    out_parts.append(f"{cb}x: {lx_int}\n")
+                    out_parts.append(f"{cb}y: {ly_int}\n")
+                    out_parts.append(f"{cb}width: {box}\n")
+                    out_parts.append(f"{cb}height: {label_font_size + 2}\n")
+                    out_parts.append(f"{cb}text: {json.dumps(text)}\n")
+                    out_parts.append(f"{cb}text_color: 0x{label_color:06X}\n")
+                    if label_font:
+                        out_parts.append(f"{cb}text_font: {json.dumps(label_font)}\n")
+                raw = "".join(out_parts)
             else:
                 raw = _emit_widget_from_schema(w_emit, schema, ab_list, parent_w, parent_h, option_maps)
             lines = raw.splitlines(True)

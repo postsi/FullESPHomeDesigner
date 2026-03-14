@@ -1,5 +1,10 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.34
+
+- **Arc with scale labels on device** — The arc_labeled widget now emits a container containing the arc, LVGL line widgets for tick marks, and label widgets for scale numbers, so ticks and labels appear on the device (not designer-only). Uses `_value_to_angle_deg` for placement; line and label styling from inspector (tick/label interval, color, font). Regression test ensures container + lines + labels are present in compiled YAML.
+- **Navigation bar and Back button: ASCII symbols** — Prebuilt Navigation bar and Back button now use ASCII text (`<`, `H`, `>`, `< Back`) so they render with default device fonts instead of missing-glyph squares (◀ ⌂ ▶ were not in typical LVGL fonts).
+
 ## v0.71.33
 
 - **Arc: blocklist designer-only style keys** — Compiler now explicitly never emits `label_text_color`, `label_text_font`, `label_font_size`, `tick_interval`, or `label_interval` for any arc/arc_labeled widget, regardless of schema. Regression test ensures these keys never appear in generated YAML. Fixes ESPHome “invalid option for [arc]” when config was produced before the mapping filter or if schema merge ever added those keys.

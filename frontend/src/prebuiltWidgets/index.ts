@@ -505,7 +505,7 @@ interval:
   {
     id: "prebuilt_arc_scale_labels",
     title: "Arc with scale labels",
-    description: "Arc with integer tick labels on the outside. Min/max and label style editable in inspector.",
+    description: "Arc with tick marks and numeric scale labels. On device: arc, tick lines, and labels are emitted in a container. Min/max and label style editable in inspector.",
     build: ({ x, y }) => {
       const id = uid("arc_labeled");
       const size = 120;
@@ -558,7 +558,7 @@ interval:
       const btnId = uid("back_btn");
       return {
         widgets: [
-          { id: btnId, type: "button", x, y, w: 80, h: 36, props: { text: "◀ Back" }, style: { bg_color: bgTrack, radius: 6 } },
+          { id: btnId, type: "button", x, y, w: 80, h: 36, props: { text: "< Back" }, style: { bg_color: bgTrack, radius: 6 } },
         ],
         action_bindings: [
           { widget_id: btnId, event: "on_click", yaml_override: "then:\n  - lvgl.page.previous:" },
@@ -581,7 +581,7 @@ interval:
   {
     id: "prebuilt_nav_bar",
     title: "Navigation bar",
-    description: "Previous / Home / Next page buttons. Uses native LVGL page navigation.",
+    description: "Previous / Home / Next page buttons. Uses ASCII so they render with default device fonts (no missing glyphs).",
     build: ({ x, y }) => {
       const w = 200;
       const h = 44;
@@ -592,9 +592,9 @@ interval:
       const nextId = uid("nav_next");
       const raw = [
         { id: uid("nav_bg"), type: "container", x: 0, y: 0, w, h, props: {}, style: { bg_color: bgDark, radius: 8 } },
-        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "◀" }, style: { bg_color: bgTrack, radius: 6 } },
-        { id: homeId, type: "button", x: gap * 2 + btnW, y: 6, w: btnW, h: 32, props: { text: "⌂" }, style: { bg_color: bgTrack, radius: 6 } },
-        { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: "▶" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: prevId, type: "button", x: gap, y: 6, w: btnW, h: 32, props: { text: "<" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: homeId, type: "button", x: gap * 2 + btnW, y: 6, w: btnW, h: 32, props: { text: "H" }, style: { bg_color: bgTrack, radius: 6 } },
+        { id: nextId, type: "button", x: gap * 3 + btnW * 2, y: 6, w: btnW, h: 32, props: { text: ">" }, style: { bg_color: bgTrack, radius: 6 } },
       ];
       const widgets = wrapInGroup(x, y, raw);
       // Native LVGL page navigation using yaml_override
