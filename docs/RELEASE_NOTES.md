@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.48
+
+- Remove temporary Binding Builder debug logging.
+
 ## v0.71.47
 
 - **Binding Builder: entity selection fix** — Entity selection dropdown now uses `onMouseDown` instead of `onClick` so the selected entity is applied before the input blur closes the list. "Selected: {entity}" should appear reliably below the field.
