@@ -5701,8 +5701,8 @@ function Inspector(props: { widget: any; schema: WidgetSchema; onChange: (sectio
         </div>
       );
     }
-    // Font id (style.text_font): list of available fonts meaningful to the user.
-    if (key === "text_font") {
+    // Font id (style.text_font or style.label_text_font): list of available fonts meaningful to the user.
+    if (key === "text_font" || key === "label_text_font") {
       const raw = String(value ?? "").trim();
       const isBuiltin = BUILTIN_LVGL_FONTS.includes(raw);
       const isAsset = raw.startsWith("asset:");

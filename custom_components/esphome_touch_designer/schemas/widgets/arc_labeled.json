@@ -44,7 +44,9 @@
     "radius": { "type": "number", "title": "Corner radius", "min": 0, "max": 60, "default": 0 },
     "label_text_color": { "type": "color", "title": "Tick label color", "default": "color.text" },
     "label_text_font": { "type": "string", "title": "Tick label font", "default": "", "description": "ESPHome font id" },
-    "label_font_size": { "type": "number", "title": "Tick label size (px)", "min": 0, "max": 48, "default": 0, "description": "0 = auto from font / widget size" }
+    "label_font_size": { "type": "number", "title": "Tick label size (px)", "min": 0, "max": 48, "default": 0, "description": "0 = auto from font / widget size" },
+    "tick_interval": { "type": "number", "title": "Tick interval", "min": 1, "max": 100, "default": 1, "description": "Tick mark every N values (designer-only)" },
+    "label_interval": { "type": "number", "title": "Numbering interval", "min": 1, "max": 100, "default": 2, "description": "Numeric label every N values (designer-only)" }
   },
   "knob": {
     "bg_color": { "type": "color", "title": "Background", "default": "" },
@@ -64,7 +66,7 @@
   "groups": {
     "Value & range": { "section": "props", "keys": ["min_value", "max_value", "value", "adjustable"] },
     "Arc angles": { "section": "props", "keys": ["rotation", "start_angle", "end_angle", "mode", "change_rate"] },
-    "Tick labels": { "section": "style", "keys": ["label_font_size", "label_text_color", "label_text_font"] },
+    "Tick labels": { "section": "style", "keys": ["tick_interval", "label_interval", "label_font_size", "label_text_color", "label_text_font"] },
     "Knob": { "section": "knob", "keys": ["bg_color", "radius", "width", "height", "pad_right"] },
     "Indicator": { "section": "indicator", "keys": ["bg_color", "radius"] },
     "Common": { "section": "props", "keys": ["align", "hidden", "clickable", "scrollable", "scrollbar_mode", "scroll_dir", "opacity", "group"] },

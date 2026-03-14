@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.32
+
+- **Arc with scale labels: configurable intervals and font dropdown** — Tick interval and numbering interval are now editable in the inspector (Tick labels group). Compiler only emits props/style that are in the schema’s esphome mapping, so designer-only keys (tick_interval, label_interval, label_text_color, label_font_size, label_text_font) are never written to YAML (fixes ESPHome “invalid option for [arc]” when using arc with scale labels). Tick label font in the inspector is now a dropdown of available fonts (built-in Montserrat + uploaded assets), same as the main text font picker.
+
 ## v0.71.31
 
 - **Editor version from package.json** — The version shown in the editor header (top left) is now read from `frontend/package.json`, so it always matches the release. Release workflow rule updated to document that bumping `frontend/package.json` keeps the displayed version correct.

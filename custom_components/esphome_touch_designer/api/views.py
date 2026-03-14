@@ -2379,6 +2379,9 @@ def _emit_widget_from_schema(
         for k, field_def in fields.items():
             if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
                 continue  # align_to -> block below; width/height_override -> used in geometry
+            # Only emit props/style keys that are in the esphome mapping (designer-only keys are omitted).
+            if section in ("props", "style") and k not in mapping:
+                continue
             yaml_key = mapping.get(k, k)
             if k in values and values[k] not in (None, ""):
                 v = values[k]

@@ -928,10 +928,16 @@ const stageRef = useRef<any>(null);
             const labelColor = toFillColor(s.label_text_color ?? p.label_text_color ?? s.text_color, "#e5e7eb");
             const minInt = Math.ceil(min);
             const maxInt = Math.floor(max);
-            const labelStep = 2;
+            const tickInterval = Math.max(1, Number(s.tick_interval ?? p.tick_interval ?? 1));
+            const labelInterval = Math.max(1, Number(s.label_interval ?? p.label_interval ?? 2));
             const ticks: number[] = [];
-            for (let v = minInt; v <= maxInt; v++) ticks.push(v);
-            const labelValues = ticks.filter((v) => (v - minInt) % labelStep === 0);
+            for (let v = minInt; v <= maxInt; v++) {
+              if ((v - minInt) % tickInterval === 0) ticks.push(v);
+            }
+            const labelValues: number[] = [];
+            for (let v = minInt; v <= maxInt; v++) {
+              if ((v - minInt) % labelInterval === 0) labelValues.push(v);
+            }
             return (
               <>
                 {ticks.map((value) => {
