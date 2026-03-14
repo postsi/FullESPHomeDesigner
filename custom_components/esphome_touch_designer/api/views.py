@@ -2379,6 +2379,9 @@ def _emit_widget_from_schema(
         for k, field_def in fields.items():
             if k in ("align_to_id", "align_to_align", "align_to_x", "align_to_y", "width_override", "height_override"):
                 continue  # align_to -> block below; width/height_override -> used in geometry
+            # Designer-only keys for arc/arc_labeled: never emit (ESPHome arc has no such options).
+            if section == "style" and root_key == "arc" and k in ("label_text_color", "label_text_font", "label_font_size", "tick_interval", "label_interval"):
+                continue
             # Only emit props/style keys that are in the esphome mapping (designer-only keys are omitted).
             if section in ("props", "style") and k not in mapping:
                 continue

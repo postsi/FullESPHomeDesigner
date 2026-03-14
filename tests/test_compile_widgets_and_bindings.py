@@ -71,6 +71,31 @@ def test_compile_arc(jc1060_recipe_text, make_device):
     assert "id: a1" in out
 
 
+def test_compile_arc_labeled_omits_designer_only_style_keys(jc1060_recipe_text, make_device):
+    """Arc with scale labels: designer-only style keys must not appear in YAML (ESPHome arc has no such options)."""
+    widget = _minimal_widget(
+        "thermo_arc",
+        "arc_labeled",
+        props={"value": 7, "min_value": 5, "max_value": 25, "adjustable": True},
+        style={
+            "bg_color": 3355443,
+            "label_text_color": 16777215,
+            "label_font_size": 0,
+            "tick_interval": 1,
+            "label_interval": 2,
+        },
+    )
+    proj = _minimal_project_with_widget(widget)
+    dev = make_device(project=proj, recipe_id="jc1060p470_esp32p4_1024x600", slug="t")
+    out = compile_to_esphome_yaml(dev, recipe_text=jc1060_recipe_text)
+    assert "- arc:" in out or "arc:" in out
+    assert "id: thermo_arc" in out
+    assert "label_text_color" not in out
+    assert "label_font_size" not in out
+    assert "tick_interval" not in out
+    assert "label_interval" not in out
+
+
 def test_compile_dropdown(jc1060_recipe_text, make_device):
     proj = _minimal_project_with_widget(_minimal_widget("dd1", "dropdown", props={"options": "A\nB\nC"}))
     dev = make_device(project=proj, recipe_id="jc1060p470_esp32p4_1024x600", slug="t")

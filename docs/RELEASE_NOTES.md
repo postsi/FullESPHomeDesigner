@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.33
+
+- **Arc: blocklist designer-only style keys** — Compiler now explicitly never emits `label_text_color`, `label_text_font`, `label_font_size`, `tick_interval`, or `label_interval` for any arc/arc_labeled widget, regardless of schema. Regression test ensures these keys never appear in generated YAML. Fixes ESPHome “invalid option for [arc]” when config was produced before the mapping filter or if schema merge ever added those keys.
+
 ## v0.71.32
 
 - **Arc with scale labels: configurable intervals and font dropdown** — Tick interval and numbering interval are now editable in the inspector (Tick labels group). Compiler only emits props/style that are in the schema’s esphome mapping, so designer-only keys (tick_interval, label_interval, label_text_color, label_font_size, label_text_font) are never written to YAML (fixes ESPHome “invalid option for [arc]” when using arc with scale labels). Tick label font in the inspector is now a dropdown of available fonts (built-in Montserrat + uploaded assets), same as the main text font picker.
