@@ -4690,12 +4690,18 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       if (!attrs) return [];
                       const keys = Object.keys(attrs).sort();
                       if (!requiresNumeric) return keys;
-                      return keys.filter((k) => {
+                      const valueNumeric = keys.filter((k) => {
                         const v = attrs[k];
                         if (typeof v === "number" && !Number.isNaN(v)) return true;
                         if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return true;
                         return false;
                       });
+                      const domain = domainFromEntityId(bindEntity);
+                      const preset = DOMAIN_PRESETS.find((p) => p.domain === domain);
+                      const knownNumeric = (preset?.recommended ?? [])
+                        .filter((r) => r.kind === "attribute_number" && r.attribute && attrs.hasOwnProperty(r.attribute))
+                        .map((r) => r.attribute as string);
+                      return [...new Set([...valueNumeric, ...knownNumeric])].sort();
                     })();
                   return (
                     <>
