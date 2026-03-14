@@ -30,12 +30,13 @@ class ESPHomeTouchDesignerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> ESPHomeTouchDesignerOptionsFlow:
-        return ESPHomeTouchDesignerOptionsFlow(config_entry)
+        """Create options flow. Do not pass config_entry; framework provides self.config_entry."""
+        return ESPHomeTouchDesignerOptionsFlow()
 
 
-@callback
 def _options_schema(entry: config_entries.ConfigEntry) -> vol.Schema:
-    opts = entry.options or {}
+    """Build schema for add-on URL and token. Uses entry.options for defaults."""
+    opts = entry.options if entry.options is not None else {}
     return vol.Schema(
         {
             vol.Optional(
@@ -51,10 +52,7 @@ def _options_schema(entry: config_entries.ConfigEntry) -> vol.Schema:
 
 
 class ESPHomeTouchDesignerOptionsFlow(config_entries.OptionsFlow):
-    """Options flow for ESPHome Touch Designer (Configure)."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    """Options flow for ESPHome Touch Designer (Configure). Uses self.config_entry from base."""
 
     async def async_step_init(self, user_input=None):
         """Manage options: ESPHome add-on URL and API token."""

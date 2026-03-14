@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.44
+
+- **Configure (options flow): fix 500 error** — Options flow no longer passes config entry into the handler constructor; uses framework-provided `self.config_entry` so Configure opens without server error.
+
 ## v0.71.43
 
 - **Deploy/Validate: correct add-on HTTP API paths and auth** — Calls now use `/api/run` and `/api/config-check` (fixes 404). Integration options (Configure) restored: **ESPHome add-on URL** and **API token**; requests send `Authorization: Bearer <token>` so Validate YAML and Deploy work with the ESPHome API add-on.
