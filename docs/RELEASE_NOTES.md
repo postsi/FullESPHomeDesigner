@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.40
+
+- **ESPHome add-on URL hard-coded** — Removed integration options flow (Configure). Validate YAML and Deploy now always use the ESPHome API add-on at `http://localhost:8098`. Fixes 500 errors when opening Configure; add-on must be running on port 8098.
+
 ## v0.71.39
 
 - **Config flow options fix** — Options flow (Configure) no longer passes config entry into the handler constructor; uses framework-provided config entry to fix 500 error when opening integration options.
