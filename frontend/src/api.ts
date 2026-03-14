@@ -149,8 +149,11 @@ async function apiPost<T = any>(path: string, body: object): Promise<T> {
     body: JSON.stringify(body),
     credentials: "include",
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || `Request failed: ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = [data?.error, data?.detail].filter(Boolean).join(": ") || `Request failed: ${res.status}`;
+    throw new Error(msg);
+  }
   return data;
 }
 

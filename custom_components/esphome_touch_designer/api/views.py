@@ -1992,7 +1992,25 @@ async def _esphome_addon_request(
             async with session.post(url, json=payload, timeout=timeout) as resp:
                 text = await resp.text()
                 if resp.status >= 400:
-                    return False, f"HTTP {resp.status}: {text[:500]}"
+                    msg = text[:500]
+                    if "application/json" in (resp.content_type or ""):
+                        try:
+                            import json as _json
+                            data = _json.loads(text)
+                            if isinstance(data, dict):
+                                msg = (
+                                    data.get("detail")
+                                    or data.get("message")
+                                    or data.get("error")
+                                    or msg
+                                )
+                                if isinstance(msg, (list, dict)):
+                                    msg = _json.dumps(msg)[:500]
+                                else:
+                                    msg = str(msg)[:500]
+                        except Exception:
+                            pass
+                    return False, f"HTTP {resp.status}: {msg}"
                 if "application/json" in (resp.content_type or ""):
                     try:
                         import json as _json
@@ -5308,7 +5326,11 @@ class DeployBuildView(HomeAssistantView):
         storage = _get_storage(hass, entry_id)
         device = storage.get_device(device_id)
         if not device:
-            return self.json({"ok": False, "error": "device_not_found"}, status_code=404)
+            return self.json({
+                "ok": False,
+                "error": "device_not_found",
+                "detail": "Device not found for this entry.",
+            }, status_code=404)
 
         esphome_dir = Path(hass.config.path("esphome"))
         fname = f"{device.slug or device.device_id}.yaml"
@@ -5331,7 +5353,14 @@ class DeployBuildView(HomeAssistantView):
             "run",
             {"config_source": "yaml", "yaml": yaml_content},
         )
-        return self.json({"ok": ok, "result": result})
+        if ok:
+            return self.json({"ok": True, "result": result})
+        return self.json({
+            "ok": False,
+            "error": "addon_failed",
+            "detail": result,
+            "result": result,
+        })
 
 
 def register_api_views(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.42
+
+- **Deploy/Validate: fix 404 "detail" not found** — Add-on 4xx responses are parsed for `detail`/`message`/`error` so the UI shows a clear message. Deploy build returns a consistent error shape with `detail`; frontend no longer assumes `detail` exists and uses safe fallbacks for all error messages.
+
 ## v0.71.41
 
 - **Deploy build: fix "has no attribute 'helpers'"** — Add-on HTTP requests no longer use `hass.helpers.aiohttp_client`; they use a plain aiohttp `ClientSession` so Deploy and Validate YAML work when `hass.helpers` is not available in the request context.

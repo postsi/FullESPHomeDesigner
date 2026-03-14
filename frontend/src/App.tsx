@@ -2417,13 +2417,13 @@ function nudgeSelected(dx: number, dy: number, step: number) {
       const expected = preview.existing_hash || "";
       const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected, entryId);
       if (!res?.ok) {
-        setToast({ type: "error", msg: `Deployment failed: ${res?.error ?? res?.detail ?? "export failed"}` });
+        setToast({ type: "error", msg: `Deployment failed: ${[res?.error, res?.detail].filter(Boolean).join(": ") || "export failed"}` });
         return;
       }
       const buildRes: any = await deployBuild(selectedDevice, entryId);
       if (!buildRes?.ok) {
-        const detail = buildRes?.detail || buildRes?.result || buildRes?.error || "build/upload failed";
-        setToast({ type: "error", msg: `Export OK; build failed: ${detail}` });
+        const msg = [buildRes?.detail, buildRes?.result, buildRes?.error].find(Boolean) || "build/upload failed";
+        setToast({ type: "error", msg: `Export OK; build failed: ${msg}` });
         return;
       }
       setToast({ type: "ok", msg: "Deployment successful (YAML saved, build and upload completed)" });
