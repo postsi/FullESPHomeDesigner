@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.35
+
+- **Binding Builder: Add display binding button** — The Add display binding button no longer stays grey when adding a display binding for arc/slider/bar. Numeric attributes now include values that are numeric strings from Home Assistant (e.g. temperature `"23.5"`); the button enables when the selected entity has at least one numeric attribute, and the first attribute is used when none is explicitly selected.
+
 ## v0.71.34
 
 - **Arc with scale labels on device** — The arc_labeled widget now emits a container containing the arc, LVGL line widgets for tick marks, and label widgets for scale numbers, so ticks and labels appear on the device (not designer-only). Uses `_value_to_angle_deg` for placement; line and label styling from inspector (tick/label interval, color, font). Regression test ensures container + lines + labels are present in compiled YAML.

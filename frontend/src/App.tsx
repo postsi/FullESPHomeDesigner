@@ -4662,7 +4662,12 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                       if (!attrs) return [];
                       const keys = Object.keys(attrs).sort();
                       if (!requiresNumeric) return keys;
-                      return keys.filter((k) => typeof attrs[k] === "number");
+                      return keys.filter((k) => {
+                        const v = attrs[k];
+                        if (typeof v === "number" && !Number.isNaN(v)) return true;
+                        if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return true;
+                        return false;
+                      });
                     })();
                   return (
                     <>
@@ -4837,7 +4842,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                           <div>
                             <div className="fieldLabel" style={{ fontSize: 11, marginBottom: 2 }}>Attribute</div>
                             <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>{requiresNumeric ? "Numeric attribute only (arc/bar/slider need a number)." : "HA state or entity attribute to show."}</div>
-                            <select value={bindAttr} onChange={(e)=>setBindAttr(e.target.value)} style={{ width: "100%" }}>
+                            <select value={bindAttr || (requiresNumeric && selectedEntityAttrs.length > 0 ? selectedEntityAttrs[0] : "")} onChange={(e)=>setBindAttr(e.target.value)} style={{ width: "100%" }}>
                               {!requiresNumeric && <option value="">(state)</option>}
                               {selectedEntityAttrs.map((k)=> <option key={k} value={k}>{k}</option>)}
                             </select>
@@ -4865,10 +4870,10 @@ function nudgeSelected(dx: number, dy: number, step: number) {
                               </div>
                             </>
                           )}
-                          <button disabled={!project || !selectedWidgetIds.length || !bindEntity || (requiresNumeric && !bindAttr)} onClick={() => {
+                          <button disabled={!project || !selectedWidgetIds.length || !bindEntity || (requiresNumeric && !bindAttr && selectedEntityAttrs.length === 0)} onClick={() => {
                             if (!project) return;
                             const wid = selectedWidgetIds[0];
-                            const ent = bindEntity; const attr = bindAttr;
+                            const ent = bindEntity; const attr = bindAttr || (requiresNumeric && selectedEntityAttrs.length > 0 ? selectedEntityAttrs[0] : "");
                             const act = displayActions.includes(bindAction as any) ? bindAction : (displayActions[0] || "label_text");
                             const p2 = clone(project);
                             (p2 as any).bindings = (p2 as any).bindings || [];
