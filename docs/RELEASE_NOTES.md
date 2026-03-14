@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.39
+
+- **Config flow options fix** — Options flow (Configure) no longer passes config entry into the handler constructor; uses framework-provided config entry to fix 500 error when opening integration options.
+
 ## v0.71.38
 
 - **Release 0.71.38** — Version bump.

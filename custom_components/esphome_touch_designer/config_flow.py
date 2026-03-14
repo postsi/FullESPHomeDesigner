@@ -25,22 +25,22 @@ class ESPHomeTouchDesignerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     async def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         """Return an options flow handler."""
-        return ESPHomeTouchDesignerOptionsFlow(config_entry)
+        return ESPHomeTouchDesignerOptionsFlow()
 
 
 class ESPHomeTouchDesignerOptionsFlow(config_entries.OptionsFlow):
     """Options flow for ESPHome add-on API URL."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-
     async def async_step_init(self, user_input=None):
         """Single step: optional ESPHome add-on API base URL."""
         if user_input is not None:
             url = (user_input.get(OPTION_ESPHOME_ADDON_URL) or "").strip()
-            return self.async_create_entry(title="", data={OPTION_ESPHOME_ADDON_URL: url})
+            options = {OPTION_ESPHOME_ADDON_URL: url}
+            return self.async_create_entry(title="", data=options)
 
-        current = (self.config_entry.options or {}).get(OPTION_ESPHOME_ADDON_URL) or ""
+        current = ""
+        if self.config_entry and self.config_entry.options:
+            current = self.config_entry.options.get(OPTION_ESPHOME_ADDON_URL) or ""
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
