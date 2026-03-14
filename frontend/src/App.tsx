@@ -22,7 +22,6 @@ import { getMatchingActionBindings, INPUT_WIDGET_TYPES, OPTION_SELECT_WIDGET_TYP
 import {
   deleteDevice,
   deploy,
-  deployBuild,
   exportDeviceYamlPreview,
   exportDeviceYamlWithExpectedHash,
   callService,
@@ -2396,7 +2395,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
     } finally { setBusy(false); }
   }
 
-  /** Save YAML to /config/esphome/ then run build and upload via ESPHome add-on (if configured). */
+  /** Save compiled YAML to /config/esphome/<slug>.yaml. Build/upload via add-on disabled for now. */
   async function deployToConfig() {
     if (!selectedDevice || !entryId || !project) return;
     setBusy(true);
@@ -2404,31 +2403,25 @@ function nudgeSelected(dx: number, dy: number, step: number) {
       if (projectDirty) {
         const res = await putProject(entryId, selectedDevice, project);
         if (!res.ok) {
-          setToast({ type: "error", msg: `Deployment failed: ${res.error}` });
+          setToast({ type: "error", msg: `Save failed: ${res.error}` });
           return;
         }
         setProjectDirty(false);
       }
       const preview: any = await exportDeviceYamlPreview(selectedDevice, entryId);
       if (!preview?.ok) {
-        setToast({ type: "error", msg: `Deployment failed: ${preview?.error ?? "preview failed"}` });
+        setToast({ type: "error", msg: `Export failed: ${preview?.error ?? "preview failed"}` });
         return;
       }
       const expected = preview.existing_hash || "";
       const res: any = await exportDeviceYamlWithExpectedHash(selectedDevice, expected, entryId);
       if (!res?.ok) {
-        setToast({ type: "error", msg: `Deployment failed: ${[res?.error, res?.detail].filter(Boolean).join(": ") || "export failed"}` });
+        setToast({ type: "error", msg: `Export failed: ${[res?.error, res?.detail].filter(Boolean).join(": ") || "export failed"}` });
         return;
       }
-      const buildRes: any = await deployBuild(selectedDevice, entryId);
-      if (!buildRes?.ok) {
-        const msg = [buildRes?.detail, buildRes?.result, buildRes?.error].find(Boolean) || "build/upload failed";
-        setToast({ type: "error", msg: `Export OK; build failed: ${msg}` });
-        return;
-      }
-      setToast({ type: "ok", msg: "Deployment successful (YAML saved, build and upload completed)" });
+      setToast({ type: "ok", msg: "YAML saved to /config/esphome/" });
     } catch (e: any) {
-      setToast({ type: "error", msg: `Deployment failed: ${e?.message ?? "unknown error"}` });
+      setToast({ type: "error", msg: `Export failed: ${e?.message ?? "unknown error"}` });
     } finally {
       setBusy(false);
     }
@@ -3958,7 +3951,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
         {/* Group: Device & deploy */}
         <button className={projectDirty ? "primary" : "secondary"} disabled={busy || !selectedDevice || !project} onClick={saveProject} title="Save project to server (Ctrl+S)">{projectDirty ? "Save (unsaved)" : "Save"}</button>
         <button className="secondary" disabled={validateYamlBusy || !selectedDevice || !project} onClick={validateExportYaml} title="Validate exported YAML (add-on or local ESPHome CLI)">{validateYamlBusy ? "Validating…" : "Validate YAML"}</button>
-        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Save YAML to /config/esphome/ then build and upload via add-on">Deploy</button>
+        <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={deployToConfig} title="Save compiled YAML to /config/esphome/">Deploy</button>
         <button className="secondary" disabled={busy || !selectedDevice || !project} onClick={() => setFullYamlOpen(true)} title="View full compiled ESPHome YAML">Full YAML</button>
         <button className="secondary" disabled={!project || !project.pages?.[safePageIndex]?.widgets?.length} onClick={() => { setSaveCardOpen(true); setSaveCardErr(""); setSaveCardName(""); setSaveCardDescription(""); setSaveCardDeviceType("climate"); }} title="Save current page as a reusable card (reusable UI snippet you can drop on other projects)">Save as card</button>
         <span className="muted" style={{ marginRight: 4 }}>|</span>

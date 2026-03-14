@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.45
+
+- **Deploy: save YAML only** — Deploy button now just saves compiled YAML to /config/esphome/; build and upload via add-on disabled. Use ESPHome add-on UI or CLI to build and flash.
+
 ## v0.71.44
 
 - **Configure (options flow): fix 500 error** — Options flow no longer passes config entry into the handler constructor; uses framework-provided `self.config_entry` so Configure opens without server error.
