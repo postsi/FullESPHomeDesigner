@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.31
+
+- **Editor version from package.json** — The version shown in the editor header (top left) is now read from `frontend/package.json`, so it always matches the release. Release workflow rule updated to document that bumping `frontend/package.json` keeps the displayed version correct.
+
 ## v0.71.30
 
 - **Arc with scale labels: labels every 2, tick at every 1** — Tick marks are drawn at every integer around the arc; numeric labels show every two (e.g. 0, 2, 4, …) so the scale is easier to read.

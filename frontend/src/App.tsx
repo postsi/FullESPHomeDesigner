@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import packageJson from "../package.json";
 import Canvas from "./Canvas";
 import {listRecipes, compileYaml, validateYaml, parseYamlSyntax, listEntities, getEntity, importRecipe, updateRecipeLabel, deleteRecipe, cloneRecipe, exportRecipe, listCards, getCard, saveCard, deleteCard, previewWidgetYaml} from "./lib/api";
 import { collectWidgetIds, updateSectionsWidgetRef } from "./projectSections";
@@ -2431,7 +2432,7 @@ function nudgeSelected(dx: number, dy: number, step: number) {
       <header className="header">
         <div>
           <h1>ESPHome Touch Designer</h1>
-          <div className="muted">v0.70.69 — Friendly widget IDs, colour picker, dropdown HA</div>
+          <div className="muted">v{packageJson.version}</div>
         </div>
         <div className="pill"><span className="muted">entry_id</span><code>{entryId || "…"}</code></div>
       </header>
