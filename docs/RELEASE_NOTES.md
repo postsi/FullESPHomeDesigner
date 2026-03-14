@@ -1,5 +1,9 @@
 ## v0.64.0 — Hardware Recipe System v2 (Importer + Metadata)
 
+## v0.71.38
+
+- **Release 0.71.38** — Version bump.
+
 ## v0.71.37
 
 - **Validate YAML and Deploy via ESPHome add-on** — **Validate YAML** button validates the exported config using the ESPHome add-on API (when configured) or local ESPHome CLI. **Deploy** now saves YAML to `/config/esphome/` and then runs build and upload via the add-on. Integration options (Settings → Integrations → ESPHome Touch Designer → Configure) accept an optional **ESPHome add-on API URL**; when set, Validate and Deploy use that add-on instead of the local CLI.
